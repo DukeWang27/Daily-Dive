@@ -14,7 +14,7 @@
 const BACKEND = { url: "", anonKey: "", google: false, verifyUrl: "" };
 const LAUNCH = [2026, 11, 24];     // Daily #1: year, month, day. Days change at each player's local midnight.
 const GUESSES = 3;                // per question
-const QUESTION_SECONDS = 45;        // thinking time per question, shared by its three guesses. It stops while an answer is revealed. 0 = no timer
+const QUESTION_SECONDS = 20;        // thinking time per question, shared by its three guesses. It stops while an answer is revealed. 0 = no timer
 const FREE_MISSES = 3;            // answers that don't count are free up to this many per question; after that each uses a guess
 const IMAGINARY_PLAYERS = 200;    // early-estimate weight blended with real counts
 const BOARD_MIN_PLAYERS = 30;       // real counts replace the sample board once this many players have answered a question

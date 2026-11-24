@@ -2,7 +2,7 @@
 
 **Three guesses. How deep can you go?**
 
-A daily guessing game. Five questions a day, three guesses each, 45 seconds a question. Every guess is revealed on the iceberg at once:
+A daily guessing game. Five questions a day, three guesses each, 20 seconds a question. Every guess is revealed on the iceberg at once:
 the fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts, and a
 later, shallower guess never takes it away. Your score is depth in metres, added up over the five questions.
 
@@ -19,7 +19,7 @@ appears at each player's local midnight, and after day 15 the calendar starts ag
 - **What uses a guess.** A recognised answer, or an unknown answer you choose to send for review.
 - **What doesn't.** Repeating an earlier answer (including by another name). Answers that don't count, for the first
   three per question; after that each one uses a guess, so the box can't be used to fish for hints.
-- **Time.** Each question has 45 seconds of thinking time, shared by its three guesses and shown as a melting
+- **Time.** Each question has 20 seconds of thinking time, shared by its three guesses and shown as a melting
   icicle beside the answer box. The clock only runs while you can type: it stops for every reveal and camera move.
   It is measured against the real clock, so reloading or leaving the page never hands time back. When it runs out
   the question ends and your deepest answer so far counts. Change `QUESTION_SECONDS` at the top of `game.js` to

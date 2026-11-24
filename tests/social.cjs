@@ -122,7 +122,7 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
   const beaEnd = await bea.evaluate(() => ({ social: document.querySelector('#e-social').innerText.replace(/\n/g, ' | '), total: +document.querySelector('#e-total').textContent.replace(/,/g, '') }));
   const rows = await sql(`select p.username, d.total, d.max_depth, d.source from public.dives d join public.profiles p on p.id = d.user_id order by d.total desc, d.max_depth desc, d.completed_at`);
   ok('signed-in play: the dive is saved to the account as it ends, scored by the database', rows.length === 2 && rows.find(r => r.username === 'Bea').total === beaEnd.total && rows.find(r => r.username === 'Bea').source === 'play', JSON.stringify(rows));
-  ok('end of day: place, how many friends have finished, and how many you beat', new RegExp(`Ranked #${rows.findIndex(r => r.username === 'Bea') + 1} of 2 players so far`).test(beaEnd.social) && /1 of 1 friend has finished today · you're ahead of [01]/.test(beaEnd.social) && /Rankings \| Friends \| Your log/.test(beaEnd.social), beaEnd.social);
+  ok('end of day: place, how many friends have finished, and how many you beat', new RegExp(`Ranked #${rows.findIndex(r => r.username === 'Bea') + 1} of 2 players so far`).test(beaEnd.social) && /1 friend has finished today, and (you're ahead of them|they're ahead of you|you're level with them)\./.test(beaEnd.social) && /Rankings \| Friends \| Your log/.test(beaEnd.social), beaEnd.social);
   await hub(bea, 'friends'); const fr1 = await body(bea), diff = Math.abs(beaEnd.total - guestEnd.total);
   ok('after diving: the friend\'s score appears, with who is ahead and by how much', new RegExp(`${guestEnd.total.toLocaleString('en-US')} m`).test(fr1) && (diff === 0 ? /level with you/ : new RegExp(`${diff.toLocaleString('en-US')} m (ahead of|behind) you`)).test(fr1) && /Explore/.test(fr1) && /Compare/.test(fr1), fr1.slice(0, 220));
   await hub(bea, 'ranks'); const rk1 = await bea.evaluate(() => [...document.querySelectorAll('#hub-body .board li')].map(li => li.innerText.replace(/\n+/g, ' ')));
@@ -261,6 +261,56 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
     const ctx2 = await b.newContext({ viewport: VPS.desk }), q = await ctx2.newPage(); await q.goto(SITE + '?test&fast&reset'); await q.waitForSelector('#play'); await q.click('#acct-btn'); await q.waitForSelector('[data-screen="hub"]:not([hidden])');
     ok('demonstration: not offered on an ordinary copy of the game', !/demonstration/i.test(await q.evaluate(() => document.querySelector('[data-screen="hub"]').innerText)) && await q.evaluate(() => !Game.demo.offered));
     await ctx2.close(); }
+
+  // ---------- Best of three, everywhere ----------
+  // Day 16 uses question set 1. Each question tests one case:
+  //   1 the rarest answer first · 2 two answers equally rare (the first one counts) · 3 rarest second · 4 rarest third
+  //   5 an answer that doesn't count (free), an unknown one (uses a guess, no depth), then a valid one.
+  await setDay(16);
+  { const p = await fresh(); await signUp(p, 'scorer@example.test', 'Scorer'); await p.evaluate(() => { location.hash = ''; }); await p.waitForTimeout(400);
+    const set = await p.evaluate(() => ICEBERG_TEST.cats.map(c => c.answers.filter(a => !a.x && !a.h).map(a => ({ a: a.a, name: a.d || a.a, s: a.s })).sort((x, y) => y.s - x.s)));
+    const D = s => s >= 0.1 ? 0 : Math.max(1, Math.round(100 * Math.log10(0.1 / s)));
+    const at = (q, f) => set[q][Math.min(set[q].length - 1, Math.floor(set[q].length * f))];
+    const tie = (() => { const by = {}; for (const x of set[1]) (by[x.s] = by[x.s] || []).push(x); return Object.values(by).find(v => v.length > 1 && D(v[0].s) > 20); })();
+    const plan = [
+      [at(0, 0.8), at(0, 0.05), at(0, 0.4)],
+      [tie[0], tie[1], at(1, 0.05)],
+      [at(2, 0.05), at(2, 0.85), at(2, 0.4)],
+      [at(3, 0.05), at(3, 0.4), at(3, 0.85)],
+      [{ name: 'zzzzzz', bad: 'invalid' }, { name: 'quorblaxen', bad: 'pending' }, at(4, 0.3), at(4, 0.6)],
+    ];
+    const expectSlot = [0, 0, 1, 2, 2], expectPick = [0, 0, 1, 2, 3], expect = plan.map((g, i) => g[expectPick[i]]), expectDepth = expect.map(x => D(x.s)), total = expectDepth.reduce((a, b) => a + b, 0);
+    await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])');
+    const inGame = [];
+    for (let q = 0; q < 5; q++) {
+      for (const g of plan[q]) {
+        await p.fill('#answer', g.name); await p.keyboard.press('Enter'); await p.waitForTimeout(120);
+        if (g.bad === 'pending') { await p.keyboard.press('Enter'); await p.waitForTimeout(150); }
+        await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 15000 }); await p.waitForTimeout(150);
+      }
+      await p.waitForFunction(() => ICEBERG_TEST.state.phase === 'done', null, { timeout: 15000 }); await p.waitForTimeout(300);
+      inGame.push(await p.evaluate(() => ({ best: document.querySelector('#best-name').textContent, depth: document.querySelector('#best-depth').textContent, sumBest: document.querySelector('#sum li.best .sum-name') && document.querySelector('#sum li.best .sum-name').textContent, sumIdx: [...document.querySelectorAll('#sum li')].findIndex(li => li.classList.contains('best')), statuses: ICEBERG_TEST.state.rounds[ICEBERG_TEST.state.round].guesses.map(g => g.status).join(',') })));
+      await p.click('#next'); await p.waitForTimeout(250);
+    }
+    ok('best of three, while playing: the rarest answer is the one marked and scored, whether it came first, second or third; on a tie the first one', inGame.every((x, i) => x.best === expect[i].name && x.depth === expectDepth[i] + 'm' && x.sumIdx === expectSlot[i]), inGame.map(x => `${x.best} ${x.depth} #${x.sumIdx + 1}`).join(' | '));
+    ok('best of three: an answer that doesn\'t count is free; an unknown one uses a guess but has no depth', inGame[4].statuses === 'pending,ok,ok', inGame[4].statuses);
+    await p.waitForSelector('[data-screen="end"]:not([hidden])'); await p.waitForFunction(() => /Ranked #/.test(document.querySelector('#e-social').innerText), null, { timeout: 9000 });
+    const end = await p.evaluate(() => ({ total: +document.querySelector('#e-total').textContent.replace(/,/g, ''), rows: [...document.querySelectorAll('#e-rounds li')].map(li => li.innerText.replace(/\n+/g, ' ')), share: document.querySelector('#e-card').textContent }));
+    ok('best of three, final results: the total is the five best depths added up, not every guess', end.total === total && end.rows.every((r, i) => r.includes(expect[i].name) && r.replace(/\s+/g, '').endsWith(expectDepth[i] + 'm')), `${end.total} vs ${total}; ${end.rows.join(' | ')}`);
+    ok('best of three, shared result: the same five depths and total', end.share.includes(`· ${total.toLocaleString('en-US')} m`) && expectDepth.every((d, i) => end.share.split('\n')[i + 1].endsWith(`${d} m`)), end.share.split('\n').slice(0, 6).join(' / '));
+    const dive = await sql(`select d.total, array(select g.slot from public.dive_guesses g where g.dive_id = d.id and g.is_best order by g.round) best_slots, d.depths from public.dives d join public.profiles p on p.id = d.user_id where p.username = 'Scorer'`);
+    ok('best of three, on the server: the database marks the same answers and reaches the same total', dive[0].total === total && dive[0].best_slots.join() === expectSlot.map(x => x + 1).join() && dive[0].depths.join() === expectDepth.join(), JSON.stringify(dive[0]));
+    await hub(p, 'ranks'); const row = await p.evaluate(() => { const li = [...document.querySelectorAll('#hub-body .board li')].find(x => /Scorer/.test(x.innerText)); return li && li.innerText.replace(/\n+/g, ' '); });
+    ok('best of three, rankings: listed with the same total', !!row && row.includes(`${total.toLocaleString('en-US')} m`), row);
+    await hub(p, 'log'); const cal = await p.evaluate(() => document.querySelector('.cal-day').innerText);
+    ok('best of three, calendar: today shows the same total', cal.includes(`${total.toLocaleString('en-US')} m`), cal.replace(/\n+/g, ' '));
+    await p.evaluate(() => Hub.open('dive', 'me', 16)); await p.waitForFunction(() => Viewer.state.items === 5, null, { timeout: 9000 }); await p.waitForTimeout(400);
+    const v = await p.evaluate(() => [...document.querySelectorAll('#v-qs .v-q')].map(x => x.innerText.replace(/\n+/g, ' ')));
+    ok('best of three, the explored iceberg: each question shows the answer that counted', v.every((r, i) => r.includes(expect[i].name) && r.endsWith(expectDepth[i] + ' m')), v.join(' | '));
+    await p.click('#v-qs li:nth-child(4) .v-q'); await p.waitForFunction(() => document.querySelectorAll('#ib2 .ib-mark:not(.dim)').length === 3, null, { timeout: 9000 }); await p.waitForTimeout(600);
+    const all3 = await p.evaluate(() => ({ marks: document.querySelectorAll('#ib2 .ib-mark:not(.dim)').length, best: document.querySelectorAll('#ib2 .ib-mark.best').length, slots: [...document.querySelectorAll('#v-slots .slot')].map(x => x.className) }));
+    ok('best of three: all three guesses stay on the iceberg, with only the deepest marked', all3.marks === 3 && all3.best === 1 && all3.slots.filter(c => /best/.test(c)).length === 1 && /best/.test(all3.slots[2]), JSON.stringify(all3));
+    await p.context().close(); }
 
   ok('no errors in any browser page during the whole run', !errs.length, errs.slice(0, 3).join(' || '));
   console.log(R.join('\n')); console.log(`\n${R.length - fails} passed, ${fails} failed`);

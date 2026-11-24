@@ -26,7 +26,8 @@ const SPEED = PARAMS.has("fast") ? 4 : 1;
 // The automated tests run untimed unless they ask for a clock (?test&time=20).
 const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : QUESTION_SECONDS);
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
-if (PARAMS.has("test") && PARAMS.get("api")) { BACKEND.url = PARAMS.get("api"); BACKEND.anonKey = PARAMS.get("key") || ""; BACKEND.google = true; }   // tests point the game at a local stand-in
+// Automated tests never touch the live database: with ?test the game uses only the stand-in it is given (or none).
+if (PARAMS.has("test")) { BACKEND.url = PARAMS.get("api") || ""; BACKEND.anonKey = PARAMS.get("api") ? PARAMS.get("key") || "" : ""; BACKEND.google = !!PARAMS.get("api"); }
 if (PARAMS.has("test") && /^\d{4}-\d\d-\d\d$/.test(PARAMS.get("launch") || "")) { const d = PARAMS.get("launch").split("-").map(Number); LAUNCH[0] = d[0]; LAUNCH[1] = d[1]; LAUNCH[2] = d[2]; }
 const { depthOf, tierOfDepth } = window.Iceberg;
 const Brand = window.Brand || { name: "Iceberg", noun: "iceberg", slug: "iceberg" }; // brand.js: the game's name, in one place
@@ -302,7 +303,7 @@ async function startQuestion(animated) {
 }
 function tagBest(cat, r) {
   const b = bestOf(r);
-  okGuesses(r).forEach(g => berg.setTag(g.bi, g === b && okGuesses(r).length > 1 ? "Your deepest" : ""));
+  okGuesses(r).forEach(g => berg.setTag(g.bi, g === b && okGuesses(r).length > 1 ? "Deepest discovery · this one counts" : ""));
 }
 
 function renderSlots(revealing = -1, landed = -1) {
@@ -532,7 +533,7 @@ function boardFor(cat, r) {
 function renderDone(cat, r) {
   const best = bestOf(r), board = boardFor(cat, r), left = GUESSES - r.guesses.length;
   $("#done-q").textContent = `Question ${state.round + 1} of ${CATS.length} · ${cat.prompt || cat.title}`;
-  $("#best-lbl").textContent = best ? "Your deepest" : r.timeout && !r.guesses.length ? "Time ran out" : "No depth this time";
+  $("#best-lbl").textContent = best ? "Deepest discovery" : r.timeout && !r.guesses.length ? "Time ran out" : "No depth this time";
   $("#best-name").textContent = best ? guessName(cat, best) : "Nothing counted";
   const bd = $("#best-depth"); bd.textContent = ""; bd.append(String(scoreOf(r)), el("small", null, "m"));
   // Your guesses, in the order you made them. Tapping one flies the camera to it.

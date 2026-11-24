@@ -52,6 +52,57 @@ create table if not exists public.set_answers (
   depth int not null,                                -- metres: the score it earns
   primary key (set_id, round, answer)
 );
+-- Every spelling the game recognises for each answer (its name, other names, plural forms), so the database can
+-- check that what a player typed really is the answer their browser says it is.
+create table if not exists public.set_keys (
+  set_id int not null references public.answer_sets on delete cascade,
+  round smallint not null,
+  key text not null,
+  answer text not null,
+  primary key (set_id, round, key)
+);
+create index if not exists set_keys_answer on public.set_keys (set_id, round, answer);
+alter table public.set_keys enable row level security;
+create schema if not exists extensions;
+create extension if not exists unaccent with schema extensions;
+create extension if not exists fuzzystrmatch with schema extensions;
+
+-- The game's own rules (validate.js): how a typed answer is tidied up, and its plural forms.
+create or replace function private.norm(t text) returns text language sql immutable set search_path = public, private, extensions as $$
+  select regexp_replace(btrim(regexp_replace(replace(replace(replace(lower(extensions.unaccent('extensions.unaccent'::regdictionary, coalesce(t, ''))), '&', ' and '), '''', ''), '’', ''), '[^a-z0-9]+', ' ', 'g')), '^(a|an|the|some) ', '')
+$$;
+create or replace function private.variants(w text) returns text[] language plpgsql immutable set search_path = public, private as $$
+declare head text; last text; out text[] := array[w]; irr jsonb := '{"mice":"mouse","geese":"goose","oxen":"ox","teeth":"tooth","people":"person","feet":"foot","children":"child","wolves":"wolf","knives":"knife","leaves":"leaf","cacti":"cactus","octopi":"octopus","fungi":"fungus","dice":"die"}';
+begin
+  last := substring(w from '([a-z0-9]+)$'); if last is null then return out; end if;
+  head := left(w, length(w) - length(last));
+  if last like '%ies' and length(last) > 4 then out := out || (head || left(last, -3) || 'y'); end if;
+  if last like '%ives' then out := out || (head || left(last, -4) || 'ife'); end if;
+  if last like '%ves' then out := out || (head || left(last, -3) || 'f'); end if;
+  if last ~ '(s|x|z|ch|sh|o)es$' then out := out || (head || left(last, -2)); end if;
+  if last like '%s' and last !~ '(ss|us|is)$' then out := out || (head || left(last, -1)); end if;
+  if irr ? last then out := out || (head || (irr ->> last)); end if;
+  return out;
+end $$;
+-- Could what was typed be this answer? The same ways the game accepts it: an exact name or other name, a plural, an
+-- extra describing word in front ("baby kangaroo"), or a small typo. If not, the guess is treated as unrecognised.
+create or replace function private.claim_ok(p_set int, p_round int, p_typed text, p_answer text) returns boolean language plpgsql stable security definer set search_path = public, private, extensions as $$
+declare n text := private.norm(p_typed); words text[]; c text; allow int;
+begin
+  if n = '' or p_answer is null then return false; end if;
+  if exists (select 1 from public.set_keys where set_id = p_set and round = p_round and answer = p_answer and key = any (private.variants(n))) then return true; end if;
+  words := string_to_array(n, ' ');
+  for i in 2 .. least(3, coalesce(array_length(words, 1), 0)) loop
+    c := array_to_string(words[i:], ' ');
+    if exists (select 1 from public.set_keys where set_id = p_set and round = p_round and answer = p_answer and key = any (private.variants(c))) then return true; end if;
+  end loop;
+  allow := case when length(replace(n, ' ', '')) <= 4 then 0 when length(replace(n, ' ', '')) <= 8 then 1 else 2 end;
+  if allow = 0 then return false; end if;
+  -- (A swapped pair of letters counts as one mistake in the game, two here: so allow one more when the lengths match.)
+  return exists (select 1 from public.set_keys k where k.set_id = p_set and k.round = p_round and k.answer = p_answer and left(k.key, 1) = left(n, 1)
+    and abs(length(k.key) - length(n)) <= allow and extensions.levenshtein(n, k.key) <= allow + case when length(k.key) = length(n) then 1 else 0 end);
+end $$;
+
 create table if not exists public.days (              -- which set a day used, fixed the first time the day is touched
   day int primary key check (day >= 1),
   set_id int not null references public.answer_sets
@@ -202,6 +253,7 @@ begin
     if v_status = 'ok' then
       if v_answer is not null then
         select share, depth into v_share, v_depth from public.set_answers where set_id = v_set and round = r and answer = v_answer;
+        if v_depth is not null and not private.claim_ok(v_set, r, v_typed, v_answer) then v_depth := null; end if;   -- typed one thing, claimed another
       else   -- approved by review but not in the table yet: a fixed, modest depth
         v_key := (select q->>'key' from public.answer_sets s, jsonb_array_elements(s.questions) with ordinality as t(q, i) where s.set_id = v_set and t.i = r);
         if exists (select 1 from public.verified_answers where category = v_key and status = 'ok' and answer_key = btrim(regexp_replace(lower(v_typed), '[^a-z0-9]+', ' ', 'g'))) then v_share := 0.03; v_depth := 52; end if;
@@ -557,7 +609,7 @@ begin
   if d.id is null then return jsonb_build_object('done', false); end if;
   return jsonb_build_object('done', true, 'total', d.total, 'max_depth', d.max_depth)
     || private.rank_of(d.id)
-    || (select jsonb_build_object('friends', count(*), 'friends_done', count(fd.id), 'friends_beaten', count(fd.id) filter (where (fd.total, fd.max_depth) < (d.total, d.max_depth)))
+    || (select jsonb_build_object('friends', count(*), 'friends_done', count(fd.id), 'friends_beaten', count(fd.id) filter (where (fd.total, fd.max_depth) < (d.total, d.max_depth)), 'friends_level', count(fd.id) filter (where (fd.total, fd.max_depth) = (d.total, d.max_depth)))
         from public.friendships f left join public.dives fd on fd.user_id = case when f.a = v then f.b else f.a end and fd.day = p_day
         where (f.a = v or f.b = v) and f.status = 'accepted');
 end $$;

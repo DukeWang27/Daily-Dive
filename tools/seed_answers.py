@@ -5,7 +5,7 @@ Writes supabase/0003_answers_*.sql (five sets of questions per file, to keep eac
 Each accepted answer is stored with its share and the depth it earns, worked out exactly as the game does,
 so the score the database gives is the score the player saw.
 """
-import json, math, os, glob
+import json, math, os, glob, re, unicodedata
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 SURFACE = 0.10
@@ -15,6 +15,42 @@ def depth(share):
     if share >= SURFACE:
         return 0
     return max(1, math.floor(100 * math.log10(SURFACE / share) + 0.5))
+
+# The same rules as validate.js (normalize, variants), so the database recognises a typed answer the way the game does.
+IRREGULAR = {"mice": "mouse", "geese": "goose", "oxen": "ox", "teeth": "tooth", "people": "person", "feet": "foot", "children": "child",
+             "wolves": "wolf", "knives": "knife", "leaves": "leaf", "cacti": "cactus", "octopi": "octopus", "fungi": "fungus", "dice": "die"}
+def normalize(s):
+    s = "".join(c for c in unicodedata.normalize("NFD", str(s)) if unicodedata.category(c) != "Mn").lower()
+    s = s.replace("&", " and ").replace("'", "").replace("\u2019", "")
+    s = re.sub(r"[^a-z0-9]+", " ", s).strip()
+    return re.sub(r"^(a|an|the|some) ", "", s)
+def variants(w):
+    out = [w]
+    m = re.match(r"^(.*?)([a-z0-9]+)$", w)
+    if not m: return out
+    head, last = m.groups()
+    def add(x):
+        v = head + x
+        if v not in out: out.append(v)
+    if last.endswith("ies") and len(last) > 4: add(last[:-3] + "y")
+    if last.endswith("ives"): add(last[:-4] + "ife")
+    if last.endswith("ves"): add(last[:-3] + "f")
+    if re.search(r"(s|x|z|ch|sh|o)es$", last): add(last[:-2])
+    if last.endswith("s") and not re.search(r"(ss|us|is)$", last): add(last[:-1])
+    if last in IRREGULAR: add(IRREGULAR[last])
+    return out
+def keys_of(c):
+    """Every spelling the game recognises for each answer: its name, other names, and their plural forms."""
+    index = {}
+    def put(k, a):
+        if k and k not in index: index[k] = a
+    for a in c["answers"]: put(normalize(a["a"]), a["a"])
+    for a in c["answers"]:
+        for name in a.get("al", []): put(normalize(name), a["a"])
+    for a in c["answers"]:
+        for name in [a["a"], *a.get("al", [])]:
+            for v in variants(normalize(name))[1:]: put(v, a["a"])
+    return index
 
 def q(text):
     return "'" + text.replace("'", "''") + "'"
@@ -33,10 +69,12 @@ def main():
             qs = [{"key": c["key"], "title": c["title"]} for c in day["questions"]]
             out.append(f"insert into public.answer_sets values ({n}, {q(json.dumps(qs))}::jsonb) on conflict (set_id) do update set questions = excluded.questions;")
             out.append(f"delete from public.set_answers where set_id = {n};")
+            out.append(f"delete from public.set_keys where set_id = {n};")
             for r, c in enumerate(day["questions"], 1):
                 table = {a["a"]: [a["s"], depth(a["s"])] for a in c["answers"]}
                 total += len(table)
                 out.append(f"insert into public.set_answers select {n}, {r}, key, (value->>0)::double precision, (value->>1)::int from jsonb_each({q(json.dumps(table, separators=(',', ':')))}::jsonb);")
+                out.append(f"insert into public.set_keys select {n}, {r}, key, value #>> '{{}}' from jsonb_each({q(json.dumps(keys_of(c), separators=(',', ':')))}::jsonb);")
             out.append("")
         out.append(f"update public.game_config set value = greatest(value::int, {sets[-1]})::text where key = 'set_count';")
         name = f"0003_answers_{sets[0]:02d}_{sets[-1]:02d}.sql"

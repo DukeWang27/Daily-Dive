@@ -76,6 +76,10 @@ const jsDepth = s => s >= 0.1 ? 0 : Math.max(1, Math.round(100 * Math.log10(0.1 
   ok('scoring: the same holds across all 15 sets', all[0].n === 19922 && all[0].off === 0, `${all[0].n} answers, ${all[0].off} differ`);
   const adaDive = [G(1, 1, 'eagle'), G(1, 2, 'raven'), G(1, 3, 'lyrebird', { sight: 'giant' }), G(2, 1, 'feta'), G(2, 2, 'feta'), G(3, 1, 'bulgaria', { typed: 'Bulgaria!' }),
     { round: 4, slot: 1, typed: 'underwater chess boxing', answer: 'not a real answer', status: 'ok' }, { round: 4, slot: 2, typed: 'zzz', answer: null, status: 'miss' }, G(5, 1, 'quadrant', { sight: 'colossal', depth: 9999, share: 0.0000001 })];
+  // Typed one thing, claimed another: "dog" sent as if it were "lyrebird".
+  const cheat = await user('Cheater');
+  const ch = await rpc(cheat, 'submit_dive', { p_day: 16, p_guesses: [{ round: 1, slot: 1, typed: 'eagle', answer: 'lyrebird', status: 'ok' }, { round: 2, slot: 1, typed: 'Scamorzza', answer: 'scamorza', status: 'ok' }, { round: 3, slot: 1, typed: 'the Kazakhstans', answer: 'kazakhstan', status: 'ok' }] });
+  ok('scoring: a guess whose typed words do not match the answer it claims gets no depth; typos and plurals still count', ch.depths[0] === 0 && ch.depths[1] === 304 && ch.depths[2] === 140, JSON.stringify(ch.depths));
   const res = await rpc(ada, 'submit_dive', { p_day: 16, p_guesses: adaDive });
   ok('scoring: the total is worked out by the database from the answers (204 + 90 + 125 + 0 + 84 = 503)', res.total === 503 && res.max_depth === 204 && JSON.stringify(res.depths) === '[204,90,125,0,84]' && res.saved, JSON.stringify(res));
   const d1 = await rpc(ada, 'get_dive', { p_username: 'ada', p_day: 16 }), gq = (r, s) => d1.guesses.find(g => g.round === r && g.slot === s);
@@ -113,7 +117,7 @@ const jsDepth = s => s >= 0.1 ? 0 : Math.max(1, Math.round(100 * Math.log10(0.1 
   const s15 = await st(ada);
   ok('records: total days, first day, average, best day and deepest find', s15.dives === 4 && s15.first_day === 16 && s15.best_total === 503 && s15.best_total_day === 16 && s15.best_depth === 204 && s15.best_depth_answer === 'lyrebird' && +s15.average === Math.round((await rpc(ada, 'my_dives')).reduce((t, c) => t + c.total, 0) / 4), JSON.stringify(s15));
   const cal = await rpc(ada, 'my_dives');
-  ok('calendar: exactly the days played, each with its score, depth and place', cal.map(c => c.day).join() === '16,17,18,21' && cal[0].total === 503 && cal[0].deepest_answer === 'lyrebird' && cal[0].rank === 1 && cal[0].players === 1);
+  ok('calendar: exactly the days played, each with its score, depth and place', cal.map(c => c.day).join() === '16,17,18,21' && cal[0].total === 503 && cal[0].deepest_answer === 'lyrebird' && cal[0].rank === 1 && cal[0].players === 2);
 
   // ---------- Guest progress ----------
   const dee = await user('Dee');

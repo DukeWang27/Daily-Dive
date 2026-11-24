@@ -152,7 +152,7 @@
     if (life) life.reset(dive.day * 10 + i + 1);
     if (!items.length) { berg.restore([]); return; }
     berg.restore(items, { glide });
-    if (!mine) x.guesses.filter(g => g.status === "ok").forEach((g, j) => { if (g.best && x.guesses.filter(k => k.status === "ok").length > 1) berg.setTag(j, dive.own ? "Your deepest" : "Their deepest"); });
+    if (!mine) x.guesses.filter(g => g.status === "ok").forEach((g, j) => { if (g.best && x.guesses.filter(k => k.status === "ok").length > 1) berg.setTag(j, dive.own ? "Deepest discovery" : "Their deepest discovery"); });
   }
   // Replay: the guesses again in the order they were made, question by question. Any tap stops it.
   function stopReplay() { if (!replaying) return; replaying = false; run++; $("#v-replay").textContent = "Replay"; }

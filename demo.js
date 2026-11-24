@@ -83,7 +83,7 @@
       return { day: p_day, scope: p_scope, locked: false, players: rows.length, me: me ? { rank: me.rank, total: me.total, max_depth: me.max_depth, top: Math.ceil(100 * me.rank / rows.length) } : null, rows: rows.slice(0, p_limit || 50) };
     },
     async day_summary({ p_day }) { const s = state(), me = mineOn(p_day); if (!me) return { done: false }; const all = await board(p_day, NAMES.filter(n => !s.blocked.includes(n)), s), fr = await board(p_day, s.friends, s), mine = all.find(r => r.me), fm = fr.find(r => r.me);
-      return { done: true, total: me.total, max_depth: me.max_depth, rank: mine.rank, players: all.length, ranked: true, friends: s.friends.length, friends_done: fr.length - 1, friends_beaten: fr.length - fm.rank }; },
+      return { done: true, total: me.total, max_depth: me.max_depth, rank: mine.rank, players: all.length, ranked: true, friends: s.friends.length, friends_done: fr.length - 1, friends_beaten: fr.length - fm.rank, friends_level: 0 }; },
   };
   window.DemoBackend = { rpc: (name, args) => { if (!calls[name]) return Promise.reject(err("not_found")); return calls[name](args || {}); } };
 })();

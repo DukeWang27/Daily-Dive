@@ -282,6 +282,15 @@
   }
 
   // ---------- The end of the day: what finishing unlocks ----------
+  // "1 friend has finished today, and you're ahead of them." Plain sentences for every case.
+  function friendsLine(total, done, beaten, level) {
+    if (!total) return "Add friends to compare icebergs.";
+    if (!done) return total === 1 ? "Your friend hasn't finished yet." : "None of your friends has finished yet.";
+    const ahead = done - beaten - level;
+    if (done === 1) return `1 friend has finished today, and ${beaten ? "you're ahead of them" : level ? "you're level with them" : "they're ahead of you"}.`;
+    const how = beaten === done ? "You're ahead of all of them." : ahead === done ? "All of them are ahead of you." : beaten ? `You're ahead of ${beaten} of them.` : `You're level with ${level} of them, and ${ahead} ${ahead === 1 ? "is" : "are"} ahead of you.`;
+    return `${done} friends have finished today. ${how}`;
+  }
   async function endOfDay(day) {
     const box = $("#e-social"); if (!box) return;
     const st = A ? A.state : "off", game = G(), today = game.today();
@@ -294,7 +303,7 @@
       let s = null; try { s = await A.rpc("day_summary", { p_day: day ? day.day : today }); } catch { /* try again */ }
       if (s && s.done) {
         line.textContent = ""; line.append(s.ranked === false ? `Your place today: #${fmt(s.rank)} of ${fmt(s.players)} (you're not listed)` : h("b", `Ranked #${fmt(s.rank)}`), s.ranked === false ? "" : ` of ${plural(s.players, "player")} so far`);
-        sub.textContent = +s.friends ? `${s.friends_done} of ${plural(+s.friends, "friend")} ${+s.friends_done === 1 ? "has" : "have"} finished today${+s.friends_done ? ` · you're ahead of ${s.friends_beaten}` : ""}.` : "Add friends to compare icebergs.";
+        sub.textContent = friendsLine(+s.friends, +s.friends_done, +s.friends_beaten, +(s.friends_level || 0));
         return;
       }
       await new Promise(r => setTimeout(r, 700));

@@ -9,7 +9,7 @@ const DB = process.env.ICEBERG_TEST_DB || 'icetest';
 const R = []; let fails = 0;
 const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${name}${extra ? '  [' + extra + ']' : ''}`); if (!cond) fails++; };
 const day1 = JSON.parse(fs.readFileSync(path.join(__dirname, '../../days/1.json'), 'utf8'));
-const jsDepth = s => s >= 0.1 ? 0 : Math.max(1, Math.round(100 * Math.log10(0.1 / s)));   // the game's own rule (iceberg.js)
+const jsDepth = s => { if (s >= 0.1) return 0; const d = Math.max(1, Math.round(100 * Math.log10(0.1 / s))); return d >= 300 && Math.round(s * 120000) < 3 ? 299 : d; };   // the game's own rule (iceberg.js)
 
 (async () => {
   const db = new Client({ host: '/var/run/postgresql', user: 'postgres', database: DB }); await db.connect();
@@ -72,8 +72,8 @@ const jsDepth = s => s >= 0.1 ? 0 : Math.max(1, Math.round(100 * Math.log10(0.1 
   const seed = await admin(`select round, answer, share, depth from public.set_answers where set_id = 1`);
   const mism = seed.filter(r => { const row = day1.questions[r.round - 1].answers.find(a => a.a === r.answer); return !row || jsDepth(row.s) !== r.depth || row.s !== r.share; });
   ok('scoring: every answer in the database has exactly the share and depth the game shows', seed.length > 500 && !mism.length, `${seed.length} answers in set 1, ${mism.length} differ`);
-  const all = await admin(`select count(*)::int n, count(*) filter (where depth <> case when share >= 0.1 then 0 else greatest(1, floor(100 * log(0.1 / share::numeric) + 0.5)) end)::int off from public.set_answers where set_id < 1000`);
-  ok('scoring: the same holds across all 15 sets', all[0].n === 19922 && all[0].off === 0, `${all[0].n} answers, ${all[0].off} differ`);
+  const all = await admin(`select count(*)::int n, count(*) filter (where depth <> case when share >= 0.1 then 0 when floor(100 * log(0.1 / share::numeric) + 0.5) >= 300 and round(share * 120000) < 3 then 299 else greatest(1, floor(100 * log(0.1 / share::numeric) + 0.5)) end)::int off from public.set_answers where set_id < 1000`);
+  ok('scoring: the same holds across all 15 sets (with the evidence rule beneath the iceberg)', all[0].n === 19922 && all[0].off === 0, `${all[0].n} answers, ${all[0].off} differ`);
   const adaDive = [G(1, 1, 'eagle'), G(1, 2, 'raven'), G(1, 3, 'lyrebird', { sight: 'giant' }), G(2, 1, 'feta'), G(2, 2, 'feta'), G(3, 1, 'bulgaria', { typed: 'Bulgaria!' }),
     { round: 4, slot: 1, typed: 'underwater chess boxing', answer: 'not a real answer', status: 'ok' }, { round: 4, slot: 2, typed: 'zzz', answer: null, status: 'miss' }, G(5, 1, 'quadrant', { sight: 'colossal', depth: 9999, share: 0.0000001 })];
   // Typed one thing, claimed another: "dog" sent as if it were "lyrebird".
@@ -244,6 +244,10 @@ const jsDepth = s => s >= 0.1 ? 0 : Math.max(1, Math.round(100 * Math.log10(0.1 
   await rpc(ada, 'block_user', { p_username: 'Hal' });
   ok('ranking: someone I have blocked is not shown to me (places are unchanged)', !(await rpc(ada, 'leaderboard', { p_day: 36 })).rows.some(r => r.username === 'Hal') && (await rpc(ada, 'leaderboard', { p_day: 36 })).me.rank === lb.me.rank);
   ok('ranking: paging and limits are bounded', (await rpc(ada, 'leaderboard', { p_day: 36, p_scope: 'global', p_limit: 100000, p_offset: -5 })).rows.length <= 100 && (await rpc(ada, 'leaderboard', { p_day: 36, p_scope: 'global', p_limit: 2, p_offset: 1 })).rows.length === 2);
+
+  // ---------- Beneath the iceberg ----------
+  const ev = (await admin(`select count(*) filter (where depth >= 300 and round(share * 120000) < 3)::int bad, count(*) filter (where depth >= 300)::int beyond, count(*) filter (where depth = 299 and round(share * 120000) < 3)::int held from public.set_answers where set_id < 1000`))[0];
+  ok('Unfathomable: no daily answer reaches 300 m without at least 3 of the 120,000 sample behind it; thinner ones stop at 299 m', ev.bad === 0 && ev.beyond > 0 && ev.held > 0, JSON.stringify(ev));
 
   // ---------- Deleting an account ----------
   await rpc(gus, 'delete_account');

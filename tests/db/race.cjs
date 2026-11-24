@@ -166,6 +166,16 @@ const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${na
   s = await rpc(hal, 'race_create', { p_kind: 'practice', p_questions: 5, p_seconds: 20 });
   ok('practice: a race alone, starting at once, that nobody else can join', s.status === 'question' && s.players.length === 1 && await fails_with(() => rpc(ivy, 'race_join', { p_code: s.code }), 'race_not_found|race_started'));
 
+  // An Unfathomable find shows as a count for everyone (never the answer).
+  ok('Unfathomable finds start at none', s.players[0].finds === 0);
+  await admin(`update public.races set round_start = now() - interval '1 second' where id = $1`, [s.id]);
+  const deep = (await admin(`select answer from public.set_answers where set_id = $1 and depth >= 300 limit 1`, [s.qid]))[0];
+  if (deep) {
+    await rpc(hal, 'race_guess', { p_race: s.id, p_round: s.round, p_typed: deep.answer, p_answer: deep.answer });
+    const after = await rpc(hal, 'race_state', { p_race: s.id });
+    ok('an answer 300 m or deeper counts as an Unfathomable find, shown only as a number', after.players[0].finds === 1 && !JSON.stringify(after.players).includes(deep.answer));
+  } else ok('an answer 300 m or deeper counts as an Unfathomable find (no such answer in this question: skipped)', true);
+
   // ---------- Invites ----------
   const priv = await rpc(eli, 'race_create', { p_kind: 'private' });
   ok('invites only go to friends', await fails_with(() => rpc(eli, 'race_invite', { p_race: priv.id, p_username: 'Ivy' }), 'friends_only'));

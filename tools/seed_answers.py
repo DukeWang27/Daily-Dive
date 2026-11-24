@@ -10,11 +10,19 @@ import json, math, os, glob, re, unicodedata
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 SURFACE = 0.10
 
+BEYOND_M = 300                     # beneath the iceberg: "Unfathomable"
+EVIDENCE_PLAYERS, EVIDENCE_MIN = 120_000, 3   # the sample behind each rarity table, and how many must have given an answer
+
+
 def depth(share):
-    """The game's rule (iceberg.js depthOf), with JavaScript's rounding."""
+    """The game's rule (iceberg.js depthOf), with JavaScript's rounding. An answer only goes deeper than the iceberg
+    (300 m, rarer than 1 in 10,000) when at least 3 players of the table's sample gave it; otherwise it stops at 299 m."""
     if share >= SURFACE:
         return 0
-    return max(1, math.floor(100 * math.log10(SURFACE / share) + 0.5))
+    d = max(1, math.floor(100 * math.log10(SURFACE / share) + 0.5))
+    if d >= BEYOND_M and math.floor(share * EVIDENCE_PLAYERS + 0.5) < EVIDENCE_MIN:
+        return BEYOND_M - 1
+    return d
 
 # The same rules as validate.js (normalize, variants), so the database recognises a typed answer the way the game does.
 IRREGULAR = {"mice": "mouse", "geese": "goose", "oxen": "ox", "teeth": "tooth", "people": "person", "feet": "foot", "children": "child",

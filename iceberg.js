@@ -13,26 +13,47 @@
   //   10% -> 0 m,  1% -> 100 m,  0.1% -> 200 m,  0.01% -> 300 m.
   // Depth in metres is also the score, so "how deep" and "how many points" are the same number.
   const SURFACE_SHARE = 0.10, MAX_M = 300, TOP_Y = W + 14, PXM = (BOTTOM - 64 - TOP_Y) / MAX_M;
+  // Below the iceberg. The iceberg holds every answer down to 1 in 10,000 players (300 m). An answer rarer than
+  // that, with the evidence to back it, leaves the ice altogether: it sits in open water beneath the iceberg's tip,
+  // in a region of its own, Unfathomable. The scene's world runs on past the artwork to make room (SH).
+  const BEYOND_M = MAX_M, BEYOND_Y = BOTTOM + 150, PXD = 3, SH = 1400;
+  // Evidence. Every rarity table is built from a sample of players (today: 120,000 simulated three-guess players per
+  // question; later, real counts). An answer only counts as rarer than 1 in 10,000 when at least 3 of that sample
+  // gave it. Below that, nobody can tell "very rare" from "noise", so the answer stays at the bottom of the iceberg
+  // (299 m) and never reaches Unfathomable. Unknown answers, answers waiting for review and answers approved by review
+  // have no place in a table, so they can never get there either.
+  const EVIDENCE = { players: 120000, min: 3 };
+  const evidenced = share => Math.round(share * EVIDENCE.players) >= EVIDENCE.min;
   const TIERS = [
     { key: "tip", name: "The Tip", from: 0 },        // 1 in 10 players or more: above the water, 0 m
     { key: "shallows", name: "Shallows", from: 1 },  // to 50 m: 1 in 10 to about 1 in 30
     { key: "mid", name: "Midwater", from: 50 },      // 50 to 100 m: about 1 in 30 to 1 in 100
     { key: "deep", name: "The Deep", from: 100 },    // 100 to 200 m: 1 in 100 to 1 in 1,000
-    { key: "abyss", name: "The Abyss", from: 200 },  // below 200 m: rarer than 1 in 1,000
+    { key: "abyss", name: "The Abyss", from: 200 },  // 200 to 299 m: 1 in 1,000 to 1 in 10,000
+    { key: "beyond", name: "Unfathomable", from: 300 }, // beneath the iceberg: rarer than 1 in 10,000, with evidence
   ];
-  const depthOf = share => share >= SURFACE_SHARE ? 0 : Math.max(1, Math.round(100 * Math.log10(SURFACE_SHARE / share)));
-  const tierOfDepth = m => m <= 0 ? TIERS[0] : m < 50 ? TIERS[1] : m < 100 ? TIERS[2] : m < 200 ? TIERS[3] : TIERS[4];
+  const depthOf = share => {
+    if (share >= SURFACE_SHARE) return 0;
+    const d = Math.max(1, Math.round(100 * Math.log10(SURFACE_SHARE / share)));
+    return d >= BEYOND_M && !evidenced(share) ? BEYOND_M - 1 : d;
+  };
+  const isBeyond = m => m >= BEYOND_M;
+  const tierOfDepth = m => m <= 0 ? TIERS[0] : m < 50 ? TIERS[1] : m < 100 ? TIERS[2] : m < 200 ? TIERS[3] : m < BEYOND_M ? TIERS[4] : TIERS[5];
   const tierFor = share => tierOfDepth(depthOf(share));
+  // Where a depth sits in the world: on the iceberg's scale down to 299 m, then, past a break, in the open water
+  // beneath its tip at a scale of its own.
+  const yOfDepth = m => m < BEYOND_M ? TOP_Y + Math.max(0, m) * PXM : Math.min(SH - 50, BEYOND_Y + (m - BEYOND_M) * PXD);
+  const Y_ICE_END = yOfDepth(BEYOND_M - 0.5);
   // Where an answer sits in the artwork. Above-water answers spread up the tip by how common they are.
   function depthY(share) {
     if (share >= SURFACE_SHARE) {
       const t = Math.min(1, (share - SURFACE_SHARE) / 0.3);
       return W - 16 - t * (W - 16 - (PEAK + 44));
     }
-    return TOP_Y + Math.min(MAX_M, 100 * Math.log10(SURFACE_SHARE / share)) * PXM;
+    const m = 100 * Math.log10(SURFACE_SHARE / share);
+    return isBeyond(depthOf(share)) ? yOfDepth(Math.max(BEYOND_M, m)) : TOP_Y + Math.min(BEYOND_M - 0.6, m) * PXM;
   }
-  const yOfDepth = m => TOP_Y + Math.min(MAX_M, m) * PXM;
-  const metres = y => Math.max(0, Math.round((y - TOP_Y) / PXM));
+  const metres = y => Math.max(0, Math.round(y <= Y_ICE_END ? (y - TOP_Y) / PXM : y >= BEYOND_Y ? BEYOND_M + (y - BEYOND_Y) / PXD : BEYOND_M - 0.5 + (y - Y_ICE_END) / (BEYOND_Y - Y_ICE_END) * 0.5));
 
   // ---------- Crisp drawing helpers (no anti-aliasing) ----------
   function fillPoly(g, pts, color, alpha = 1) {
@@ -70,7 +91,7 @@
 
   // ---------- The artwork ----------
   // The world is painted in two layers so that wildlife can swim between them: the sea and sky, then the iceberg.
-  function paintSea(g) {
+  function paintSea(g, H = WH) {
     // Sky: stepped gradient, stars, the moon.
     const skyBands = 11;
     for (let i = 0; i < skyBands; i++) {
@@ -97,6 +118,7 @@
       for (let x = (y / 6) % 2; x < WW; x += 2) g.fillRect(x, y - 1, 1, 1);
       for (let x = 0; x < WW; x += 4) g.fillRect(x + ((y / 6) % 2) * 2, y - 2, 1, 1);
     }
+    if (H > WH) paintBeneath(g, H);
     // Distant icebergs on the horizon, lit from the moon's side, with faint reflections.
     [[CX - 166, 30, 15], [CX + 158, 40, 20], [CX + 192, 18, 8], [CX - 262, 22, 10], [CX + 286, 26, 12], [CX - 396, 34, 16], [CX + 410, 30, 13], [CX - 452, 14, 6]].forEach(([bx, bw, bh]) => {
       for (let y = 0; y < bh; y++) {
@@ -120,6 +142,29 @@
     g.fillStyle = "#d9d3c3"; g.fillRect(sx0 + 3, W - 7, 19, 3);
     g.fillStyle = "#c79437"; [7, 12, 17].forEach(x => g.fillRect(sx0 + x, W - 11, 2, 4));
     g.fillStyle = "#ffe3a0"; for (let i = 0; i < 6; i++) g.fillRect(sx0 + 4 + i * 3, W - 3, 1, 1);
+  }
+
+  // Beneath the iceberg: open water that keeps on darkening to almost black. Nothing is drawn here but the water
+  // itself, a hint of the cold far-off haze and a very few motes; the emptiness is the point.
+  function paintBeneath(g, H) {
+    const top = "#03091a", mid = "#020610", low = "#010206";
+    for (let y = WH - 6; y < H; y += 6) {
+      const t = (y - WH) / (H - WH);
+      g.fillStyle = t < 0.25 ? mix(top, mid, Math.max(0, t) / 0.25) : mix(mid, low, Math.min(1, (t - 0.25) / 0.5));
+      g.fillRect(0, y, WW, 6);
+      if (y > WH) { for (let x = (y / 6) % 2; x < WW; x += 2) g.fillRect(x, y - 1, 1, 1); }
+    }
+    // A wide, faint haze where the last of the light from above gives out, under the iceberg's tip.
+    for (let y = BOTTOM - 40; y < BEYOND_Y + 40; y++) {
+      const k = 1 - Math.abs((y - BOTTOM) / (BEYOND_Y - BOTTOM + 40));
+      if (k <= 0) continue;
+      const hw = 60 + (y - BOTTOM + 40) * 0.9;
+      g.globalAlpha = 0.05 * k * k; g.fillStyle = "#3a6a9c"; g.fillRect(Math.round(CX - hw), y, Math.round(hw * 2), 1);
+    }
+    g.globalAlpha = 1;
+    let seed = 41; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 90; i++) { const y = BOTTOM + rnd() * (H - BOTTOM); g.fillStyle = "#24364f"; g.globalAlpha = 0.25 + rnd() * 0.3; g.fillRect(Math.floor(rnd() * WW), Math.floor(y), 1, 1); }
+    g.globalAlpha = 1;
   }
 
   function paintIce(g) {
@@ -182,8 +227,8 @@
     [-62, -48, -30, -8, 14, 34, 52, 64].forEach(dx => { g.fillStyle = "#eaf6ff"; g.fillRect(CX + dx, W + 1, 3, 1); });
   }
   // One canvas with everything (home picture, share card), or the two layers separately (the game scene).
-  function paint(canvas) { const g = canvas.getContext("2d"); paintSea(g); paintIce(g); }
-  function paintLayers(sea, ice) { paintSea(sea.getContext("2d")); ice.getContext("2d").clearRect(0, 0, WW, WH); paintIce(ice.getContext("2d")); }
+  function paint(canvas) { const g = canvas.getContext("2d"); paintSea(g, Math.max(WH, canvas.height)); paintIce(g); }
+  function paintLayers(sea, ice) { paintSea(sea.getContext("2d"), sea.height); ice.getContext("2d").clearRect(0, 0, ice.width, ice.height); paintIce(ice.getContext("2d")); }
   // The iceberg's outline at a given world row: [left, right], or null where there is no ice. Wildlife steers by it.
   const ICE_U = [[CX - 68, W], [CX - 86, W + 44], [CX - 94, W + 118], [CX - 84, W + 214], [CX - 64, W + 312], [CX - 42, W + 410], [CX - 18, W + 492],
     [CX + 2, BOTTOM], [CX + 24, W + 486], [CX + 48, W + 392], [CX + 68, W + 290], [CX + 84, W + 186], [CX + 92, W + 100], [CX + 82, W + 38], [CX + 70, W]];
@@ -222,6 +267,8 @@
   // ---------- Motion ----------
   const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   const easeInOutSlow = t => t < 0.5 ? 16 * t ** 5 : 1 - Math.pow(-2 * t + 2, 5) / 2; // longer glide, gentler landing
+  // The way down beneath the iceberg: gathers pace, then slows long before the end, so the last stretch is a drift.
+  const easeDescent = t => { const q = t * t * (3 - 2 * t); return 1 - Math.pow(1 - q, 1.8); };
   const SVG = {
     up: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 10 4-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     down: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -236,7 +283,7 @@
     const speed = opts.speed || 1;
     host.classList.add("ib");
     host.innerHTML = `
-      <div class="ib-world ib-sea"><canvas width="${WW}" height="${WH}"></canvas></div>
+      <div class="ib-world ib-sea"><canvas width="${WW}" height="${SH}"></canvas></div>
       <canvas class="ib-life ib-life-back"></canvas>
       <div class="ib-world ib-ice"><canvas width="${WW}" height="${WH}"></canvas></div>
       <canvas class="ib-life ib-life-front"></canvas>
@@ -261,7 +308,7 @@
     let run = { cancelled: true };
     const handlers = { focus: () => {}, depth: () => {}, travel: () => {}, land: () => {}, render: () => {}, resize: () => {} };
     let seed = 20261123; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; // fixed seed: same drift every visit
-    const flakes = Array.from({ length: 300 }, () => ({ x: rnd() * WW, y: W + rnd() * (WH - W), s: 0.3 + rnd() * 0.7, ph: rnd() * 6.28 }));
+    const flakes = Array.from({ length: 360 }, () => ({ x: rnd() * WW, y: W + rnd() * (SH - W), s: 0.3 + rnd() * 0.7, ph: rnd() * 6.28, keep: rnd() }));
     const XSLOT = [18, -18, 0]; // markers sit left, right and centre of the ice so equal depths never stack
 
     // Where the iceberg's centre line sits on screen: in the middle of the free area, nudged aside on wide windows
@@ -277,28 +324,34 @@
       const ax = axisFor(frame);
       U = Math.min(6, Math.max(U, Math.ceil(Math.max(ax, camW - ax) / CX))); // the sea always reaches both edges
       if (!frameRun) axis = ax;
-      for (const c of [seaC, iceC]) { c.style.width = WW * U + "px"; c.style.height = WH * U + "px"; }
+      for (const c of [seaC, iceC]) { c.style.width = WW * U + "px"; c.style.height = c.height * U + "px"; }
       snow.width = Math.max(1, Math.ceil(camW / 3)); snow.height = Math.max(1, Math.ceil(camH / 3));
       // Wildlife is drawn at the artwork's own pixel size, one canvas pixel per art pixel.
       for (const c of Object.values(life)) { c.width = Math.ceil(camW / U) + 2; c.height = Math.ceil(camH / U) + 2; c.style.width = c.width * U + "px"; c.style.height = c.height * U + "px"; }
       host.classList.toggle("ib-compact", compact); host.classList.toggle("ib-stack", stack);
       // The depth scale: a tick every 10 m, a figure every 50 m, the zone names where they begin.
       scale.textContent = "";
-      for (let m = 0; m <= MAX_M; m += 10) {
-        const t = document.createElement("i"); t.style.top = Math.round(yOfDepth(m) * U) + "px";
-        if (m % 50 === 0) { t.className = "major"; t.dataset.m = m; }
-        scale.append(t);
-      }
+      const tick = (m, y, extra) => { const t = document.createElement("i"); t.style.top = Math.round(y * U) + "px"; if (m % 50 === 0) { t.className = "major" + (extra || ""); t.dataset.m = m; } else if (extra) t.className = extra.trim(); scale.append(t); };
+      for (let m = 0; m < MAX_M; m += 10) tick(m, yOfDepth(m));
+      const brk = document.createElement("b"); brk.className = "ib-break"; brk.style.top = Math.round(BOTTOM * U) + "px"; scale.append(brk);   // the iceberg ends here
+      for (let m = BEYOND_M; yOfDepth(m) < SH - 60; m += 10) tick(m, yOfDepth(m), " beyond");
       TIERS.slice(1).forEach(z => { const s = document.createElement("span"); s.className = "tier-" + z.key; s.textContent = z.name; s.style.top = Math.round(yOfDepth(z.from < 2 ? 0 : z.from) * U) + "px"; scale.append(s); });
       handlers.resize();
     }
-    const wideZ = () => Math.min(U, Math.max(Math.max(axis, camW - axis) / CX, (camH - frame.t - frame.b) / (BOTTOM - PEAK + 50)));
+    const wideZ = (span = BOTTOM - PEAK + 50) => Math.min(U, Math.max(Math.max(axis, camW - axis) / CX, (camH - frame.t - frame.b) / span));
+    // How far down the camera may go: the artwork, or past it to the deepest answer beneath the iceberg.
+    const floorY = () => Math.min(SH, Math.max(WH, ...items.map(k => k.y + 170)));
     const viewHalf = (z = Z) => camH / (2 * z);
     // The camera may run a little past the top and bottom of the artwork, by as much as the controls cover, so the
     // tip and the very deepest answers can still be framed in the free part of the window.
-    const clampCam = (y, z = Z) => { const h = viewHalf(z), lo = h - frame.t / z, hi = WH - h + frame.b / z; return lo >= hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, y)); };
+    const clampCam = (y, z = Z) => { const h = viewHalf(z), lo = h - frame.t / z, hi = floorY() - h + frame.b / z; return lo >= hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, y)); };
     const tx = () => Math.round(axis - CX * Z), ty = () => Math.round(camH / 2 - camY * Z);
     const depthNow = () => Math.min(1, Math.max(0, (camY - W - viewHalf(U) * 0.3) / (BOTTOM - W - viewHalf(U) * 0.9)));
+    // The pool of light the camera carries: wide near the surface, a small circle round the answer in the deep, and
+    // narrower again beneath the iceberg.
+    const poolR = () => { const bk = beyondNow(); return Math.round(((1 - Math.pow(depthNow(), 0.7)) * Math.max(camW, camH) * 0.75 + 130) * (1 - bk * 0.55) + bk * 110); };
+    // 0 on the iceberg, rising to 1 as the camera passes its tip and goes on into the open water beneath it.
+    const beyondNow = () => { const k = Math.min(1, Math.max(0, (camY - (BOTTOM - 30)) / (BEYOND_Y - BOTTOM + 30))); return k * k * (3 - 2 * k); };
     // Where a focused answer sits on screen: near the middle of the free area, or high in it when the annotation
     // has to go underneath.
     const focusLine = () => frame.t + (camH - frame.t - frame.b) * (stack ? (compact ? 0.22 : 0.3) : 0.46);
@@ -312,12 +365,15 @@
       // The light narrows with depth: a wide soft vignette near the surface, a small pool around the answer in the abyss.
       const it = focusIdx >= 0 ? items[focusIdx] : null;
       const fx = it ? X0 + it.x * Z : axis, fy = it ? Y0 + it.y * Z : focusLine();
-      const r = Math.round((1 - Math.pow(depth, 0.7)) * Math.max(camW, camH) * 0.75 + 130);
+      const bk = beyondNow();
+      const r = poolR();
       shade.style.setProperty("--x", fx + "px"); shade.style.setProperty("--y", fy + "px"); shade.style.setProperty("--r", r + "px");
       shade.style.opacity = Math.min(1, depth * 1.25).toFixed(3);
+      host.style.setProperty("--beyond", bk.toFixed(3)); host.classList.toggle("ib-beneath", bk > 0.5);
+      iceW.style.opacity = (1 - bk * 0.7).toFixed(3);         // the iceberg falls away into the dark above
       // Depth gauge: the scale slides with the water, the reading rides at the depth the camera is aimed at.
-      const settled = Z === U, m = it && !busy && aim === it.y ? it.depth : metres(aim); // on an answer, its exact depth (the artwork stops at 300 m)
-      depthEl.textContent = m + " m";
+      const settled = Z === U, m = it && !busy && aim === it.y ? it.depth : metres(aim); // on an answer, its exact depth
+      depthEl.textContent = m + " m"; read.classList.toggle("beyond", isBeyond(m));
       gauge.classList.toggle("on", settled); gauge.style.right = frame.r + "px";
       scale.style.transform = `translateY(${Y0}px)`;
       read.classList.toggle("on", m > 0 && settled);
@@ -369,6 +425,7 @@
         nr = { l: left, t: top, r: left + nw, b: top + nh };
         glow.style.transform = `translate(${sx}px, ${sy}px)`;
         glow.style.opacity = (0.3 + depth * 0.6).toFixed(3);
+        leader.classList.toggle("beyond", it.tier.key === "beyond");
       } else { glow.style.opacity = 0; leader.setAttribute("d", ""); }
       noteBox = nr;
       // Nothing overlaps: hide any small label or other marker the annotation would cover.
@@ -378,7 +435,7 @@
         if (k.pill) k.pill.classList.toggle("dim", !k.shown || j === focusIdx || k.under || !!hitPill || (!settled && !wide));
         k.mark.classList.toggle("dim", !k.shown || (!!nr && j !== focusIdx && mx > nr.l - 10 && mx < nr.r + 10 && my > nr.t - 10 && my < nr.b + 10));
       });
-      handlers.depth(depth);
+      handlers.depth(depth, bk);
       handlers.render();
     }
 
@@ -389,8 +446,9 @@
       sg.clearRect(0, 0, snow.width, snow.height);
       const X0 = tx(), Y0 = ty(), depth = depthNow(), t = now / 1000;
       for (const f of flakes) {
-        const wy = W + ((f.y - W + t * 2.2 * f.s) % (WH - W)), sx = (X0 + (f.x + Math.sin(t * 0.3 + f.ph) * 2) * Z) / 3, sy = (Y0 + wy * Z) / 3;
+        const wy = W + ((f.y - W + t * 2.2 * f.s) % (SH - W)), sx = (X0 + (f.x + Math.sin(t * 0.3 + f.ph) * 2) * Z) / 3, sy = (Y0 + wy * Z) / 3;
         if (sx < 0 || sy < 0 || sx >= snow.width || sy >= snow.height) continue;
+        if (wy > BOTTOM && f.keep > Math.max(0.12, 1 - (wy - BOTTOM) / 140)) continue;   // beneath the iceberg there is almost nothing in the water
         sg.fillStyle = `rgba(190,225,255,${((0.18 + f.s * 0.35) * (1 - depth * 0.55)).toFixed(3)})`; sg.fillRect(Math.round(sx), Math.round(sy), 1, 1);
       }
     }
@@ -420,7 +478,8 @@
       add("ib-name", it.name);
       add("ib-share", b(it.shareText), " of players");
       const zone = document.createElement("span"); zone.className = "ib-zone"; zone.textContent = it.tier.name;
-      if (it.depth > 0) add("ib-below", b(it.depth + " m"), " below the surface ", zone); else add("ib-below", b("0 m"), " · above the waterline ", zone);
+      if (isBeyond(it.depth)) add("ib-below", b(it.depth + " m"), " beneath the iceberg ", zone);
+      else if (it.depth > 0) add("ib-below", b(it.depth + " m"), " below the surface ", zone); else add("ib-below", b("0 m"), " · above the waterline ", zone);
       if (it.rankText) add("ib-rank", it.rankText);
       add("ib-meta", it.meta || "Guess " + it.n + (it.countText ? " · " + it.countText + " players" : ""));
       if (it.blurb && it.depth >= 100) add("ib-blurb", it.blurb);
@@ -433,7 +492,8 @@
       layer.querySelectorAll(".ib-note").forEach(n => n.remove());
       focusIdx = i;
       items.forEach((k, j) => k.mark.classList.toggle("focus", j === i));
-      glow.classList.toggle("rare", i >= 0 && items[i].depth >= 200);
+      glow.classList.toggle("rare", i >= 0 && items[i].depth >= 200 && !isBeyond(items[i].depth));
+      glow.classList.toggle("beyond", i >= 0 && isBeyond(items[i].depth));
       host.classList.remove("ib-drawn");
       if (i < 0) { render(); return; }
       const note = noteFor(items[i]); if (!fresh) note.classList.add("quick"); layer.append(note); render();
@@ -482,9 +542,11 @@
       showNote(-1);
       await wait((o.special ? 420 : 280) / speed, r);
       const target = focusY(it), dist = Math.abs(clampCam(target) - camY);
-      const ms = o.special ? Math.min(2300, Math.max(1500, 900 + dist * U * 1.3)) : Math.min(1500, Math.max(650, 450 + dist * U * 0.9));
+      const deep = isBeyond(it.depth);
+      // Beneath the iceberg: a long, unhurried descent past the tip and on into the dark.
+      const ms = deep ? Math.min(5200, Math.max(3800, 2600 + dist * U * 0.9)) : o.special ? Math.min(2300, Math.max(1500, 900 + dist * U * 1.3)) : Math.min(1500, Math.max(650, 450 + dist * U * 0.9));
       handlers.travel(it, clampCam(target) > camY ? 1 : -1, ms / speed);
-      await moveTo(target, ms / speed, r, o.special ? easeInOutSlow : easeInOut, it.y);
+      await moveTo(target, ms / speed, r, deep ? easeDescent : o.special ? easeInOutSlow : easeInOut, it.y);
       it.shown = true; const prevBest = bestIdx; markBest();
       it.tag = o.tag || ""; it.sight = o.sight || "";
       camY = clampCam(target); aim = it.y; busy = false;
@@ -515,7 +577,10 @@
       list.forEach(a => { const it = build(a); it.shown = true; });
       markBest(); nav.hidden = true; wide = true; aim = 0;
       // Frame every marker: the middle of the span from the waterline to the deepest answer.
-      const ys = items.map(k => k.y), zTo = wideZ(), yTo = items.length ? (Math.min(W - 20, ...ys) + Math.max(W + 220, ...ys)) / 2 : WH / 2;
+      const ys = items.map(k => k.y), lo = Math.min(W - 20, ...ys), hi = Math.max(W + 220, ...ys);
+      const zTo = wideZ(Math.max(BOTTOM, hi + 40) - PEAK + 50);
+      // If it can't all fit (a find far beneath the iceberg), keep the deepest answer in view and let the tip go.
+      const yTo = items.length ? Math.max((lo + hi) / 2, hi + (frame.b + 70) / zTo - viewHalf(zTo)) : WH / 2;
       if (!o.glide || !from.had) { Z = zTo; camY = clampCam(yTo); render(); return; }
       Z = from.z; camY = from.y; render();
       animate(800 / speed, r, k => { const e = easeInOut(k); Z = from.z + (zTo - from.z) * e; camY = clampCam(from.y + (yTo - from.y) * e); render(); }).then(() => { if (!r.cancelled) { Z = zTo; camY = clampCam(yTo); render(); } });
@@ -582,12 +647,19 @@
       get busy() { return busy; }, get focused() { return focusIdx; }, get best() { return bestIdx; }, get count() { return items.length; },
       get depth() { const it = focusIdx >= 0 ? items[focusIdx] : null; return it && !busy && aim === it.y ? it.depth : metres(aim); },
       // For anything that draws into the scene (wildlife): where the artwork is on screen right now.
-      get view() { return { x0: tx(), y0: ty(), u: U, z: Z, w: camW, h: camH, camY, axis, frame, depth: depthNow(), settled: Z === U, busy, note: noteBox, focus: focusIdx >= 0 ? { x: items[focusIdx].x, y: items[focusIdx].y } : null }; },
+      get view() {
+        const it = focusIdx >= 0 ? items[focusIdx] : null, bk = beyondNow();
+        // What lights the water, in artwork pixels: the answer in view, its light warmer beneath the iceberg.
+        const lights = it ? [{ x: it.x, y: it.y, r: poolR() * 1.7 / U, k: 1.0, col: isBeyond(it.depth) ? [1, 0.78, 0.72] : [0.86, 0.94, 1] }] : [];
+        // Beneath the iceberg the answer's red glow reaches a long way, very faintly: enough to show a great shape.
+        if (it && isBeyond(it.depth)) lights.push({ x: it.x, y: it.y, r: 280, k: 0.2, col: [1, 0.5, 0.45] });
+        return { x0: tx(), y0: ty(), u: U, z: Z, w: camW, h: camH, camY, axis, frame, depth: depthNow(), beyond: bk, settled: Z === U, busy, note: noteBox, lights, focus: it ? { x: it.x, y: it.y } : null };
+      },
       onFocus: f => { handlers.focus = f; }, onDepth: f => { handlers.depth = f; }, onTravel: f => { handlers.travel = f; }, onLand: f => { handlers.land = f; },
       onRender: f => { handlers.render = f; }, onResize: f => { handlers.resize = f; },
       destroy: () => { stop(); cancelAnimationFrame(snowRaf); ro.disconnect(); },
     };
   }
 
-  window.Iceberg = { create, paint, TIERS, tierFor, tierOfDepth, depthOf, depthY, yOfDepth, metres, iceSpan, iceEdge, SURFACE_SHARE, MAX_M, WORLD: { WW, WH, W, PEAK, CX, BOTTOM, TOP_Y, PXM } };
+  window.Iceberg = { create, paint, TIERS, tierFor, tierOfDepth, depthOf, depthY, yOfDepth, metres, iceSpan, iceEdge, isBeyond, evidenced, SURFACE_SHARE, MAX_M, BEYOND_M, EVIDENCE, WORLD: { WW, WH, W, PEAK, CX, BOTTOM, TOP_Y, PXM, SH, BEYOND_Y, PXD } };
 })();

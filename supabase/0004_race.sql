@@ -188,6 +188,9 @@ begin
         'distance', private.race_distance(r.id, r.match_no, p.user_id),
         'used', (select count(*) from public.race_guesses g where g.race_id = r.id and g.match_no = r.match_no and g.round = r.round and g.user_id = p.user_id),
         'done', p.done_round >= r.round and r.round > 0,
+        -- Unfathomable finds (one answer 300 m or deeper): a count only, never the answer, so everyone can see a
+        -- racer go beneath the iceberg the moment it happens.
+        'finds', (select count(*) from public.race_guesses g where g.race_id = r.id and g.match_no = r.match_no and g.user_id = p.user_id and g.status = 'ok' and g.depth >= 300),
         'wins', (select count(*) from public.race_results x where x.race_id = r.id and x.user_id = p.user_id and x.place = 1)) order by p.seat), '[]'::jsonb)
       from public.race_players p join public.profiles pr on pr.id = p.user_id where p.race_id = r.id and p.left_at is null),
     'mine', (select coalesce(jsonb_agg(jsonb_build_object('round', g.round, 'slot', g.slot, 'typed', g.typed, 'answer', g.answer, 'status', g.status, 'share', g.share, 'depth', g.depth) order by g.round, g.slot), '[]'::jsonb)

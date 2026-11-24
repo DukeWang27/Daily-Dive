@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colossal squid</title>
+<style>
+:root { --bg: #02040a; --text: #e6edf6; --muted: #8b98ad; --red: #e0645b; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 Inter, system-ui, sans-serif; }
+main { max-width: 1200px; margin: 0 auto; padding: 28px 16px 60px; display: grid; gap: 18px; }
+h1 { margin: 0; font-size: 26px; letter-spacing: -.01em; } p { margin: 0; color: var(--muted); max-width: 70ch; }
+.stage { position: relative; width: 100%; aspect-ratio: var(--ar, 16 / 10); background: #010208; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px rgba(143, 208, 245, .12); }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.stage .glow { mix-blend-mode: screen; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+button { font: inherit; color: var(--text); background: transparent; border: 1px solid rgba(143, 208, 245, .26); border-radius: 9px; padding: 8px 14px; cursor: pointer; }
+button[aria-pressed="true"] { border-color: var(--red); color: var(--red); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Colossal squid</h1>
+  <p>The animal at its game pixel size, enlarged. “Reference light” lights all of it so the drawing can be judged. “In the dark” is how it is met in the game: only what a light reaches shows. Move the pointer to move the light.</p>
+  <div class="row"><button id="ref" aria-pressed="true">Reference light</button><button id="dark" aria-pressed="false">In the dark</button><button id="pause" aria-pressed="false">Pause</button></div>
+  <div class="stage" id="stage"><canvas id="body"></canvas><canvas id="glow" class="glow"></canvas></div>
+</main>
+<script src="../colossal.js"></script>
+<script>
+(function () {
+  const P0 = new URLSearchParams(location.search), W = +(P0.get("cw") || 400), H = +(P0.get("ch") || 250), body = document.getElementById("body"), glow = document.getElementById("glow");
+  for (const c of [body, glow]) { c.width = W; c.height = H; }
+  const g = body.getContext("2d"), gl = glow.getContext("2d");
+  const P = new URLSearchParams(location.search);
+  const sq = Colossal.create(+(P.get("seed") || 7)); sq.x = +(P.get("x") || 214); sq.y = +(P.get("y") || 112); sq.dir = P.get("dir") === "-1" ? -1 : 1; sq.speed = 0; sq.scale = +(P.get("scale") || 0.62);
+  let mode = P.get("mode") || "ref", paused = false, light = { x: 150, y: 110 }, last = 0;
+  const set = m => { mode = m; document.getElementById("ref").setAttribute("aria-pressed", m === "ref"); document.getElementById("dark").setAttribute("aria-pressed", m === "dark"); };
+  document.getElementById("ref").onclick = () => set("ref"); document.getElementById("dark").onclick = () => set("dark");
+  document.getElementById("pause").onclick = e => { paused = !paused; e.target.setAttribute("aria-pressed", paused); };
+  document.getElementById("stage").onpointermove = e => { const r = e.currentTarget.getBoundingClientRect(); light = { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
+  set(mode);
+  if (P.get("lx")) light = { x: +P.get("lx"), y: +P.get("ly") };
+  if (P.get("t")) { sq.t = +P.get("t"); paused = true; }
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now;
+    if (!paused) Colossal.step(sq, dt);
+    g.fillStyle = mode === "ref" ? "#0b1424" : "#010208"; g.fillRect(0, 0, W, H); gl.clearRect(0, 0, W, H);
+    const lights = mode === "ref" ? [{ x: W * 0.45, y: -60, r: 520, k: 1.05, col: [1, 0.95, 0.92] }, { x: light.x, y: light.y, r: 160, k: 0.5, col: [1, 0.9, 0.85] }]
+      : [{ x: light.x, y: light.y, r: +(P.get("lr") || 70), k: 1.4, col: [1, 0.86, 0.8] }];
+    Colossal.draw(g, gl, sq, lights, { ambient: mode === "ref" ? 0.12 : 0.02 });
+  }
+  requestAnimationFrame(frame);
+  window.squid = sq;
+})();
+</script>
+</body>
+</html>

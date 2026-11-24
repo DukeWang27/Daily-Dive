@@ -18,6 +18,8 @@ const SHOTS = process.env.SHOTS || '';
 (async () => {
   await new Promise(r => gw.server.listen(8790, r)); const site = serve(8784), b = await chromium.launch();
   await sql(`truncate auth.users cascade`); await sql(`truncate public.rate_log, public.username_holds, public.races cascade`);
+  // Race questions that have answers beneath the iceberg, so the Unfathomable find can be tested on any of them.
+  await sql(`update public.race_pool set active = qid in (1023, 1024, 1025, 1028, 1029)`);
   await sql(`create or replace function private.race_t(k text) returns interval language sql immutable as $$
     select case k when 'countdown' then interval '1.5 seconds' when 'between' then interval '3 seconds' when 'grace' then interval '1.5 seconds'
       when 'lobby_wait' then interval '4 seconds' when 'away' then interval '8 seconds' when 'abandon' then interval '30 seconds' end $$`);
@@ -118,7 +120,21 @@ const SHOTS = process.env.SHOTS || '';
   for (let q = 2; q <= 5; q++) {
     await waitView(ann, 'question', 25000); await waitView(bo, 'question', 25000); await waitTyping(ann); await waitTyping(bo);
     const [x, y] = await Promise.all([answer(ann, 0.6), answer(bo, 0.6)]);
-    if (q === 3) {
+    if (q === 2) {
+      // Bo finds something Unfathomable (one answer beneath the iceberg). Ann sees it happen, but not the answer.
+      const deepA = await bo.evaluate(async () => { const q = await fetch(`race/${Race.state.qid}.json`).then(r => r.json()).then(j => j.questions[0]); const a = q.answers.filter(x => Iceberg.isBeyond(Iceberg.depthOf(x.s))).sort((x, y) => y.s - x.s)[0]; return a && a.a; });
+      ok('race: this question has an Unfathomable answer to find', !!deepA, deepA);
+      const gd = await guess(bo, deepA);
+      ok('race: an Unfathomable find says so, in red, and lights the finder\'s submarine red', gd.mine.depth >= 300 && /Unfathomable/.test(gd.hint) && await bo.evaluate(() => document.querySelector('#r-hint').classList.contains('beyond') && Race.scene.subs.find(s => s.me).beneath), gd.hint);
+      await ann.waitForFunction(() => /found something Unfathomable/.test(Race.scene.flash), null, { timeout: 8000 }).catch(() => {});
+      const annSees = await ann.evaluate(() => ({ flash: Race.scene.flash, bo: Race.scene.subs.find(s => !s.me).beneath, data: JSON.stringify(Race.state) }));
+      ok('race: the other player sees it happen (a note and the red light), without the answer', /Bo_racer found something Unfathomable/.test(annSees.flash) && annSees.bo && !annSees.data.includes(deepA), annSees.flash);
+      await bo.waitForTimeout(2200);
+      ok('race: the colossal squid comes to the finder\'s submarine', (await bo.evaluate(() => Race.scene.guests)).includes('colossal'));
+      await shot(bo, 'unfathomable-phone'); await shot(ann, 'unfathomable-seen-desk');
+      await guess(ann, x);
+      ok('race: the race carries on as normal meanwhile (both can still guess)', (await ann.evaluate(() => Race.state.mine.filter(g => g.round === 2).length)) === 1);
+    } else if (q === 3) {
       // Both press Enter at the same moment, twice over.
       await Promise.all([guess(ann, x), guess(bo, y)]);
       ok('simultaneous guesses from two players are both kept', (await ann.evaluate(() => Race.state.mine.filter(g => g.round === 3).length)) === 1 && (await bo.evaluate(() => Race.state.mine.filter(g => g.round === 3).length)) === 1);
@@ -201,7 +217,7 @@ const SHOTS = process.env.SHOTS || '';
   ok('no script errors in any browser', !errs.length, errs.slice(0, 4).join(' || '));
   // Put the real timings back for the other suites.
   const real = require('fs').readFileSync(require('path').join(__dirname, '../supabase/0004_race.sql'), 'utf8').match(/create or replace function private\.race_t[\s\S]*?\$\$;/)[0];
-  await sql(real);
+  await sql(real); await sql(`update public.race_pool set active = true`);
   console.log(R.join('\n')); console.log(`\n${R.length - fails} passed, ${fails} failed`);
   await b.close(); site.close(); gw.server.close(); await gw.pool.end();
   process.exit(fails ? 1 : 0);

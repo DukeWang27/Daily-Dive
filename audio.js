@@ -208,6 +208,25 @@
       ping(g, { f: note(64), t: t + lead, gain: 0.07, decay: 1.4, echoes: 2, gap: 0.36, wet: 0.6 });
       [76, 83, 88, 95].forEach((n, i) => { glass(g, { f: note(n), t: t + lead + 0.04 + i * 0.05, gain: 0.04, decay: 2.2, index: 1.1, wet: 0.7, pan: (i % 2 ? 0.3 : -0.3), detune: -6 }); glass(g, { f: note(n), t: t + lead + 0.06 + i * 0.05, gain: 0.03, decay: 2.2, index: 0.9, wet: 0.7, pan: (i % 2 ? -0.3 : 0.3), detune: 6 }); });
     },
+    // Leaving the iceberg behind: a long fall into the dark. Pressure builds underneath, the water's rush lowers and
+    // thins out, and as the camera passes the iceberg's tip the ice gives one last faint creak far above.
+    descend(g, t, o = {}) {
+      const T = Math.max(2.5, Math.min(6, o.seconds || 4));
+      swell(g, t, { f: 34, gain: 0.15, rise: T * 0.8, decay: 3, wet: 0.4 });
+      wash(g, { t, dur: T, gain: 0.06, sweep: [700, 70], attack: T * 0.35, wet: 0.6 });
+      bubbles(g, { t, n: 6, spread: 0.6, lo: 500, hi: 1200, gain: 0.014 });
+      glass(g, { f: note(45), t: t + T * 0.42, gain: 0.018, decay: 1.8, index: 3.2, ratio: 2.3, wet: 0.9, pan: -0.3 });
+      tone(g, { f: 41.2, f0: 55, glide: T, t: t + T * 0.3, gain: 0.08, attack: T * 0.6, decay: 2.5, wet: 0.4, lp: 160 });
+    },
+    // An Unfathomable answer: a low struck bell with a fifth above it, the slow beating of two cold high tones, and a
+    // sonar pulse going out into empty water, coming back late and faint. Wonder, not alarm.
+    unfathomable(g, t) {
+      glass(g, { f: note(40), t, gain: 0.11, decay: 5.5, index: 1.5, ratio: 2.76, wet: 0.75 });
+      glass(g, { f: note(47), t: t + 0.11, gain: 0.06, decay: 4.8, index: 1.2, ratio: 2.76, wet: 0.8 });
+      swell(g, t, { f: 41.2, gain: 0.12, rise: 0.5, decay: 4.5, wet: 0.4 });
+      [[88, -7], [88, 7], [95, 0]].forEach(([n, d], i) => tone(g, { f: note(n) * Math.pow(2, d / 1200), t: t + 0.25 + i * 0.12, gain: 0.014, attack: 1.4, decay: 3.4, wet: 0.95, pan: (i - 1) * 0.6 }));
+      ping(g, { f: note(76), t: t + 1.3, gain: 0.04, decay: 1.6, echoes: 3, gap: 0.72, wet: 0.85, pan: 0.2 });
+    },
     // Something very large passing in the distance. No animal calls: displaced water, pressure and a change in the room.
     //   giant     a long sweep of moving water from one side to the other
     //   bigfin    almost nothing: a high, faint shimmer hanging in the dark
@@ -219,7 +238,18 @@
         swell(g, t, { f: 46, gain: 0.05, rise: 1.4, decay: 2 });
         return;
       }
-      const big = kind === "colossal";
+      if (kind === "colossal") {
+        // The colossal squid: a long, slow pressure swell, water moving heavily from one side to the other over
+        // several seconds, two soft returns of a distant sonar off something big, and a second, lower swell as it turns.
+        swell(g, t, { f: 29, gain: 0.17, rise: 2.6, decay: 5, wet: 0.45 });
+        wash(g, { t: t + 0.4, dur: 7.5, gain: 0.08, sweep: [160, 62], attack: 3.2, wet: 0.75, pan: [side * 0.9, -side * 0.9] });
+        wash(g, { t: t + 2.4, dur: 5, gain: 0.035, type: "bandpass", sweep: [320, 140], q: 1.2, attack: 2.2, wet: 0.85, kind: "pink", pan: [side * 0.5, -side * 0.6] });
+        ping(g, { f: note(64), t: t + 2.6, gain: 0.03, decay: 2, echoes: 2, gap: 0.9, wet: 0.92, pan: -side * 0.4 });
+        swell(g, t + 5.2, { f: 26, gain: 0.12, rise: 2, decay: 4.5, wet: 0.5 });
+        bubbles(g, { t: t + 3.2, n: 7, spread: 2.4, lo: 180, hi: 480, gain: 0.01, pan: -side * 0.5 });
+        return;
+      }
+      const big = false;
       wash(g, { t, dur: big ? 4 : 3, gain: big ? 0.07 : 0.05, sweep: big ? [180, 90] : [500, 160], attack: big ? 1.8 : 1.2, wet: 0.7, pan: [side * 0.8, -side * 0.8] });
       swell(g, t + 0.3, { f: big ? 31 : 40, gain: big ? 0.16 : 0.09, rise: big ? 1.6 : 1, decay: big ? 3 : 2 });
       bubbles(g, { t: t + (big ? 1.6 : 1.1), n: big ? 9 : 5, spread: 1.4, lo: 250, hi: 700, gain: 0.012, pan: -side * 0.4 });
@@ -312,6 +342,15 @@
       const o = c.createOscillator(), a = c.createGain(); o.type = type; o.frequency.value = f; a.gain.value = amp; o.connect(a); a.connect(A.droneFilter); o.start(); return o;
     });
     const vs = c.createGain(); vs.gain.value = 0.3; A.droneGain.connect(vs); vs.connect(g.verbIn);
+    // Beneath the iceberg: the ordinary bed fades out and this takes over. A very low resonance with a slow beat in
+    // it, and the faint pressure of a great deal of water, breathing very slowly.
+    A.deep = c.createGain(); A.deep.gain.value = 0; A.deep.connect(g.amb);
+    const dl = c.createBiquadFilter(); dl.type = "lowpass"; dl.frequency.value = 150; dl.Q.value = 0.6; dl.connect(A.deep);
+    [[41.2, 0.5], [41.55, 0.45], [61.7, 0.18], [82.4, 0.05]].forEach(([f, amp]) => { const o = c.createOscillator(), a = c.createGain(); o.frequency.value = f; a.gain.value = amp; o.connect(a); a.connect(dl); o.start(); });
+    const ns = c.createBufferSource(); ns.buffer = g.brown; ns.loop = true; const nf = c.createBiquadFilter(); nf.type = "lowpass"; nf.frequency.value = 95; const na = c.createGain(); na.gain.value = 0.5;
+    ns.connect(nf); nf.connect(na); na.connect(A.deep); ns.start(0, rnd() * 3);
+    const br = c.createOscillator(), bg = c.createGain(); br.frequency.value = 0.045; bg.gain.value = 0.3; br.connect(bg); bg.connect(na.gain); br.start();
+    const dv = c.createGain(); dv.gain.value = 0.35; A.deep.connect(dv); dv.connect(g.verbIn);
     return A;
   }
   function applyDepth(A, c, d, level) {
@@ -324,11 +363,12 @@
     A.droneFilter.frequency.setTargetAtTime(420 - d * 300, t, k);
     A.tone.frequency.setTargetAtTime(9000 * Math.pow(1 - d, 2.2) + 500, t, k);   // the deeper, the darker the whole bed
     A.oscs.forEach((o, i) => o.detune.setTargetAtTime(-d * 250 + (i === 1 ? 10 : 0), t, 1.5));
-    A.level.gain.setTargetAtTime(level, t, 0.8);
+    A.level.gain.setTargetAtTime(level * (1 - 0.85 * ambBeyond), t, 0.8);
+    A.deep.gain.setTargetAtTime(0.32 * ambBeyond * (level ? 1 : 0), t, 1.2);
   }
 
   // ---------- Live engine ----------
-  let A = null, ambMode = "off", ambDepth = 0, lastSubmit = 0, lastHover = 0, lastThrust = 0, eventTimer = 0;
+  let A = null, ambMode = "off", ambDepth = 0, ambBeyond = 0, lastSubmit = 0, lastHover = 0, lastThrust = 0, eventTimer = 0;
   const AMB_LEVEL = { off: 0, home: 0.8, play: 0.9, race: 0.9, end: 0.8 };
 
   function ensure() {
@@ -364,8 +404,10 @@
     if (name === "thrust") { if (now - lastThrust < 0.25) return; lastThrust = now; }
     try { SOUNDS[name](out, now + 0.005, o); } catch { /* never let sound break the game */ }
   }
-  function setAmbience(mode, depth) {
+  // beyond: 0 on the iceberg, 1 in the open water beneath it.
+  function setAmbience(mode, depth, beyond) {
     ambMode = mode; if (depth != null) ambDepth = Math.max(0, Math.min(1, depth));
+    ambBeyond = mode === "play" || mode === "race" ? Math.max(0, Math.min(1, beyond || 0)) : 0;
     const d = mode === "play" || mode === "race" ? ambDepth : 0;
     if (A && ctx) {
       applyDepth(A, ctx, d, AMB_LEVEL[mode] ?? 0);
@@ -377,6 +419,12 @@
     if (!ctx || ctx.state !== "running" || prefs.muted || !prefs.amb || (ambMode !== "play" && ambMode !== "race")) return;
     const d = ambDepth, t = ctx.currentTime, g = { ...out, sfx: out.amb };
     try {
+      if (ambBeyond > 0.6) {
+        // Beneath the iceberg: now and then a sonar pulse going out a long way, and very rarely a slow groan of water.
+        if (rnd() < 0.11) ping(g, { f: note(rnd() < 0.5 ? 74 : 79), t, gain: 0.02 * ambBeyond, decay: 1.8, echoes: 3, gap: 0.8 + rnd() * 0.4, wet: 0.95, pan: rnd() - 0.5 });
+        else if (rnd() < 0.04) wash(g, { t, dur: 4, gain: 0.025, sweep: [90, 45], attack: 2, wet: 0.9, pan: [rnd() - 0.5, rnd() - 0.5], dest: out.amb });
+        return;
+      }
       if (d < 0.35 && rnd() < 0.08) bubbles(g, { t, n: 3 + Math.floor(rnd() * 4), spread: 0.6, lo: 500, hi: 1300, gain: 0.012, wet: 0.5, pan: rnd() - 0.5 });
       else if (d > 0.4 && d < 0.85 && rnd() < 0.04) wash(g, { t, dur: 2.5, gain: 0.02, type: "bandpass", sweep: [140, 90], q: 3, attack: 1, wet: 0.8, pan: [rnd() - 0.5, rnd() - 0.5], dest: out.amb });
       else if (d >= 0.6 && rnd() < 0.09) tone(g, { f: note(88 - Math.floor(rnd() * 3) * 5), t, gain: 0.018, attack: 0.01, decay: 1.6, wet: 0.95, pan: rnd() - 0.5, dest: out.amb });

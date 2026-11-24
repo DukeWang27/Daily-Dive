@@ -379,9 +379,9 @@ async function scene(b) {
   const made0 = (await life()).made;
   await guess(p, 'numbat'); await p.waitForTimeout(900);
   const deep = (await life()).inView;
-  ok('at 317 m: abyss animals in view, none from the surface', deep.some(k => cast.find(s => s.key === k).band === 'abyss') && deep.every(k => cast.find(s => s.key === k).band !== 'surface'), deep.join(', '));
+  ok('at 317 m (beneath the iceberg): the water is almost empty, and nothing from the surface', deep.every(k => cast.find(s => s.key === k).band === 'abyss'), deep.join(', ') || 'nothing in view');
   await p.waitForTimeout(600);
-  ok('abyss answer (317 m): the colossal squid comes, and the annotation says so', (await p.evaluate(() => ICEBERG_TEST.life.guests)).includes('colossal') && /colossal squid/i.test(await p.textContent('.ib-sight')), await p.evaluate(() => ICEBERG_TEST.life.guests.join(',')));
+  ok('Unfathomable answer (317 m): the colossal squid comes, and the annotation says so', (await p.evaluate(() => ICEBERG_TEST.life.guests)).includes('colossal') && /colossal squid/i.test(await p.textContent('.ib-sight')), await p.evaluate(() => ICEBERG_TEST.life.guests.join(',')));
   ok('encounter plays its own quiet sound', (await p.evaluate(() => window.__snd)).includes('encounter'));
   await waitDone(p); await p.waitForTimeout(500);
   // Back up to the first guess and down again: the same water, not a fresh one.
@@ -608,7 +608,7 @@ async function brand(b) {
     q.on('pageerror', e => errs.push(e.message));
     await q.goto(URL + 'brand.html'); await q.waitForTimeout(700);
     const r = await q.evaluate(() => ({ boards: document.querySelectorAll('.board').length, names: [...document.querySelectorAll('.board-head h2')].map(n => n.textContent).join(', '), over: document.documentElement.scrollWidth - innerWidth, icons: document.querySelectorAll('.icons svg').length, small: [...document.querySelectorAll('.icons figure:first-child svg')].every(s => s.getBoundingClientRect().width === 16), links: [...document.querySelectorAll('.board-head a')].map(a => a.getAttribute('href')).join(' ') }));
-    ok(`name previews (${vp}): five names shown at tab, header, phone-icon and headline size, with no sideways scroll`, r.boards === 5 && r.over <= 0 && r.icons === 20 && r.small && !errs.length && /brand=oddfish/.test(r.links), `${r.names}; ${errs.join('; ')}`);
+    ok(`name previews (${vp}): five names shown at tab, header, phone-icon and headline size, with no sideways scroll`, r.boards === 5 && r.over <= 0 && r.icons === 20 && r.small && !errs.length && /brand=nerodeep/.test(r.links), `${r.names}; ${errs.join('; ')}`);
     if (vp !== 'small') await q.screenshot({ path: `tests/shot-brand-${vp}.png` });
     await ctx.close();
   }

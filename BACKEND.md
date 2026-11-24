@@ -10,6 +10,8 @@
 > **Not on the live database yet:** the submarine race (`0004`, `0005`), the server-side answer check added to
 > `0002` (with the `set_keys` lists that `0003` now fills in), and the calendar's `friends_level`. They are tested
 > locally only. Applying them is step 2 below: re-run `0002`, the three `0003` files, then `0004` and `0005`.
+> The `0003` files also carry the new evidence rule for answers beneath the iceberg (150 thinly-evidenced answers now
+> score 299 m instead of up to 370 m). Dives already handed in keep the depths they were scored with.
 
 The game plays without any of this: everyone is a guest and progress stays on their device. This guide connects
 it to a free Supabase project so players can make accounts, keep streaks across devices, add friends, appear in
@@ -144,6 +146,11 @@ If any step fails, the browser's console (F12) shows the database's reply.
 - **Answers are checked twice.** The browser judges a guess for speed, then the database checks that what was typed
   really is the answer claimed (the same rules: other names, describing words, small typos). A claim that doesn't
   match is kept for review and scores nothing.
+- **Unfathomable needs evidence, and the database applies it.** An answer scores 300 m or more only if at least 3 of
+  the rarity table's sample (120,000 per question today) gave it; the depths in `set_answers` are worked out that way
+  by `tools/seed_answers.py`, so the browser's red annotation and the database's score always agree. When the tables
+  are rebuilt from real player counts, change `EVIDENCE` in `iceberg.js` and in `tools/seed_answers.py` together to
+  the number of real players behind them.
 - **Races are run by the database.** Each race has one deadline per question, held in the database. The database
   decides which question is live, refuses a fourth guess or a guess after the deadline (1.5 seconds' grace for the
   network), scores each guess by how much it improves on your best, and works out the places. While a question is

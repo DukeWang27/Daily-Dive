@@ -2,3 +2,4 @@ node_modules/
 .DS_Store
 __pycache__/
 tests/shot-*.png
+game.zip

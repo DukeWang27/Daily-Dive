@@ -24,6 +24,7 @@
   --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e;
   --ice: #eaf6ff; --accent: #8fd0f5; --lumen: #7df0df; --warn: #e6c58f;
   --t-tip: #eaf6ff; --t-shallows: #a8d8f5; --t-mid: #6cb8ec; --t-deep: #4f9fe6; --t-abyss: #7df0df;
+  --t-beyond: #e0645b; --beyond-soft: #c98f88; --beyond-glow: 224, 92, 80;   /* Unfathomable: a muted, readable red, only ever beneath the iceberg */
   --pixel: "Pixelify Sans", ui-monospace, monospace;
   --ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --vvh: 100dvh; --top-h: 64px; --gutter: max(16px, env(safe-area-inset-left, 0px)); --edge: max(24px, 3vw);
@@ -37,7 +38,7 @@ button, input { font: inherit; color: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 .tier-tip { --tier: var(--t-tip); } .tier-shallows { --tier: var(--t-shallows); } .tier-mid { --tier: var(--t-mid); }
-.tier-deep { --tier: var(--t-deep); } .tier-abyss { --tier: var(--t-abyss); }
+.tier-deep { --tier: var(--t-deep); } .tier-abyss { --tier: var(--t-abyss); } .tier-beyond { --tier: var(--t-beyond); }
 /* Category icons (icons.js): one flat two-tone style, sized by font-size, tinted per screen. */
 .cat-icon { display: inline-grid; place-items: center; width: 1em; height: 1em; flex: none; color: var(--ice); --icon-tint: rgba(143, 208, 245, .24); }
 .cat-icon .cat-svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 6px rgba(143, 208, 245, .28)); }
@@ -173,6 +174,8 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .slot.done.land { animation: land .7s ease-out; }
 @keyframes land { 0% { background: rgba(143, 208, 245, .2); } 100% { background: transparent; } }
 .slot.best .slot-depth { color: var(--lumen); }
+.slot.tier-beyond .slot-depth, .slot.tier-beyond.best .slot-depth { color: var(--t-beyond); } .slot.tier-beyond .slot-tag { color: var(--t-beyond); }
+.slot.tier-beyond .slot-sub b { color: var(--t-beyond); }
 .slot.best .slot-n::before { box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .9), 0 0 0 2.5px var(--lumen); }
 .slot.pending .slot-n { color: var(--warn); } .slot.pending .slot-n::before { box-shadow: inset 0 0 0 1.5px var(--warn); }
 .slot.pending .slot-name { color: var(--muted); }
@@ -255,11 +258,17 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-glow { position: absolute; left: 0; top: 0; width: 420px; height: 420px; margin: -210px 0 0 -210px; pointer-events: none; opacity: 0;
   background: radial-gradient(circle, rgba(170, 220, 255, .3) 0%, rgba(150, 205, 250, .1) 32%, rgba(150, 205, 250, 0) 62%); mix-blend-mode: screen; transition: opacity .8s; }
 .ib-glow.rare { background: radial-gradient(circle, rgba(125, 240, 223, .34) 0%, rgba(125, 240, 223, .1) 30%, rgba(125, 240, 223, 0) 62%); }
+/* Beneath the iceberg the only warm light in the game: a low red glow around the answer, breathing slowly. */
+.ib-glow.beyond { width: 520px; height: 520px; margin: -260px 0 0 -260px; background: radial-gradient(circle, rgba(var(--beyond-glow), .3) 0%, rgba(var(--beyond-glow), .1) 26%, rgba(var(--beyond-glow), .03) 46%, rgba(var(--beyond-glow), 0) 64%); animation: beyond-breathe 6s ease-in-out infinite; }
+@keyframes beyond-breathe { 50% { filter: brightness(.72); } }
+.ib-shade { transition: none; }
+.ib-beneath .ib-shade { background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(0, 1, 4, 0) 0, rgba(0, 1, 4, 0) calc(var(--r, 200px) * .55), rgba(0, 1, 4, .985) calc(var(--r, 200px) * 1.9)); }
 .ib-layer { position: absolute; inset: 0; pointer-events: none; }
 .ib-bestline { position: absolute; left: 0; right: 0; top: 0; height: 0; border-top: 1px dashed rgba(125, 240, 223, .26); pointer-events: none; }
 .ib-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .ib-leader { stroke: rgba(214, 236, 252, .75); stroke-width: 1; shape-rendering: crispEdges; stroke-dasharray: 1; stroke-dashoffset: 1; }
 .ib-drawn .ib-leader { stroke-dashoffset: 0; transition: stroke-dashoffset .3s ease-out .08s; }
+.ib-leader.beyond { stroke: rgba(224, 112, 102, .7); }
 .ib-drawn.ib-quick .ib-leader { transition: stroke-dashoffset .16s ease-out; }
 /* A marker: a small diamond on the ice at the answer's exact depth. */
 .ib-mark { position: absolute; left: 0; top: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px; padding: 0; border: 0; background: none; pointer-events: auto; cursor: pointer; transition: opacity .3s; }
@@ -310,6 +319,20 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-note.tier-deep::before { background: linear-gradient(rgba(108, 184, 236, .9), rgba(108, 184, 236, .1)); }
 .ib-note.tier-abyss::before { background: linear-gradient(rgba(125, 240, 223, .95), rgba(125, 240, 223, .1)); box-shadow: 0 0 10px rgba(125, 240, 223, .55); }
 .ib-note.tier-abyss > .ib-name { text-shadow: 0 0 22px rgba(125, 240, 223, .3), 0 1px 2px rgba(2, 8, 20, .85); }
+/* Unfathomable: the answer itself in red, the figures in muted red and pale grey. Same type, same layout. */
+.ib-note.tier-beyond { --muted: #b9c2cf; --faint: #8b8f99; }
+.ib-note.tier-beyond::before { background: linear-gradient(rgba(var(--beyond-glow), .95), rgba(var(--beyond-glow), .08)); box-shadow: 0 0 10px rgba(var(--beyond-glow), .45); }
+.ib-note.tier-beyond::after { background: radial-gradient(closest-side, rgba(10, 2, 4, .6) 0, rgba(10, 2, 4, .4) 45%, rgba(10, 2, 4, .12) 76%, rgba(10, 2, 4, 0) 100%); }
+.ib-note.tier-beyond > .ib-name { color: var(--t-beyond); text-shadow: 0 0 24px rgba(var(--beyond-glow), .35), 0 1px 2px rgba(0, 0, 0, .9); }
+.ib-note.tier-beyond .ib-share b { color: var(--beyond-soft); }
+.ib-note.tier-beyond .ib-below b, .ib-note.tier-beyond .ib-zone { color: var(--t-beyond); }
+.ib-note.tier-beyond .ib-tag, .ib-note.tier-beyond .ib-sight { color: var(--beyond-soft); }
+.ib-note.tier-beyond .ib-tag::before { background: var(--t-beyond); box-shadow: 0 0 8px rgba(var(--beyond-glow), .7); }
+.ib-mark.tier-beyond::before { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .92), 0 0 0 2.5px rgba(var(--beyond-glow), .8), 0 0 16px rgba(var(--beyond-glow), .55); }
+.ib-mark.tier-beyond.best::before { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .92), 0 0 0 2.5px var(--t-beyond), 0 0 18px rgba(var(--beyond-glow), .7); }
+.ib-mark.tier-beyond.focus::after { border-color: rgba(var(--beyond-glow), .6); }
+.ib-pill.tier-beyond span, .ib-pill.tier-beyond.best span { color: var(--t-beyond); } .ib-pill.tier-beyond b { color: var(--beyond-soft); }
+.ib-bestline { transition: border-color .6s; } .ib-beneath .ib-bestline { border-top-color: rgba(var(--beyond-glow), .22); }
 .ib-stack .ib-note { max-width: min(250px, calc(100% - 64px)); }
 .ib-stack .ib-name { font-size: 23px; } .ib-stack .ib-share b { font-size: 17px; }
 .ib-compact .ib-rank, .ib-compact .ib-meta, .ib-compact .ib-blurb, .ib-compact .ib-tag, .ib-compact .ib-sight, .ib-compact .ib-zone, .ib-compact .ib-nav { display: none; }
@@ -328,6 +351,10 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-scale { position: absolute; right: 0; top: 0; width: 100%; }
 .ib-scale i { position: absolute; right: 0; width: 6px; height: 1px; background: rgba(160, 205, 240, .34); }
 .ib-scale i.major { width: 14px; background: rgba(200, 230, 250, .7); }
+.ib-scale i.beyond { background: rgba(var(--beyond-glow), .32); } .ib-scale i.major.beyond { background: rgba(var(--beyond-glow), .7); }
+.ib-scale i.major.beyond::after { color: var(--beyond-soft); }
+.ib-scale .ib-break { position: absolute; right: 0; width: 22px; height: 7px; margin-top: -3px; border-top: 1px solid rgba(200, 230, 250, .35); border-bottom: 1px solid rgba(200, 230, 250, .35); transform: skewY(-14deg); }
+.ib-read.beyond .ib-depth { color: var(--t-beyond); }
 .ib-scale i.major::after { content: attr(data-m); position: absolute; right: 20px; top: -7px; font: 600 11px/14px var(--ui); color: var(--muted); font-variant-numeric: tabular-nums; }
 .ib-scale span { position: absolute; right: 20px; margin-top: 9px; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--tier); opacity: .75; white-space: nowrap; }
 .ib-read { position: absolute; right: 0; top: 0; height: 22px; margin-top: -11px; display: flex; align-items: center; opacity: 0; transition: opacity .3s; }
@@ -424,6 +451,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
 .cal .l4, .cal-key .l4 { --c: #b4fff4; box-shadow: 0 0 6px rgba(130, 255, 236, .55); }
 .cal .abyss::after, .cal-key .abyss::after { content: ""; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: #e2ff86; box-shadow: 0 0 5px 1px rgba(214, 255, 110, .8); }
 .cal .l4.abyss::after { background: #4d6b00; box-shadow: none; }
+.cal .beyond::after, .cal-key .beyond::after { content: ""; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: #ff7a6e; box-shadow: 0 0 6px 1px rgba(224, 92, 80, .85); }
 .cal .future { --c: transparent; box-shadow: inset 0 0 0 1px rgba(143, 208, 245, .1); }
 .cal .open { --c: transparent; box-shadow: inset 0 0 0 1.5px var(--accent); animation: cal-wait 2.4s ease-in-out infinite; }
 @keyframes cal-wait { 50% { box-shadow: inset 0 0 0 1.5px rgba(143, 208, 245, .35); } }
@@ -440,6 +468,10 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
 .cd-head b { color: var(--text); font-weight: 700; } .cd-head span { color: var(--faint); font-size: 13px; }
 .cd-state { color: var(--muted) !important; }
 .cd-abyss { color: #d6ff7a !important; font-weight: 700; font-size: 11px !important; letter-spacing: .1em; text-transform: uppercase; }
+.cd-beyond { color: var(--t-beyond) !important; font-weight: 700; font-size: 11px !important; letter-spacing: .1em; text-transform: uppercase; }
+.rows .sub.beyond { color: var(--beyond-soft); }
+#e-rounds li.tier-beyond .e-name, #e-rounds li.tier-beyond .e-depth, #e-rounds li.tier-beyond .e-cat b { color: var(--t-beyond); }
+#sum li.tier-beyond .sum-depth, #sum li.tier-beyond.best .sum-depth, .bars li.tier-beyond .bar-name { color: var(--t-beyond); }
 .cd-facts { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .cd-facts span { display: inline-flex; gap: 6px; align-items: baseline; }
 .cd-facts b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -595,6 +627,12 @@ html.in-play .acct-btn { display: none; }
 .rc-tag .x { display: none; font-size: 11px; color: var(--lumen); font-weight: 600; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
 .rc-tag.has-note .x { display: block; }
 .rc-tag.me .n { color: var(--lumen); } .rc-tag.me .d { font-size: 12.5px; }
+.rc-tag.beneath .d, .rc-tag.beneath .x { color: var(--t-beyond); } .rc-tag.beneath .n { text-shadow: 0 0 10px rgba(var(--beyond-glow), .6), 0 1px 4px rgba(2, 6, 16, .95); }
+.hint.beyond { color: var(--t-beyond); }
+.rc-edge.beneath { box-shadow: inset 0 0 0 1px rgba(var(--beyond-glow), .55); } .rc-edge.beneath b { color: var(--t-beyond); }
+.rc-map-dot.beneath { box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .9), 0 0 0 3px var(--t-beyond), 0 0 10px rgba(var(--beyond-glow), .7); }
+.r-try.beyond { box-shadow: inset 0 0 0 1.5px var(--t-beyond); } .r-try.beyond .r-try-d { color: var(--t-beyond); }
+.r-best li.beyond .r-ans, .r-best li.beyond b, .r-answers td.beyond { color: var(--t-beyond); }
 .rc-tag.away { opacity: .5; }
 .rc-edge-row { position: absolute; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .rc-edge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 4px 7px; border-radius: 999px; font-size: 11.5px; color: var(--muted); background: rgba(3, 8, 20, .72); box-shadow: inset 0 0 0 1px var(--line-2); }
@@ -724,7 +762,8 @@ html.in-play .acct-btn { display: none; }
         <li class="tier-shallows"><i></i><b>Shallows</b><span>0 to 50 m · 1 in 10 to 1 in 30</span></li>
         <li class="tier-mid"><i></i><b>Midwater</b><span>50 to 100 m · 1 in 30 to 1 in 100</span></li>
         <li class="tier-deep"><i></i><b>The Deep</b><span>100 to 200 m · 1 in 100 to 1 in 1,000</span></li>
-        <li class="tier-abyss"><i></i><b>The Abyss</b><span>below 200 m · rarer than 1 in 1,000</span></li>
+        <li class="tier-abyss"><i></i><b>The Abyss</b><span>200 to 299 m · 1 in 1,000 to 1 in 10,000</span></li>
+        <li class="tier-beyond"><i></i><b>Unfathomable</b><span>beneath the iceberg · rarer than 1 in 10,000</span></li>
       </ul>
       <div class="home-actions">
         <button class="btn" id="play" type="button">Play today's iceberg</button>
@@ -848,6 +887,7 @@ html.in-play .acct-btn { display: none; }
 <script src="sea.js"></script>
 <script src="icetimer.js"></script>
 <script src="iceberg.js"></script>
+<script src="colossal.js"></script>
 <script src="wildlife.js"></script>
 <script src="share.js"></script>
 <script>

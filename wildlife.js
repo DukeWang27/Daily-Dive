@@ -184,14 +184,6 @@
     ell(g, 7.5, 6.5, 2, 2, "#d9ecff"); px(g, 7, 6, "#0b1019"); L.push([7, 5, "#d9ecff", 0.5]);
     for (let x = 14; x < 44; x += 3) L.push([x, x < 36 ? 2 : 4, "#7f9cc4", 0.22]);                                 // a faint rim so it reads in the dark
   });
-  A.colossal = shape(74, 30, (g, L) => {
-    poly(g, [[14, 15], [18, 8], [30, 5], [46, 5.4], [58, 8], [68, 12.4], [74, 15], [68, 17.6], [58, 22], [46, 24.6], [30, 25], [18, 22]], "#2b3852");
-    poly(g, [[44, 5.4], [56, 0], [70, 9], [72, 14]], "#394b6c"); poly(g, [[44, 24.6], [56, 30], [70, 21], [72, 16]], "#394b6c"); // broad paddle fins
-    poly(g, [[4, 15], [8, 9.6], [15, 9], [15, 21], [8, 20.4]], "#253350");
-    over(g, () => { g.fillStyle = "#4c618a"; g.fillRect(0, 0, 74, 9); g.fillStyle = "#192540"; g.fillRect(0, 21, 74, 9); });
-    ell(g, 9.5, 15, 3.4, 3.4, "#e3f1ff"); ell(g, 9.5, 15, 1.6, 1.6, "#0a0f18"); L.push([8, 13, "#e3f1ff", 0.7], [10, 13, "#e3f1ff", 0.35]);
-    for (let x = 20; x < 70; x += 4) L.push([x, x < 46 ? 5 : x < 58 ? 3 : 8, "#7f9cc4", 0.22]);
-  });
   A.bigfin = shape(21, 15, (g, L) => {
     poly(g, [[10.5, 0], [13, 3], [14, 9], [12.6, 14], [8.4, 14], [7, 9], [8, 3]], "#c3d1e2");                   // mantle, tip up
     poly(g, [[8, 2], [0, 5], [1, 9], [7.4, 9]], "#a9bbd2"); poly(g, [[13, 2], [21, 5], [20, 9], [13.6, 9]], "#a9bbd2"); // the big fins
@@ -423,13 +415,36 @@
         }
         blit(g, A.bigfin, x, y + flap, 1, null, D.a); lights(D, A.bigfin, x, y + flap, 1, D.a);
       } },
-    { key: "colossal", name: "Colossal squid", latin: "Mesonychoteuthis hamiltoni", min: 300, real: "The Southern Ocean, about 1,000 to 2,000 m; the heaviest invertebrate, with the largest eyes of any animal", line: "A colossal squid rises out of the dark",
-      start: (c, E, at, side) => { c.dir = -side; c.x = side > 0 ? at.hi + 70 : at.lo - 42; c.y0 = at.below + 54; c.level = at.below + 20; c.len = 110; c.speed = 15; },
-      step: (c, dt, E) => { c.sq = pulse(D_t(E), c.ph, 4); c.x += c.dir * (c.speed * 0.6 + c.sq * c.speed) * dt; c.y0 = Math.max(c.level, c.y0 - 3 * dt); c.y = c.y0 + Math.sin(D_t(E) * 0.18 + c.ph) * 5; },
+    // The colossal squid lives only beneath the iceberg (colossal.js draws it). It is met in stages: first the two
+    // glowing bars beside its eyes far off in the dark, then its outline growing as it comes nearer, then the fins,
+    // the mantle and the great eye crossing the light around the answer, the arms and tentacles streaming after it
+    // and on out of the frame. Then it goes back into the dark.
+    { key: "colossal", name: "Colossal squid", latin: "Mesonychoteuthis hamiltoni", min: 300, big: true, real: "The Southern Ocean, about 1,000 to 2,000 m; the heaviest invertebrate, with the largest eyes of any animal", line: "A colossal squid comes out of the dark",
+      start: (c, E, at, side) => {
+        const sq = window.Colossal.create(7 + Math.floor(Math.abs(at.x * 13 + at.y * 7)) % 97);
+        sq.speed = 0; sq.dir = 1; sq.angle = sq.heading = -Math.PI / 2; c.sq = sq; c.side = side; c.mx = at.x; c.my = at.y; c.life = 48; c.len = 220; c.pf = 1;
+        c.x = at.x + side * 44; c.y0 = c.y = at.y + 250;
+      },
+      // It rises out of the deep beside the answer, on the side away from the words, tail first as squid swim:
+      // the fins and the long mantle come up out of the dark, then the head and the great eye pass the light at the
+      // answer's own depth, then the arms and the two long tentacles trail up after it and out of the top of the view.
+      step: (c, dt) => {
+        const sq = c.sq, a = c.age, sd = c.side, ease = k => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
+        const T = 11, k1 = ease(a / T), k2 = ease((a - T) / 32);
+        const y1 = c.my - 14, y2 = c.my - 330;
+        c.y = a < T ? c.my + 250 + (y1 - c.my - 250) * k1 : y1 + (y2 - y1) * k2;
+        c.x = c.mx + sd * (44 + 8 * Math.sin(a * 0.15)) + (a > T ? sd * 30 * k2 : 0);
+        sq.heading = -Math.PI / 2 - sd * (0.1 * Math.sin(a * 0.11 + 1) + (a > T ? 0.18 * k2 : 0));
+        sq.scale = 0.8 + 0.2 * ease(a / 8);
+        c.fog = a < T ? 0.7 - 0.66 * ease(a / 8) : 0.04 + 0.78 * ease((a - 30) / 16);
+        window.Colossal.step(sq, dt);
+      },
       draw: (c, D) => {
-        const x = D.X(c.x - 37), y = D.Y(c.y - 15), hx = c.dir > 0 ? x + 4 : x + 69;
-        squidArms(D, D.g, c, hx, y + 15, 8, 30, 52, "#2a3854", 0.92 * D.a);
-        blit(D.g, A.colossal, x, y, c.dir, null, D.a); lights(D, A.colossal, x, y, c.dir, D.a);
+        const v = D.view || {}, sq = c.sq;
+        sq.x = D.X(c.x); sq.y = D.Y(c.y);
+        const lights = (v.lights || []).map(L => ({ x: D.X(L.x), y: D.Y(L.y), r: L.r, k: L.k, col: L.col }));
+        const A = D.E.avoid, dim = A ? { l: D.X(A.l), r: D.X(A.r), t: D.Y(A.t), b: D.Y(A.b) } : null;
+        window.Colossal.draw(D.g, D.L, sq, lights, { ambient: 0.02, fog: c.fog || 0, alpha: D.a, dim });
       } },
   ];
   const D_t = E => E.t;
@@ -456,13 +471,13 @@
       });
       built = v.w + "x" + v.u + ":" + low;
       // Let everything settle into motion before it is first seen.
-      for (let i = 0; i < 30; i++) step(0.4);
+      for (let i = 0; i < 30; i++) step(0.4, false);       // (visitors are not hurried along)
     }
-    function step(dt) {
+    function step(dt, visitors = true) {
       t += dt; E.t = t; E.calm = calm;
       for (const c of animals) c.sp.step(c, dt, E);
-      for (const c of guests) { c.age += dt; c.sp.step(c, dt, E); }
-      guests = guests.filter(c => c.age < c.life && c.x > E.lo - 260 && c.x < E.hi + 260);
+      if (visitors) for (const c of guests) { c.age += dt; c.sp.step(c, dt, E); }
+      guests = guests.filter(c => c.age < c.life && (c.sp.big || (c.x > E.lo - 260 && c.x < E.hi + 260)));
     }
     function draw() {
       const v = berg.view, u = v.u;
@@ -476,11 +491,11 @@
       const n = v.note;
       E.avoid = n ? { l: (n.l - v.x0) / u - 6, r: (n.r - v.x0) / u + 6, t: (n.t - v.y0) / u - 5, b: (n.b - v.y0) / u + 5 } : null;
       const top = -by - 40, bottom = top + cv.back.height + 80;
-      const D = { t, low, E, L: ctx.lume, g: null, a: 1, X: x => Math.round(x) + bx, Y: null };
+      const D = { t, low, E, L: ctx.lume, g: null, a: 1, X: x => Math.round(x) + bx, Y: null, view: v };
       // ghost: a second, faint copy on the light layer, so a great animal still shows as a shape in the dark.
       const paint = (c, ghost) => {
         const pf = c.pf || 1, yy = v.camY + (c.y - v.camY) * pf;
-        if (c.sp.key !== "spark" && (yy < top - 80 || yy > bottom + 80)) return false;
+        if (c.sp.key !== "spark" && !c.sp.big && (yy < top - 80 || yy > bottom + 80)) return false;
         D.g = ctx[ghost ? "lume" : c.layer || "back"]; D.L = ghost ? null : ctx.lume; D.Y = y => Math.round(v.camY + (y - v.camY) * pf) + by;
         const a = E.avoid;
         // Behind the annotation an animal fades back; under the controls it all but disappears. Words always win.
@@ -491,14 +506,14 @@
         return yy > -by + 6 && yy < -by + cv.back.height - 6 && c.x > -bx + 4 && c.x < -bx + cv.back.width - 4;
       };
       if (guests.length) {
-        for (const c of guests) { c.fade = Math.min(1, c.age / (c.hover ? 3 : 0.8), (c.life - c.age) / 3); paint(c); if (!low) paint(c, true); }
+        for (const c of guests) { c.fade = Math.min(1, c.age / (c.hover ? 3 : 0.8), (c.life - c.age) / 3); paint(c); if (!low && !c.sp.big) paint(c, true); }
         // They pass behind the iceberg: cut its outline back out of the light layer.
         if (!low) for (let cy = 0; cy < cv.lume.height; cy++) { const sp = I.iceSpan(cy - by); if (sp) ctx.lume.clearRect(sp[0] + bx, cy, sp[1] - sp[0], 1); }
       }
       inView = [];
       for (const c of animals) if (paint(c) && c.sp.key !== "spark") { note(c.sp); if (!inView.includes(c.sp.key)) inView.push(c.sp.key); }
       // If drawing is slow on this device, quietly thin the water out.
-      cost += performance.now() - t0; frames++;
+      if (!guests.some(c => c.sp.big)) { cost += performance.now() - t0; frames++; }   // the colossal squid is a one-off: it doesn't make the rest of the water thinner
       if (frames === 90) { if (!low && !auto && cost / frames > 7) { auto = true; low = true; populate(); } cost = 0; frames = 0; }
     }
     // A species counts as seen once it has been in view for a moment.
@@ -542,6 +557,8 @@
       get low() { return low; },
       onSight(f) { handlers.sight = f; },
       get count() { return animals.length; }, get guests() { return guests.map(g => g.sp.key); },
+      // For checks: where each visiting animal is and how long it has been here.
+      get visits() { return guests.map(g => ({ key: g.sp.key, age: +g.age.toFixed(2), x: Math.round(g.x), y: Math.round(g.y), at: g.my != null ? [Math.round(g.mx), Math.round(g.my)] : null })); },
       // For checks and tuning: what is in view, how long drawing takes, and how many times the water has been refilled.
       stats: () => ({ animals: animals.length, guests: guests.length, low, cost: frames ? cost / frames : 0, inView: inView.slice(), made, reduce }),
       redraw: draw,

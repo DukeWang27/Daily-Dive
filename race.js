@@ -124,7 +124,12 @@
     // The daily game's wildlife, reused: an adapter makes the race camera look like the iceberg's to it.
     if (window.Wildlife) {
       const adapter = { life: { back: S.c.back, front: S.c.front, lume: S.c.lume }, onRender: f => S.lifeHooks.push(f),
-        get view() { const wy = wildY(mOf(S.camY)), f = S.free; return { x0: S.x0, y0: Math.round(S.fy - wy * S.u), u: S.u, z: S.u, w: S.w, h: S.h, camY: wy, axis: S.x0 + CX * S.u, frame: { l: f.l, r: S.w - f.r, t: f.t, b: S.h - f.b }, depth: Math.min(1, mOf(S.camY) / 1800), settled: true, busy: false, note: null, focus: null }; } };
+        get view() {
+          const wy = wildY(mOf(S.camY)), f = S.free, y0 = Math.round(S.fy - wy * S.u);
+          // Each submarine's lamp lights the water ahead of it (the colossal squid is lit only by these).
+          const lights = [...S.subs.values()].map(s => ({ x: s.x + 26, y: (S.y0 + s.y * S.u - y0) / S.u + 3, r: 58, k: 1.1, col: s.beneath ? [1, 0.8, 0.74] : [0.86, 0.94, 1] }));
+          return { x0: S.x0, y0, u: S.u, z: S.u, w: S.w, h: S.h, camY: wy, axis: S.x0 + CX * S.u, frame: { l: f.l, r: S.w - f.r, t: f.t, b: S.h - f.b }, depth: Math.min(1, mOf(S.camY) / 1800), settled: true, busy: false, note: null, focus: null, lights };
+        } };
       S.life = window.Wildlife.create(adapter, { low: G().store.get("fx", "full") === "low" });
     }
     loop(0);
@@ -215,7 +220,13 @@
   // The submarines' windows and lamps, on their own light layer above the dark.
   function drawLights(bx, by, dark) {
     const L = S.g.lamps; L.clearRect(0, 0, S.c.lamps.width, S.c.lamps.height);
-    for (const s of S.subs.values()) window.SubArt.lights(L, Math.round(s.x + bx), Math.round(s.y + by), s.look, S.t, { thrust: s.thrust, dark: 0.35 + dark * 0.75 });
+    for (const s of S.subs.values()) {
+      window.SubArt.lights(L, Math.round(s.x + bx), Math.round(s.y + by), s.look, S.t, { thrust: s.thrust, dark: 0.35 + dark * 0.75 });
+      if (s.beneath) {   // an Unfathomable find this question: a low red light breathing round the submarine
+        const x = s.x + bx, y = s.y + by, k = 0.22 + 0.06 * Math.sin(S.t * 1.05), gr = L.createRadialGradient(x, y, 2, x, y, 46);
+        gr.addColorStop(0, `rgba(224,92,80,${k.toFixed(3)})`); gr.addColorStop(1, "rgba(224,92,80,0)"); L.fillStyle = gr; L.fillRect(x - 48, y - 48, 96, 96);
+      }
+    }
   }
   // Names and depths over the submarines, as ordinary text. A racer outside the open water gets a marker at its edge.
   function placeLabels() {
@@ -225,7 +236,7 @@
       let el = S.labels.get(s.name);
       if (!el) { el = h("div.rc-tag", h("span.n"), h("b.d"), h("span.x")); S.labelBox.append(el); S.labels.set(s.name, el); }
       el.style.setProperty("--who", s.look.hull.base);
-      el.classList.toggle("me", !!s.me); el.classList.toggle("away", s.here === false);
+      el.classList.toggle("me", !!s.me); el.classList.toggle("away", s.here === false); el.classList.toggle("beneath", !!s.beneath);
       const n = s.me ? "You" : s.name, d = m(s.dist), x = s.note || "";
       if (el.dataset.k !== n + d + x) { el.dataset.k = n + d + x; el.querySelector(".n").textContent = n; el.querySelector(".d").textContent = d; el.querySelector(".x").textContent = x; el.classList.toggle("has-note", !!x); }
       const sx = S.x0 + s.x * u, sy = S.y0 + s.y * u;
@@ -237,10 +248,10 @@
     for (const [k, el] of S.labels) if (!seen.has(k)) { el.remove(); S.labels.delete(k); }
     // Racers out of view: small markers at the top or bottom of the open water, with how far away they are.
     const me = [...S.subs.values()].find(s => s.me), myD = me ? me.dist : 0;
-    const key = [f.l, f.r, f.t, f.b, ...edgeTop.map(s => "t" + s.name + Math.round(s.dist)), ...edgeBot.map(s => "b" + s.name + Math.round(s.dist)), Math.round(myD)].join();
+    const key = [f.l, f.r, f.t, f.b, ...edgeTop.map(s => "t" + s.name + Math.round(s.dist) + !!s.beneath), ...edgeBot.map(s => "b" + s.name + Math.round(s.dist) + !!s.beneath), Math.round(myD)].join();
     if (key !== S.edgeKey) {
       S.edgeKey = key; S.edge.textContent = "";
-      const chip = (s, where) => h("span.rc-edge.rc-" + where, { style: `--who:${s.look.hull.base}` }, h("i"), (s.me ? "You" : s.name) + " ", h("b", (where === "up" ? "↑ " : "↓ ") + m(Math.abs(s.dist - myD))));
+      const chip = (s, where) => h("span.rc-edge.rc-" + where + (s.beneath ? ".beneath" : ""), { style: `--who:${s.look.hull.base}` }, h("i"), (s.me ? "You" : s.name) + " ", h("b", (where === "up" ? "↑ " : "↓ ") + m(Math.abs(s.dist - myD))));
       const row = (list, where, style) => h("div.rc-edge-row.rc-" + where, { style: `left:${f.l + 8}px; right:${S.w - f.r + 8}px; ${style}` }, list.slice(0, 4).map(s => chip(s, where)));
       if (edgeTop.length) S.edge.append(row(edgeTop.sort((a, b) => b.dist - a.dist), "up", `top:${f.t + 8}px`));
       if (edgeBot.length) S.edge.append(row(edgeBot.sort((a, b) => a.dist - b.dist), "down", `top:${f.b - 34}px`));
@@ -252,12 +263,12 @@
   function drawMap() {
     const subs = [...S.subs.values()]; if (!subs.length) { S.map.textContent = ""; return; }
     const deepest = Math.max(400, ...subs.map(s => s.dist)) * 1.15;
-    const key = subs.map(s => s.name + Math.round(s.dist)).join() + Math.round(deepest);
+    const key = subs.map(s => s.name + Math.round(s.dist) + !!s.beneath).join() + Math.round(deepest);
     if (S.mapKey === key) return; S.mapKey = key;
     S.map.textContent = "";
     S.map.append(h("i.rc-map-line"));
     ZONES.forEach((z, i) => { if (i && z.from < deepest) S.map.append(h("span.rc-map-zone", { style: `top:${(z.from / deepest) * 100}%` }, z.name.replace("The ", ""))); });
-    for (const s of subs) S.map.append(h("b.rc-map-dot" + (s.me ? ".me" : ""), { style: `top:${(s.dist / deepest) * 100}%; --who:${s.look.hull.base}`, title: `${s.name}: ${m(s.dist)}` }));
+    for (const s of subs) S.map.append(h("b.rc-map-dot" + (s.me ? ".me" : "") + (s.beneath ? ".beneath" : ""), { style: `top:${(s.dist / deepest) * 100}%; --who:${s.look.hull.base}`, title: `${s.name}: ${m(s.dist)}` }));
   }
   // Keep the submarines in step with the race's players.
   function syncSubs(players, first) {
@@ -267,6 +278,8 @@
       let s = S.subs.get(p.username);
       if (!s) { s = { name: p.username, seat: p.seat, look: window.SubArt.look(p.seat), x: laneX(p.seat), y: yOf(p.distance || 0), vy: 0, dist: p.distance || 0, thrust: 0 }; S.subs.set(p.username, s); }
       s.me = !!p.me; s.here = p.here; s.seat = p.seat; s.look = window.SubArt.look(p.seat);
+      if (s.finds != null && (p.finds || 0) > s.finds) s.newFind = true;
+      s.finds = p.finds || 0;
       if (first) { s.dist = p.distance; s.y = yOf(p.distance); } else if (!(s.me && s.dist > p.distance)) s.dist = p.distance;   // my own moves come straight from my guess
     }
     for (const k of [...S.subs.keys()]) if (!keep.has(k)) S.subs.delete(k);
@@ -390,6 +403,9 @@
       if (r.status === "question" && prev.rank && rank !== prev.rank) S2.play("overtake", { dir: rank < prev.rank ? 1 : -1 });
       if (rank < prev.rank && r.status === "question") { const passed = r.players.filter(p => !p.me).sort((a, b) => b.distance - a.distance)[rank - 1]; if (passed) flash(`You passed ${passed.username}`); }
     }
+    // Another racer's Unfathomable find: everyone sees their submarine light up red and hears it, but not the answer.
+    for (const s of S.subs.values()) if (s.newFind) { s.newFind = false; if (!s.me) { s.beneath = r.round; if (prev && prev.id === r.id) { flash(`${s.name} found something Unfathomable`); S2.play("unfathomable"); } } }
+    if (r.status !== "question") for (const s of S.subs.values()) s.beneath = 0;
     const me = r.players.find(p => p.me), z = zoneAt(me ? me.distance : 0);
     if (prev && z > lastZone) { S2.play("zone", { level: z }); flash(`${ZONES[z].name}`); }
     lastZone = z;
@@ -506,7 +522,7 @@
     for (let i = 1; i <= 3; i++) {
       const g = mine.find(x => x.slot === i);
       const name = g ? (g.status === "ok" ? (cat ? (cat.answers.find(a => a.a === g.answer) || {}).d || g.answer : g.answer) : g.typed) : "";
-      list.append(h("li.r-try" + (!g ? (i === mine.length + 1 ? ".next" : ".empty") : g.status === "ok" ? ".ok" + (g === best ? ".best" : "") : ".pending"),
+      list.append(h("li.r-try" + (!g ? (i === mine.length + 1 ? ".next" : ".empty") : g.status === "ok" ? ".ok" + (g === best ? ".best" : "") + (window.Iceberg.isBeyond(g.depth) ? ".beyond" : "") : ".pending"),
         h("span.slot-n", String(i)), h("span.r-try-name", g ? name : `Guess ${i}`), h("span.r-try-d", g ? (g.status === "ok" ? m(g.depth) : "no depth") : "–")));
     }
     const me = race.players.find(p => p.me), d = $("#r-mydepth"); if (d && me) d.textContent = `Your depth ${m(me.distance)}`;
@@ -540,15 +556,19 @@
       if (res.status === "dup") { say("Already tried. No guess used.", "warn"); return; }
       (race.mine = race.mine || []).push({ round: r.round, slot: res.slot, typed: text, answer: res.answer, status: res.status, share: res.share, depth: res.depth });
       const me = race.players.find(p => p.me); if (me) { me.distance = res.distance; me.used = res.slot; }
-      const sub = [...S.subs.values()].find(s => s.me); if (sub) { sub.dist = res.distance; sub.note = res.status === "ok" ? `${j.row ? (j.row.d || j.row.a) : text} · ${G().pctText(res.share)}` : ""; setTimeout(() => { if (sub.note && sub.dist === res.distance) sub.note = ""; }, 3200); }
+      const beneath = res.status === "ok" && window.Iceberg.isBeyond(res.depth);
+      const sub = [...S.subs.values()].find(s => s.me);
+      if (sub) { sub.dist = res.distance; sub.note = res.status === "ok" ? `${j.row ? (j.row.d || j.row.a) : text} · ${beneath ? "Unfathomable" : G().pctText(res.share)}` : ""; if (beneath) { sub.beneath = r.round; sub.finds = (sub.finds || 0) + 1; } setTimeout(() => { if (sub.note && sub.dist === res.distance) sub.note = ""; }, beneath ? 6500 : 3200); }
       if (res.status !== "ok") say(`Saved for review: no depth.${res.left ? ` ${res.left} left.` : ""}`);
+      else if (beneath) { say(`Unfathomable: ${res.depth} m, ${G().pctText(res.share)} of players.${res.moved > 0 ? ` Down ${res.moved} m.` : ""}${res.left ? ` ${res.left} left.` : ""}`, "beyond"); if (res.moved > 0) window.Sound.play("thrust", { size: Math.min(1, res.moved / 260) }); window.Sound.play("unfathomable"); }
       else if (res.moved > 0) { say(`${res.depth} m · ${G().pctText(res.share)} of players. Down ${res.moved} m.${res.left ? ` ${res.left} left.` : ""}`, "good"); window.Sound.play("thrust", { size: Math.min(1, res.moved / 260) }); window.Sound.play(res.depth >= 200 ? "rare" : "reveal", { m: res.depth, lead: 0.6 }); }
       else { say(`${res.depth} m · not deeper than your best, so you stay at ${m(res.distance)}.${res.left ? ` ${res.left} left.` : ""}`); window.Sound.play("neutral"); }
       // An exceptional answer: something large comes past your submarine.
       if (res.status === "ok" && res.depth >= 200 && S.life && sub && !encountered.has(r.round)) {
         encountered.add(r.round);
         const kind = res.depth >= 300 ? "colossal" : res.depth >= 250 ? "bigfin" : "giant", e = S.life.encounterFor ? S.life.encounterFor(res.depth, []) : null;
-        setTimeout(() => { S.life.encounter((e && e.key) || kind, { x: sub.x, y: wildY(res.distance) }); window.Sound.play("encounter", { kind: (e && e.key) || kind }); }, 700);
+        // Placed in the wildlife's own coordinates, where the submarine is on screen.
+        setTimeout(() => { const wy = wildY(mOf(S.camY)) + (sub.y - S.camY); S.life.encounter((e && e.key) || kind, { x: sub.x, y: wy }); window.Sound.play("encounter", { kind: (e && e.key) || kind }); }, 700);
       }
       tries(); standing(); nudge();
       if (res.left === 0) say("All three used. Waiting for the others…");
@@ -569,7 +589,7 @@
     const nameOf = g => q ? ((q.answers.find(a => a.a === g.answer) || {}).d || g.answer) : g.answer;
     const rows = r.players.slice().sort((a, b) => ((best[b.username] || {}).depth || 0) - ((best[a.username] || {}).depth || 0));
     box.append(h("div.r-between", h("p.eyebrow", `Question ${r.round} of ${r.q_count} · ${title}`), h("h2.r-title", "Deepest answers"),
-      h("ul.r-best", rows.map(p => { const g = best[p.username]; return h("li" + (g && g.depth === top && top > 0 ? ".won" : "") + (p.me ? ".me" : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` },
+      h("ul.r-best", rows.map(p => { const g = best[p.username]; return h("li" + (g && g.depth === top && top > 0 ? ".won" : "") + (p.me ? ".me" : "") + (g && window.Iceberg.isBeyond(g.depth) ? ".beyond" : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` },
         h("i.r-dot"), h("span.r-name", p.me ? "You" : p.username), h("span.r-ans", g ? nameOf(g) : "nothing counted"), h("span.r-pct", g ? G().pctText(g.share) : ""), h("b", g ? m(g.depth) : "0 m")); })),
       h("p.fine#r-next"), h("button.link#r-leave", { type: "button", onclick: () => { if (confirm("Leave this race? You can't rejoin it once you leave.")) leave(); } }, "Leave race")));
     // The answers, briefly, above each submarine.
@@ -602,13 +622,16 @@
         h("span.r-links", h("button.link", { type: "button", onclick: () => window.Viewer.openRace(r.id, r.match, x.username) }, "Explore"),
           x.username !== r.me && p.friend === false ? h("button.link", { type: "button", onclick: e => act(e.currentTarget, async () => { await A.rpc("friend_request", { p_username: x.username }); e.target.textContent = "Request sent"; }) }, "Add friend") : null)); })),
       h("details.r-answers", h("summary", "Best answer on each question"), h("div.scroll", h("table", h("tr", h("th", "Question"), ...res.map(x => h("th", x.username === r.me ? "You" : x.username))),
-        ...(r.questions || []).map((_, i) => h("tr", h("td", rowsFor(r.me)[i].title), ...res.map(x => { const c = rowsFor(x.username)[i]; return h("td", c.name ? `${c.name} · ${c.depth} m` : "–"); })))))),
+        ...(r.questions || []).map((_, i) => h("tr", h("td", rowsFor(r.me)[i].title), ...res.map(x => { const c = rowsFor(x.username)[i]; return h("td" + (window.Iceberg.isBeyond(c.depth) ? ".beyond" : ""), c.name ? `${c.name} · ${c.depth} m` : "–"); })))))),
       h("div.row.r-actions",
         h("button.btn", { type: "button", id: "r-rematch", onclick: e => act(e.currentTarget, async () => { race = await call("race_rematch", { p_race: r.id }); nudge(); update(); }) }, r.kind === "public" ? "Race again" : r.kind === "practice" ? "Practice again" : "Rematch"),
         h("button.btn.ghost", { type: "button", onclick: () => leave() }, "Leave"))));
   }
 
   // Tests only: put submarines at chosen depths to look at the deeper water (never reachable from the game itself).
-  const preview = PARAMS.has("test") ? (list) => { const g = G(); g.show("race"); mount(); view = "preview"; dock().textContent = ""; syncSubs(list.map((d, i) => ({ username: i ? "Racer" + i : "You", seat: i, distance: d, me: !i, here: true })), true); S.camY = yOf(list[0]); } : undefined;
-  window.Race = { open, close, preview, get state() { return race; }, get view() { return view; }, get scene() { return { subs: [...S.subs.values()].map(s => ({ name: s.name, dist: s.dist, y: s.y, me: s.me })), camY: S.camY, u: S.u, zone: ZONES[zoneAt(mOf(S.camY))].name }; }, ZONES, walls, yOf };
+  const preview = PARAMS.has("test") ? (list, o = {}) => {
+    const g = G(); g.show("race"); mount(); view = "preview"; dock().textContent = ""; syncSubs(list.map((d, i) => ({ username: i ? "Racer" + i : "You", seat: i, distance: d, me: !i, here: true })), true); S.camY = yOf(list[0]);
+    if (o.squid && S.life) { const me = [...S.subs.values()].find(s => s.me); me.beneath = 1; setTimeout(() => S.life.encounter("colossal", { x: me.x, y: wildY(mOf(S.camY)) }), 50); }
+  } : undefined;
+  window.Race = { open, close, preview, get state() { return race; }, get view() { return view; }, get scene() { return { subs: [...S.subs.values()].map(s => ({ name: s.name, dist: s.dist, y: s.y, me: s.me, beneath: !!s.beneath })), camY: S.camY, u: S.u, zone: ZONES[zoneAt(mOf(S.camY))].name, guests: S.life ? S.life.guests : [], flash: ($("#r-flash") || {}).textContent || "" }; }, ZONES, walls, yOf };
 })();

@@ -232,7 +232,7 @@ const sightLine = key => { const e = key && Wildlife && Wildlife.ENCOUNTERS.find
 function ensureBerg() {
   if (berg) return;
   berg = window.Iceberg.create($("#ib"), { speed: SPEED });
-  berg.onDepth(d => { if (screen === "play") Sound.setAmbience("play", d); });
+  berg.onDepth((d, b) => { if (screen === "play") Sound.setAmbience("play", d, b); });
   berg.onFocus(i => { document.querySelectorAll("#slots .slot, #sum li").forEach(n => n.classList.toggle("active", +n.dataset.bi === i)); });
   // The animals that live in the water (wildlife.js). The game runs the same without them.
   if (Wildlife) {
@@ -420,10 +420,14 @@ function submit() {
 async function reveal(cat, r, g) {
   clockStop(); busy = true;
   const index = r.guesses.indexOf(g), before = okGuesses(r).filter(x => x !== g && x.bi != null), prevBest = before.reduce((b, x) => !b || x.share < b.share ? x : b, null);
-  const d = depthOf(g.share), deeper = !prevBest || g.share < prevBest.share, special = d >= 200 && deeper;
+  const d = depthOf(g.share), deeper = !prevBest || g.share < prevBest.share, special = d >= 200 && deeper, beneath = Iceberg.isBeyond(d);
   g.bi = berg.count;
   renderSlots(index);
-  berg.onTravel((it, dir, ms) => { Sound.play("travel", { dir, seconds: ms / 1000 }); if (special) Sound.play("rare", { lead: ms / 1000 }); if (life) life.calm(ms + 2600); });
+  // Beneath the iceberg: its own long descent and its own discovery sound, whether or not it is your deepest.
+  berg.onTravel((it, dir, ms) => {
+    if (beneath && dir > 0) Sound.play("descend", { seconds: ms / 1000 }); else { Sound.play("travel", { dir, seconds: ms / 1000 }); if (special && !beneath) Sound.play("rare", { lead: ms / 1000 }); }
+    if (life) life.calm(ms + 2600);
+  });
   await berg.add(bergItem(cat, r, g, index + 1), { special });
   if (!state || cur() !== r) return;
   busy = false; clockStart();
@@ -439,7 +443,7 @@ async function reveal(cat, r, g) {
   }
   // Landed: say what was found, and whether it beat your deepest.
   renderSlots(-1, index); tagBest(cat, r);
-  if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260), m: d });
+  if (beneath) Sound.play("unfathomable"); else if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260), m: d });
   const left = GUESSES - r.guesses.length, more = left ? ` ${plural(left, "guess")} left.` : "";
   const counted = $("#hint").textContent.startsWith("Counted as") ? $("#hint").textContent + " " : "";
   setTimeout(() => {

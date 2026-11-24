@@ -1,0 +1,10 @@
+{
+  "name": "iceberg",
+  "private": true,
+  "type": "module",
+  "description": "Iceberg daily word game. The game itself is static files; these packages are only for the optional api/verify.js review function.",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.13.0",
+    "zod": "^4.6.7"
+  }
+}

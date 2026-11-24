@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Iceberg</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Iceberg: a daily guessing game. Three guesses per question. The rarer your answer, the deeper it sits. How deep can you go?">
+<meta name="theme-color" content="#040917">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600&family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Iceberg. One world: a night sea that the whole game sits in, with the iceberg as the stage.
+   Three guesses per question: the question, the box and three guess slots sit beside the iceberg.
+   Pixel art and the pixel font are reserved for the scenery and the wordmark; everything you read or tap uses Inter.
+   Containers are rare on purpose: space, alignment and a few hairlines do the organising. */
+:root {
+  --bg: #040917; --sea-1: #0a1a3a; --panel: rgba(8, 17, 38, .72); --panel-solid: #0a1530;
+  --line: rgba(143, 208, 245, .12); --line-2: rgba(143, 208, 245, .22);
+  --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e;
+  --ice: #eaf6ff; --accent: #8fd0f5; --gold: #ffcf5a; --amber: #f2b45a; --coral: #ff8f8f;
+  --t-tip: #eaf6ff; --t-shallows: #8fd0f5; --t-mid: #57abe6; --t-deep: #9091f7; --t-abyss: #c9a6ff;
+  --pixel: "Pixelify Sans", ui-monospace, monospace;
+  --ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --vvh: 100dvh; --top-h: 64px; --gutter: max(16px, env(safe-area-inset-left, 0px));
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { background: var(--bg); -webkit-text-size-adjust: 100%; }
+body { margin: 0; color: var(--text); font-family: var(--ui); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; background: var(--bg); min-height: 100dvh; overflow-x: hidden; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.tier-tip { --tier: var(--t-tip); } .tier-shallows { --tier: var(--t-shallows); } .tier-mid { --tier: var(--t-mid); }
+.tier-deep { --tier: var(--t-deep); } .tier-abyss { --tier: var(--t-abyss); }
+/* Category icons (icons.js): one flat two-tone style, sized by font-size, tinted per screen. */
+.cat-icon { display: inline-grid; place-items: center; width: 1em; height: 1em; flex: none; color: var(--ice); --icon-tint: rgba(143, 208, 245, .24); }
+.cat-icon .cat-svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 6px rgba(143, 208, 245, .28)); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* The sea behind everything (sea.js): low-res pixel canvas, scaled up crisp. */
+#sea { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; z-index: 0; pointer-events: none; transition: opacity 1s ease; }
+.app { position: relative; z-index: 1; min-height: var(--vvh); display: flex; flex-direction: column; }
+
+/* Header */
+.top { height: var(--top-h); display: flex; justify-content: space-between; align-items: center; gap: 12px; position: relative; width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); flex: none; }
+.brand { font-family: var(--pixel); font-weight: 600; font-size: 22px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 10px; background: none; border: 0; padding: 4px 0; justify-self: start; }
+.brand-mark { width: 16px; height: 13px; background: var(--ice); clip-path: polygon(50% 0, 100% 100%, 0 100%); box-shadow: inset 0 -5px 0 var(--accent); }
+.steps { display: flex; gap: 10px; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.steps i { width: 9px; height: 9px; transform: rotate(45deg); border: 1.5px solid var(--line-2); transition: background .3s, border-color .3s, transform .3s; }
+.steps i.done { background: var(--accent); border-color: var(--accent); }
+.steps i.now { border-color: var(--ice); background: var(--ice); transform: rotate(45deg) scale(1.25); }
+.top-right { justify-self: end; display: flex; align-items: center; gap: 6px; position: relative; }
+.top-meta { color: var(--muted); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.icon-btn { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; border: 0; background: transparent; color: var(--muted); transition: background .15s, color .15s; }
+.icon-btn:hover { background: rgba(143, 208, 245, .1); color: var(--text); }
+.icon-btn svg { width: 22px; height: 22px; }
+.sound-panel { position: absolute; top: 48px; right: 0; width: 260px; padding: 16px; border-radius: 14px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: 0 16px 40px rgba(0,0,0,.5); display: grid; gap: 14px; z-index: 20; }
+.sound-panel label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+.sound-panel .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.sound-panel output { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; }
+.switch input { width: 40px; height: 22px; accent-color: var(--accent); }
+
+main { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: 8px var(--gutter) 40px; min-height: 0; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.muted { color: var(--muted); }
+.btn { border: 0; border-radius: 12px; padding: 15px 24px; font-weight: 700; font-size: 16px; background: var(--ice); color: #06112a; box-shadow: 0 3px 0 #8fb8da, 0 10px 30px rgba(143, 208, 245, .14); transition: transform .08s, box-shadow .08s, background .15s; }
+.btn:hover { background: #fff; }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #8fb8da; }
+.btn.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); }
+.btn.ghost:hover { background: rgba(143, 208, 245, .08); }
+.btn.wide { width: 100%; }
+
+/* Home */
+.home { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(28px, 5vw, 72px); align-items: center; min-height: calc(var(--vvh) - var(--top-h) - 60px); }
+.wordmark { font-family: var(--pixel); font-weight: 600; font-size: clamp(56px, 8.5vw, 96px); line-height: .9; letter-spacing: .01em; margin: 0; }
+.wordmark span { color: var(--accent); }
+.tagline { font-size: clamp(22px, 2.6vw, 30px); line-height: 1.25; font-weight: 800; margin: 22px 0 10px; letter-spacing: -.015em; }
+.tagline span { color: var(--accent); display: block; }
+.rules { color: var(--muted); margin: 0 0 24px; max-width: 46ch; }
+.depths { list-style: none; margin: 0 0 28px; padding: 0; max-width: 440px; }
+.depths li { display: grid; grid-template-columns: 14px auto 1fr; gap: 12px; align-items: baseline; padding: 7px 0; font-size: 15px; border-bottom: 1px solid var(--line); }
+.depths li:last-child { border: 0; }
+.depths i { width: 9px; height: 9px; transform: rotate(45deg); background: var(--tier); align-self: center; }
+.depths b { font-weight: 600; } .depths span { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; text-align: right; }
+.home-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.home-foot { margin-top: 18px; display: grid; gap: 8px; font-size: 14px; color: var(--muted); min-height: 22px; }
+.streak { color: var(--gold); font-weight: 700; }
+.scene { position: relative; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 5; background: #060c22; box-shadow: 0 30px 80px rgba(0,0,0,.45), 0 0 0 1px var(--line); }
+.scene canvas { position: absolute; left: 50%; image-rendering: pixelated; }
+.next-in { font-variant-numeric: tabular-nums; }
+
+/* Play: the iceberg is the stage; the question, the box and three guess slots sit beside it (below it on phones). */
+.play { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(330px, 1fr); gap: 28px; align-items: start; }
+.stage { position: sticky; top: 10px; min-width: 0; }
+#ib { height: min(calc(var(--vvh) - var(--top-h) - 36px), 800px); min-height: 380px; border-radius: 18px; box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(0,0,0,.5); }
+.side { min-width: 0; display: grid; gap: 16px; align-content: start; padding-top: 6px; }
+.q .eyebrow { margin-bottom: 8px; display: flex; justify-content: space-between; gap: 12px; }
+.q-title { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.q-icon { font-size: 38px; line-height: 1; flex: none; }
+.q-title h2 { font-size: clamp(24px, 2.8vw, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.q-hint { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.entry { position: relative; display: flex; }
+#answer { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; padding: 16px 62px 16px 18px; border-radius: 14px; border: 0; background: rgba(4, 10, 26, .78); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-2); transition: box-shadow .15s; }
+#answer:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 4px rgba(143, 208, 245, .12); }
+#answer::placeholder { color: var(--faint); font-weight: 500; }
+.entry.shake #answer { animation: shake .28s; }
+@keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+#add { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 10px; border: 0; background: var(--accent); color: #06112a; display: grid; place-items: center; }
+#add svg { width: 22px; height: 22px; }
+#add:active { transform: translateY(-50%) scale(.94); }
+.hint { min-height: 21px; margin: -8px 2px -4px; font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.hint.warn { color: var(--amber); } .hint.good { color: var(--accent); }
+.hint svg { width: 15px; height: 15px; flex: none; }
+/* The three guesses. Empty, waiting, revealed, deepest: each state reads at a glance. */
+.slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.slot { position: relative; width: 100%; min-height: 68px; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 14px; align-items: center; text-align: left; padding: 10px 16px 10px 14px; border-radius: 14px; border: 0; background: rgba(8, 17, 38, .5); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); transition: box-shadow .25s, background .25s; }
+.slot-n { width: 26px; height: 26px; display: grid; place-items: center; position: relative; font-size: 13px; font-weight: 800; color: var(--faint); }
+.slot-n::before { content: ""; position: absolute; inset: 3px; transform: rotate(45deg); box-shadow: inset 0 0 0 1.5px var(--line-2); transition: background .3s, box-shadow .3s; }
+.slot-n span { position: relative; }
+.slot-n svg { position: relative; width: 12px; height: 12px; }
+.slot-main { min-width: 0; display: grid; gap: 1px; }
+.slot-name { font-size: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.slot-sub b { color: var(--tier); font-weight: 600; }
+.slot-depth { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.slot-depth small { font-size: 13px; font-weight: 600; color: var(--muted); margin-left: 3px; letter-spacing: 0; }
+.slot-tag { position: absolute; top: -8px; right: 12px; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #2a1e00; background: var(--gold); border-radius: 5px; padding: 2px 7px; }
+.slot.empty { cursor: default; }
+.slot.empty .slot-name { color: var(--faint); font-weight: 500; font-size: 15px; }
+.slot.empty .slot-depth { color: var(--faint); font-weight: 600; font-size: 18px; }
+.slot.next { box-shadow: inset 0 0 0 1.5px var(--line-2); background: rgba(10, 22, 48, .7); }
+.slot.next .slot-n { color: var(--ice); } .slot.next .slot-n::before { box-shadow: inset 0 0 0 1.5px var(--ice); }
+.slot.next .slot-name { color: var(--muted); }
+.slot.revealing { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.slot.revealing .slot-n::before { background: var(--accent); box-shadow: none; animation: pulse 0.9s ease-in-out infinite; }
+.slot.revealing .slot-n { color: #06112a; }
+.slot.revealing .slot-depth { color: var(--muted); }
+@keyframes pulse { 50% { opacity: .35; } }
+.slot.done { cursor: pointer; }
+.slot.done .slot-n { color: #06112a; } .slot.done .slot-n::before { background: var(--tier); box-shadow: none; }
+.slot.done:hover, .slot.done.active { background: rgba(143, 208, 245, .08); }
+.slot.done.land { animation: land .7s ease-out; }
+@keyframes land { 0% { background: rgba(143, 208, 245, .22); } 100% { background: rgba(8, 17, 38, .5); } }
+.slot.best { box-shadow: inset 0 0 0 1.5px rgba(255, 207, 90, .75), 0 0 30px rgba(255, 207, 90, .08); }
+.slot.best .slot-depth { color: var(--gold); }
+.slot.pending .slot-n { color: var(--amber); } .slot.pending .slot-n::before { box-shadow: inset 0 0 0 1.5px var(--amber); }
+.slot.pending .slot-name { color: var(--muted); }
+.slot.miss .slot-n { color: var(--faint); } .slot.miss .slot-name { color: var(--faint); text-decoration: line-through; text-decoration-color: rgba(98, 121, 158, .6); }
+.slot.pending .slot-depth, .slot.miss .slot-depth { font-size: 14px; font-weight: 600; color: var(--faint); letter-spacing: 0; }
+.finish-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 46px; }
+.finish-row .btn { padding: 12px 18px; font-size: 15px; }
+.finish-note { font-size: 14px; color: var(--muted); }
+
+/* After the question: your dive, then everyone's answers. */
+.done-panel { display: grid; gap: 24px; }
+.best-line { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 4px 0 14px; border-bottom: 1px solid var(--line); }
+.best-line .lbl { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.best-line .name { font-size: 22px; font-weight: 800; letter-spacing: -.01em; overflow-wrap: anywhere; line-height: 1.15; margin-top: 4px; }
+.best-line .depth { font-size: clamp(38px, 5vw, 52px); font-weight: 800; color: var(--gold); line-height: .9; letter-spacing: -.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.best-line .depth small { font-size: 18px; margin-left: 4px; letter-spacing: 0; }
+.section h3 { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.section h3 .aside { letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--faint); font-size: 13px; }
+#sum { list-style: none; margin: 0; padding: 0; display: grid; }
+.sum-row { width: 100%; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "n name depth" ". sub sub"; column-gap: 12px; align-items: center; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--text); padding: 10px 8px; }
+button.sum-row:hover, #sum li.active .sum-row { background: rgba(143, 208, 245, .07); }
+.sum-n { grid-area: n; width: 20px; height: 20px; display: grid; place-items: center; position: relative; font-size: 11px; font-weight: 800; color: #06112a; }
+.sum-n::before { content: ""; position: absolute; inset: 2px; transform: rotate(45deg); background: var(--tier, var(--faint)); }
+.sum-n span, .sum-n svg { position: relative; } .sum-n svg { width: 10px; height: 10px; }
+.sum-name { grid-area: name; font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sum-depth { grid-area: depth; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sum-sub { grid-area: sub; font-size: 13px; color: var(--faint); display: flex; gap: 10px; flex-wrap: wrap; }
+.sum-sub .zone { color: var(--tier); font-weight: 600; }
+#sum li.best .sum-depth { color: var(--gold); }
+#sum li.best .sum-name::after { content: "Deepest"; margin-left: 10px; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #2a1e00; background: var(--gold); border-radius: 5px; padding: 2px 7px; vertical-align: 2px; }
+#sum li.off .sum-name { color: var(--muted); } #sum li.off .sum-depth { color: var(--faint); font-weight: 600; font-size: 13px; }
+#sum li.off .sum-n { color: var(--muted); } #sum li.off .sum-n::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
+#sum li.off.wait .sum-n { color: var(--amber); } #sum li.off.wait .sum-n::before { box-shadow: inset 0 0 0 1.5px var(--amber); }
+.sum-row .dispute { grid-area: depth; border: 0; background: rgba(143, 208, 245, .1); color: var(--text); font-size: 13px; font-weight: 600; padding: 7px 11px; border-radius: 8px; white-space: nowrap; }
+.sum-row .dispute:disabled { background: transparent; color: var(--faint); cursor: default; }
+.forgot { margin: 12px 0 0; color: var(--muted); font-size: 14px; }
+.forgot b { color: var(--text); }
+.review-note { font-size: 13px; color: var(--faint); margin: 10px 0 0; }
+.bars { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 9px; }
+.bars li { display: grid; grid-template-columns: minmax(80px, 34%) minmax(0, 1fr) auto; gap: 12px; align-items: center; font-size: 14px; }
+.bar-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars li.me .bar-name { color: var(--gold); }
+.bars li.me .bar-name::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 7px 2px 0; transform: rotate(45deg); background: var(--gold); }
+.track { height: 8px; position: relative; }
+.track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 2px; opacity: .85; }
+.bars li.me .track i { background: var(--gold); opacity: 1; }
+.track::before { content: ""; position: absolute; inset: 3px 0; background: rgba(143, 208, 245, .08); }
+.bar-val { color: var(--muted); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 13px; }
+.bar-val b { color: var(--text); font-weight: 600; }
+.axis { display: grid; grid-template-columns: minmax(80px, 34%) minmax(0, 1fr) auto; gap: 12px; font-size: 11px; color: var(--faint); margin: -6px 0 4px; }
+.axis .ticks { position: relative; height: 14px; border-top: 1px solid var(--line-2); }
+.axis .ticks span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.axis .ticks span::before { content: ""; position: absolute; left: 50%; top: -5px; height: 4px; border-left: 1px solid var(--line-2); }
+.axis .ticks span.first { transform: none; } .axis .ticks span.first::before { left: 0; }
+.axis .ticks span.last { transform: translateX(-100%); } .axis .ticks span.last::before { left: 100%; }
+.axis .pad { visibility: hidden; font-size: 13px; }
+.sublabel { font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
+.sample-badge { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); box-shadow: inset 0 0 0 1px rgba(255,207,90,.5); border-radius: 5px; padding: 2px 6px; margin-right: 6px; vertical-align: 1px; }
+.fine { font-size: 12.5px; color: var(--faint); margin: 6px 0 0; line-height: 1.45; }
+.rules-list { margin: 6px 0 0; padding-left: 18px; color: var(--faint); font-size: 13px; }
+details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; }
+.next-row { position: sticky; bottom: 0; margin-top: -8px; padding: 28px 0 calc(14px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(rgba(4, 9, 23, 0), rgba(4, 9, 23, .97) 42%); pointer-events: none; }
+.next-row .btn { pointer-events: auto; }
+
+/* Iceberg component (iceberg.js) */
+.ib { position: relative; overflow: hidden; background: #050b20; isolation: isolate; user-select: none; }
+.ib-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.ib-world canvas { display: block; image-rendering: pixelated; }
+.ib-snow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; }
+.ib-shade { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(1, 3, 10, 0) 0, rgba(1, 3, 10, 0) var(--r, 200px), rgba(1, 3, 10, .97) calc(var(--r, 200px) * 2.4)); }
+.ib-glow { position: absolute; left: 0; top: 0; width: 420px; height: 420px; margin: -210px 0 0 -210px; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, rgba(170, 220, 255, .32) 0%, rgba(150, 205, 250, .1) 32%, rgba(150, 205, 250, 0) 62%); mix-blend-mode: screen; transition: opacity .8s; }
+.ib-glow.rare { background: radial-gradient(circle, rgba(210, 180, 255, .45) 0%, rgba(190, 160, 255, .14) 30%, rgba(190, 160, 255, 0) 62%); }
+.ib-layer { position: absolute; inset: 0; pointer-events: none; }
+.ib-bestline { position: absolute; left: 0; right: 0; top: 0; height: 0; border-top: 1px dashed rgba(255, 207, 90, .4); pointer-events: none; transition: transform .2s; }
+.ib-mark { position: absolute; left: 0; top: 0; width: 12px; height: 12px; margin: -6px 0 0 -6px; padding: 0; border: 0; background: none; pointer-events: auto; cursor: pointer; }
+.ib-mark::before { content: ""; position: absolute; inset: 0; transform: rotate(45deg); background: var(--tier); box-shadow: 0 0 0 2px #050b20, 0 0 0 3.5px rgba(234, 246, 255, .75); transition: transform .4s, box-shadow .4s; }
+.ib-mark.best::before { box-shadow: 0 0 0 2px #050b20, 0 0 0 3.5px var(--gold), 0 0 16px rgba(255,207,90,.45); }
+.ib-mark { transition: opacity .3s; } .ib-mark.dim { opacity: 0; pointer-events: none; }
+.ib-mark.focus::before { transform: rotate(45deg) scale(1.4); }
+.ib-mark.focus::after { content: ""; position: absolute; inset: -12px; border: 1.5px solid rgba(255,207,90,.6); border-radius: 50%; animation: ring 1.8s ease-out 1; opacity: 0; }
+@keyframes ring { from { transform: scale(.5); opacity: .9; } to { transform: scale(1.9); opacity: 0; } }
+.ib-card { position: absolute; left: 0; top: 0; width: min(300px, calc(100% - 24px)); padding: 14px 16px 14px; border-radius: 14px;
+  background: rgba(5, 11, 27, .9); box-shadow: 0 0 0 1px var(--line-2), 0 12px 34px rgba(0,0,0,.45); opacity: 0; transition: opacity .35s ease; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.ib-card.in { opacity: 1; }
+.ib-card.deepest { box-shadow: 0 0 0 1px rgba(255,207,90,.65), 0 14px 40px rgba(0,0,0,.5), 0 0 48px rgba(255,207,90,.12); }
+.ib-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ib-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--tier); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ib-n { font-size: 12px; color: var(--faint); font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
+.ib-name { font-size: 25px; font-weight: 800; letter-spacing: -.015em; line-height: 1.15; overflow-wrap: anywhere; margin: 3px 0 6px; padding-right: 76px; }
+.ib-stat { font-size: 15px; font-weight: 600; }
+.ib-stat span { color: var(--muted); font-weight: 500; }
+.ib-rank { font-size: 13px; color: var(--muted); }
+.ib-blurb { font-size: 13px; color: var(--faint); margin-top: 6px; font-style: italic; }
+.ib-pts { position: absolute; top: 34px; right: 16px; font-size: 22px; font-weight: 800; color: var(--ice); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.ib-card.deepest .ib-pts { color: var(--gold); }
+.ib-tag { margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,207,90,.25); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--gold); }
+.ib-compact .ib-rank, .ib-compact .ib-blurb, .ib-compact .ib-tag, .ib-compact .ib-hud, .ib-compact .ib-nav { display: none; }
+.ib-compact .ib-card { padding: 9px 12px 10px; }
+.ib-compact .ib-name { font-size: 19px; margin: 1px 0 2px; }
+.ib-compact .ib-pts { top: 25px; right: 12px; font-size: 18px; }
+.ib-pill { position: absolute; left: 0; top: 0; display: inline-flex; align-items: baseline; gap: 8px; padding: 4px 10px; border: 0; border-radius: 999px; white-space: nowrap; max-width: 46%;
+  background: rgba(5, 11, 27, .82); box-shadow: 0 0 0 1px var(--line-2); font-size: 13px; font-weight: 700; color: var(--text); transition: opacity .3s; pointer-events: auto; cursor: pointer; }
+.ib-pill.best { box-shadow: 0 0 0 1px rgba(255,207,90,.5); color: var(--gold); }
+.ib-pill span { overflow: hidden; text-overflow: ellipsis; }
+.ib-pill b { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ib-pill.dim { opacity: 0; pointer-events: none; }
+.ib-hud { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; align-items: center; opacity: 0; transition: opacity .5s; }
+.ib-hud.on { opacity: 1; }
+.ib-depth { font-size: 13px; font-weight: 700; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: #bcd8f2; background: rgba(5,11,27,.7); padding: 4px 10px; border-radius: 8px; }
+.ib-nav { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 6px; }
+.ib-nav button { width: 38px; height: 38px; border: 0; border-radius: 10px; background: rgba(5, 11, 27, .82); box-shadow: 0 0 0 1px var(--line-2); color: var(--text); display: grid; place-items: center; }
+.ib-nav svg { width: 16px; height: 16px; }
+
+/* End of day: your iceberg, as a card you can keep. */
+.end { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: clamp(24px, 4vw, 56px); align-items: start; max-width: 1000px; margin: 0 auto; padding-top: 8px; }
+.card-wrap { position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 0 1px var(--line); background: #050b20; aspect-ratio: 4 / 5; }
+.card-wrap canvas { display: block; width: 100%; height: 100%; }
+.end-side { display: grid; gap: 22px; min-width: 0; }
+.total { margin-top: 8px; font-size: clamp(64px, 9vw, 96px); font-weight: 800; line-height: .9; color: var(--gold); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.total small { font-size: .32em; letter-spacing: 0; margin-left: 6px; }
+.end-facts { display: grid; gap: 4px; color: var(--muted); font-size: 15px; }
+.end-facts b { color: var(--text); }
+#e-rounds { list-style: none; margin: 0; padding: 0; display: grid; }
+#e-rounds li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+#e-rounds .cat-icon { font-size: 22px; }
+.e-main { min-width: 0; display: grid; }
+.e-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.e-cat { font-size: 13px; color: var(--muted); }
+.e-cat b { color: var(--tier, var(--muted)); font-weight: 600; }
+.e-depth { text-align: right; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.e-depth small { font-size: 12px; color: var(--muted); margin-left: 3px; }
+pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; background: rgba(4, 10, 26, .7); box-shadow: inset 0 0 0 1px var(--line-2); font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.end-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.end-actions .btn { padding: 13px 18px; font-size: 15px; }
+
+/* Small screens */
+@media (max-width: 920px) {
+  .home { grid-template-columns: 1fr; gap: 26px; min-height: 0; padding-top: 4px; }
+  .scene { aspect-ratio: 16 / 10; order: -1; }
+  /* Playing: one window tall. The iceberg takes whatever height is left above the question and slots. */
+  .play { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  main.fill { padding-bottom: 0; } /* guessing on a phone: exactly one window tall, nothing to scroll */
+  .play.playing { height: calc(var(--vvh) - var(--top-h) - 8px); }
+  .stage { position: relative; top: 0; flex: 1; min-height: 130px; display: flex; }
+  .play.playing #ib { height: auto; min-height: 0; flex: 1; }
+  .play:not(.playing) #ib { height: min(52vh, 520px); min-height: 320px; width: 100%; }
+  .side { gap: 10px; padding-top: 0; flex: none; }
+  .play.playing .q-hint, .play.playing .q .eyebrow { display: none; }
+  .q-icon { font-size: 26px; } .q-title { gap: 10px; }
+  .q-title h2 { font-size: 20px; }
+  #answer { font-size: 18px; padding: 14px 58px 14px 16px; }
+  #add { width: 42px; height: 42px; }
+  .hint { margin: -4px 2px 0; font-size: 13px; line-height: 1.35; height: 36px; min-height: 0; align-items: flex-start; overflow: hidden; } /* always two lines tall: the slots never shift */
+  .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .slot { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 2px; padding: 9px 10px 8px; align-content: center; border-radius: 12px; }
+  .slot-n { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; font-size: 11px; }
+  .slot-main { order: 2; } .slot-depth { order: 1; font-size: 20px; }
+  .slot-name { font-size: 14px; padding-right: 0; } .slot-sub { font-size: 11.5px; }
+  .slot-sub { white-space: normal; line-height: 1.3; }
+  .slot-sub .wide { display: none; } .slot-sub b { display: block; }
+  .slot { height: 88px; }
+  .slot.empty .slot-depth { font-size: 16px; } .slot.pending .slot-depth, .slot.miss .slot-depth { font-size: 12px; }
+  .slot-tag { top: -8px; right: auto; left: 9px; font-size: 9px; padding: 1px 6px; }
+  .finish-row { height: 46px; min-height: 0; gap: 10px; padding-bottom: 8px; flex-wrap: nowrap; }
+  .finish-row .btn { padding: 9px 14px; font-size: 14px; }
+  .finish-note { font-size: 13px; }
+  .end { grid-template-columns: 1fr; max-width: 480px; }
+}
+@media (max-width: 520px) {
+  :root { --top-h: 56px; }
+  .brand { font-size: 19px; }
+  .steps { gap: 7px; } .steps i { width: 8px; height: 8px; }
+  main { padding-bottom: 28px; }
+  .bars li, .axis { grid-template-columns: minmax(74px, 38%) minmax(30px, 1fr) auto; gap: 8px; }
+  .axis .ticks span:nth-last-child(even) { color: transparent; } /* narrow: label every other mark, always keeping the last */
+  .ib-card { padding: 12px 14px; width: min(270px, calc(100% - 20px)); }
+  .ib-name { font-size: 21px; }
+  .ib-pts { font-size: 20px; top: 31px; right: 14px; }
+}
+@media (max-width: 920px) and (max-height: 520px) { /* a phone with its keyboard open */
+  .play.playing .finish-row { display: none; }
+  .play.playing { gap: 8px; } .play.playing .side { gap: 8px; padding-bottom: 6px; }
+  .stage { min-height: 96px; }
+  .slot { height: 74px; padding-top: 6px; padding-bottom: 6px; }
+  #answer { padding-top: 11px; padding-bottom: 11px; }
+  .hint { height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<canvas id="sea" aria-hidden="true"></canvas>
+<div class="app">
+<header class="top">
+  <button class="brand" id="brand" type="button" aria-label="Iceberg home"><span class="brand-mark" aria-hidden="true"></span>Iceberg</button>
+  <div class="steps" id="steps" aria-hidden="true" hidden><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="top-right">
+    <span class="top-meta" id="top-meta">Daily #1</span>
+    <button class="icon-btn" id="sound-btn" type="button" aria-label="Sound settings" aria-expanded="false" aria-controls="sound-panel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path class="wave" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave" d="M18.5 5.5a9 9 0 0 1 0 13"/><path class="cross" d="m16 9 6 6m0-6-6 6" hidden/></svg>
+    </button>
+    <div class="sound-panel" id="sound-panel" role="dialog" aria-label="Sound settings" hidden>
+      <label class="switch">Sound <input type="checkbox" id="snd-on" role="switch" checked></label>
+      <label><span class="row">Effects <output id="snd-sfx-out">80%</output></span><input type="range" id="snd-sfx" min="0" max="100" step="5" value="80"></label>
+      <label><span class="row">Ambience <output id="snd-amb-out">55%</output></span><input type="range" id="snd-amb" min="0" max="100" step="5" value="55"></label>
+    </div>
+  </div>
+</header>
+<main>
+  <!-- Home -->
+  <section data-screen="home" class="home">
+    <div>
+      <h1 class="wordmark">Ice<span>berg</span></h1>
+      <p class="tagline">Three guesses. <span>How deep can you go?</span></p>
+      <p class="rules">Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts.</p>
+      <ul class="depths" aria-label="Depth zones">
+        <li class="tier-tip"><i></i><b>The Tip</b><span>above water · 1 in 10 players or more</span></li>
+        <li class="tier-shallows"><i></i><b>Shallows</b><span>0 to 50 m · 1 in 10 to 1 in 30</span></li>
+        <li class="tier-mid"><i></i><b>Midwater</b><span>50 to 100 m · 1 in 30 to 1 in 100</span></li>
+        <li class="tier-deep"><i></i><b>The Deep</b><span>100 to 200 m · 1 in 100 to 1 in 1,000</span></li>
+        <li class="tier-abyss"><i></i><b>The Abyss</b><span>below 200 m · rarer than 1 in 1,000</span></li>
+      </ul>
+      <div class="home-actions">
+        <button class="btn" id="play" type="button">Play today's iceberg</button>
+        <button class="btn ghost" id="practice" type="button" hidden>Practice dive</button>
+      </div>
+      <div class="home-foot">
+        <span class="streak" id="home-streak"></span>
+        <span class="next-in" id="home-next"></span>
+      </div>
+    </div>
+    <div class="scene" id="scene" aria-hidden="true"><canvas id="scene-art"></canvas></div>
+  </section>
+
+  <!-- A question: the iceberg stays put through guessing and results -->
+  <section data-screen="play" class="play" hidden>
+    <div class="stage"><div id="ib" aria-label="Today's iceberg with your guesses"></div></div>
+    <div class="side">
+      <div class="q">
+        <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
+        <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
+        <p class="q-hint" id="q-hint"></p>
+      </div>
+
+      <div id="play-panel" style="display:grid;gap:inherit">
+        <form class="entry" id="entry" autocomplete="off" novalidate>
+          <label class="sr" for="answer">Your guess</label>
+          <input id="answer" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" maxlength="60" placeholder="Type a guess">
+          <button id="add" type="submit" aria-label="Submit guess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg></button>
+        </form>
+        <p class="hint" id="hint" role="status" aria-live="polite"></p>
+        <ol class="slots" id="slots" aria-label="Your three guesses"></ol>
+        <div class="finish-row"><button class="btn ghost" id="finish" type="button" hidden>Finish</button><span class="finish-note" id="finish-note"></span></div>
+      </div>
+
+      <div id="done-panel" class="done-panel" hidden>
+        <div class="best-line"><div><div class="lbl" id="best-lbl">Your deepest</div><div class="name" id="best-name"></div></div><div class="depth" id="best-depth"></div></div>
+        <div class="section">
+          <h3>Your guesses <span class="aside" id="sum-aside"></span></h3>
+          <ol id="sum"></ol>
+          <p class="forgot" id="forgot"></p>
+          <p class="review-note" id="review-note"></p>
+        </div>
+        <div class="section">
+          <h3>Everyone's answers <span class="aside" id="players"></span></h3>
+          <p class="sublabel">Most common</p>
+          <ul class="bars" id="common"></ul>
+          <p class="sublabel">Rarest valid answers</p>
+          <ul class="bars" id="rare"></ul>
+          <div class="axis" aria-hidden="true"><span></span><span class="ticks" id="axis"></span><span class="pad">0.00% · 99,999</span></div>
+          <p class="fine">Each figure is the share of players who gave that answer at least once in their three guesses, so the shares add up to more than 100%. Bar length uses a log scale: each mark is 10× rarer.</p>
+          <p class="fine" id="sample-note"><span class="sample-badge">Sample</span><span id="sample-text"></span></p>
+          <details class="rules-box fine"><summary>How answers are judged</summary><ul class="rules-list" id="rules"></ul></details>
+        </div>
+        <div class="next-row"><button class="btn wide" id="next" type="button">Next question</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- End of day -->
+  <section data-screen="end" class="end" hidden>
+    <div class="card-wrap"><canvas id="share-canvas" width="1200" height="1500" role="img" aria-label="Your iceberg: the depth you reached on each question"></canvas></div>
+    <div class="end-side">
+      <div><p class="eyebrow">Today's total depth</p><div class="total"><span id="e-total">0</span><small>m</small></div></div>
+      <div class="end-facts"><span id="e-deepest"></span><span id="e-rank"></span><span class="streak" id="e-streak"></span></div>
+      <ul id="e-rounds"></ul>
+      <div>
+        <p class="eyebrow" style="margin-bottom:10px">Share without spoilers</p>
+        <pre class="sharecard" id="e-card"></pre>
+        <div class="end-actions"><button class="btn" id="save-card" type="button">Save image</button><button class="btn ghost" id="copy" type="button">Copy text</button><button class="btn ghost" id="home" type="button">Back to start</button></div>
+      </div>
+      <p class="muted" id="e-note"></p>
+    </div>
+  </section>
+</main>
+</div>
+<script src="icons.js"></script>
+<script src="audio.js"></script>
+<script src="validate.js"></script>
+<script src="sea.js"></script>
+<script src="iceberg.js"></script>
+<script src="share.js"></script>
+<script>
+// Home illustration: the same artwork as the reveal, cropped to the tip and the shallows.
+(function () {
+  const c = document.getElementById("scene-art"), box = document.getElementById("scene"), I = window.Iceberg;
+  c.width = I.WORLD.WW; c.height = I.WORLD.WH; I.paint(c);
+  const fit = () => {
+    const s = Math.max(1, Math.floor(box.clientWidth / 200));
+    c.style.width = I.WORLD.WW * s + "px"; c.style.height = I.WORLD.WH * s + "px";
+    c.style.transform = `translate(-50%, ${Math.round(box.clientHeight * 0.6 - I.WORLD.W * s)}px)`;
+    // The page's sea meets the picture's waterline, so the picture reads as a close-up of the same ocean.
+    const r = box.getBoundingClientRect();
+    if (window.Sea && r.height) window.Sea.homeLine((r.top + window.scrollY + r.height * 0.6) / window.innerHeight);
+  };
+  window.addEventListener("resize", fit);
+  new ResizeObserver(fit).observe(box); fit();
+})();
+</script>
+<script src="game.js"></script>
+</body>
+</html>

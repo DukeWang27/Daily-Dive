@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Iceberg</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A daily word game. Name as many as you can in 20 seconds. The rarer your answer, the deeper it sinks.">
+<meta name="theme-color" content="#040917">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600&family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Iceberg. One world: a night sea that the whole game sits in. Three moods share it:
+   answering (bright, quick, close to the surface), descending (dark, slow, the iceberg) and results (calm, readable).
+   Pixel art and the pixel font are reserved for the scenery and the wordmark; everything you read or tap uses Inter.
+   Containers are rare on purpose: space, alignment and a few hairlines do the organising. */
+:root {
+  --bg: #040917; --sea-1: #0a1a3a; --panel: rgba(8, 17, 38, .72); --panel-solid: #0a1530;
+  --line: rgba(143, 208, 245, .12); --line-2: rgba(143, 208, 245, .22);
+  --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e;
+  --ice: #eaf6ff; --accent: #8fd0f5; --gold: #ffcf5a; --amber: #f2b45a; --coral: #ff8f8f;
+  --t-tip: #eaf6ff; --t-shallows: #8fd0f5; --t-mid: #57abe6; --t-deep: #9091f7; --t-abyss: #c9a6ff;
+  --pixel: "Pixelify Sans", ui-monospace, monospace;
+  --ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --vvh: 100dvh; --top-h: 64px; --gutter: max(16px, env(safe-area-inset-left, 0px));
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { background: var(--bg); -webkit-text-size-adjust: 100%; }
+body { margin: 0; color: var(--text); font-family: var(--ui); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; background: var(--bg); min-height: 100dvh; overflow-x: hidden; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.tier-tip { --tier: var(--t-tip); } .tier-shallows { --tier: var(--t-shallows); } .tier-mid { --tier: var(--t-mid); }
+.tier-deep { --tier: var(--t-deep); } .tier-abyss { --tier: var(--t-abyss); }
+/* Category icons (icons.js): one flat two-tone style, sized by font-size, tinted per screen. */
+.cat-icon { display: inline-grid; place-items: center; width: 1em; height: 1em; flex: none; color: var(--ice); --icon-tint: rgba(143, 208, 245, .24); }
+.cat-icon .cat-svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 6px rgba(143, 208, 245, .28)); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* The sea behind everything (sea.js): low-res pixel canvas, scaled up crisp. */
+#sea { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; z-index: 0; pointer-events: none; transition: opacity 1s ease; }
+body.deep #sea { opacity: .35; }
+.app { position: relative; z-index: 1; min-height: var(--vvh); display: flex; flex-direction: column; }
+
+/* Header */
+.top { height: var(--top-h); display: flex; justify-content: space-between; align-items: center; gap: 12px; position: relative; width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); flex: none; }
+.brand { font-family: var(--pixel); font-weight: 600; font-size: 22px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 10px; background: none; border: 0; padding: 4px 0; justify-self: start; }
+.brand-mark { width: 16px; height: 13px; background: var(--ice); clip-path: polygon(50% 0, 100% 100%, 0 100%); box-shadow: inset 0 -5px 0 var(--accent); }
+.steps { display: flex; gap: 10px; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.steps i { width: 9px; height: 9px; transform: rotate(45deg); border: 1.5px solid var(--line-2); transition: background .3s, border-color .3s, transform .3s; }
+.steps i.done { background: var(--accent); border-color: var(--accent); }
+.steps i.now { border-color: var(--ice); background: var(--ice); transform: rotate(45deg) scale(1.25); }
+.top-right { justify-self: end; display: flex; align-items: center; gap: 6px; position: relative; }
+.top-meta { color: var(--muted); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.icon-btn { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; border: 0; background: transparent; color: var(--muted); transition: background .15s, color .15s; }
+.icon-btn:hover { background: rgba(143, 208, 245, .1); color: var(--text); }
+.icon-btn svg { width: 22px; height: 22px; }
+.sound-panel { position: absolute; top: 48px; right: 0; width: 260px; padding: 16px; border-radius: 14px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: 0 16px 40px rgba(0,0,0,.5); display: grid; gap: 14px; z-index: 20; }
+.sound-panel label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+.sound-panel .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.sound-panel output { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 600; }
+.switch input { width: 40px; height: 22px; accent-color: var(--accent); }
+
+main { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: 8px var(--gutter) 40px; min-height: 0; }
+main.fill { padding-bottom: 0; } /* answering: the screen is exactly one window tall, nothing to scroll */
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.muted { color: var(--muted); }
+.btn { border: 0; border-radius: 12px; padding: 15px 24px; font-weight: 700; font-size: 16px; background: var(--ice); color: #06112a; box-shadow: 0 3px 0 #8fb8da, 0 10px 30px rgba(143, 208, 245, .14); transition: transform .08s, box-shadow .08s, background .15s; }
+.btn:hover { background: #fff; }
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #8fb8da; }
+.btn.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); }
+.btn.ghost:hover { background: rgba(143, 208, 245, .08); }
+.btn.wide { width: 100%; }
+
+/* Home */
+.home { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(28px, 5vw, 72px); align-items: center; min-height: calc(var(--vvh) - var(--top-h) - 60px); }
+.wordmark { font-family: var(--pixel); font-weight: 600; font-size: clamp(56px, 8.5vw, 96px); line-height: .9; letter-spacing: .01em; margin: 0; }
+.wordmark span { color: var(--accent); }
+.tagline { font-size: clamp(20px, 2.3vw, 25px); line-height: 1.35; font-weight: 700; margin: 22px 0 10px; max-width: 24ch; letter-spacing: -.01em; }
+.rules { color: var(--muted); margin: 0 0 26px; max-width: 44ch; }
+.depths { list-style: none; margin: 0 0 30px; padding: 0; max-width: 380px; }
+.depths li { display: grid; grid-template-columns: 14px 1fr auto; gap: 12px; align-items: center; padding: 8px 0; font-size: 15px; border-bottom: 1px solid var(--line); }
+.depths li:last-child { border: 0; }
+.depths i { width: 9px; height: 9px; transform: rotate(45deg); background: var(--tier); }
+.depths b { font-weight: 600; } .depths span { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
+.home-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.home-foot { margin-top: 18px; display: grid; gap: 10px; font-size: 14px; color: var(--muted); }
+.option { display: inline-flex; gap: 10px; align-items: center; cursor: pointer; }
+.option input { width: 18px; height: 18px; accent-color: var(--accent); }
+.streak { color: var(--gold); font-weight: 700; }
+.scene { position: relative; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 5; background: #060c22; box-shadow: 0 30px 80px rgba(0,0,0,.45), 0 0 0 1px var(--line); }
+.scene canvas { position: absolute; left: 50%; image-rendering: pixelated; }
+.next-in { font-variant-numeric: tabular-nums; }
+
+/* Preview (3-2-1) */
+.preview { min-height: calc(var(--vvh) - var(--top-h) - 80px); display: grid; place-content: center; justify-items: center; text-align: center; gap: 10px; }
+.preview .big { font-size: 64px; line-height: 1; margin-bottom: 8px; }
+.preview h2 { font-size: clamp(34px, 6vw, 54px); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }
+.preview .hint { color: var(--muted); font-size: 17px; margin: 0; max-width: 40ch; }
+.count-ring { width: 76px; height: 76px; margin-top: 22px; display: grid; place-items: center; position: relative; }
+.count-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.count-ring circle { fill: none; stroke-width: 3; }
+.count-ring .bg { stroke: var(--line-2); }
+.count-ring .fg { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 220; stroke-dashoffset: 0; }
+.count-ring b { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Round: question, timer and input stay put; only the answer list scrolls. */
+.round { max-width: 700px; margin: 0 auto; height: calc(var(--vvh) - var(--top-h) - 8px); display: flex; flex-direction: column; gap: 14px; padding-top: 6px; }
+.round-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex: none; }
+.q-title { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.q-icon { font-size: 32px; line-height: 1; flex: none; }
+.q-title h2 { font-size: clamp(24px, 4.2vw, 36px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.q-hint { margin: 4px 0 0 42px; color: var(--muted); font-size: 14px; }
+.clock { font-size: clamp(40px, 6vw, 52px); font-weight: 800; line-height: .9; font-variant-numeric: tabular-nums; letter-spacing: -.03em; color: var(--clock, var(--ice)); min-width: 2ch; text-align: right; transition: color .3s; }
+.clock.beat { animation: beat .35s ease-out; }
+@keyframes beat { 30% { transform: scale(1.12); } }
+.timer { position: relative; height: 6px; border-radius: 99px; background: rgba(143, 208, 245, .12); overflow: hidden; flex: none; }
+#time-bar { position: absolute; inset: 0; transform-origin: left center; background: var(--clock, var(--accent)); border-radius: 99px; box-shadow: 0 0 14px var(--clock, var(--accent)); will-change: transform; }
+.entry { position: relative; display: flex; flex: none; }
+#answer { flex: 1; min-width: 0; font-size: 22px; font-weight: 600; padding: 17px 64px 17px 20px; border-radius: 14px; border: 0; background: rgba(4, 10, 26, .78); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-2); transition: box-shadow .15s; letter-spacing: -.005em; }
+#answer:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 4px rgba(143, 208, 245, .12); }
+#answer::placeholder { color: var(--faint); font-weight: 500; }
+#answer:disabled { opacity: .55; }
+.entry.shake #answer { animation: shake .28s; }
+@keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+#add { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 10px; border: 0; background: var(--accent); color: #06112a; display: grid; place-items: center; }
+#add svg { width: 22px; height: 22px; }
+#add:active { transform: translateY(-50%) scale(.94); }
+.list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 2px 4px 0; flex: none; font-size: 14px; color: var(--muted); font-weight: 600; }
+.list-head b { color: var(--text); font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; display: inline-block; margin-right: 4px; }
+.list-head b.bump { animation: bump .3s ease-out; }
+@keyframes bump { 40% { transform: translateY(-3px) scale(1.18); color: var(--accent); } }
+.key { display: flex; gap: 14px; font-weight: 500; font-size: 13px; color: var(--faint); }
+.key > span { display: inline-flex; align-items: center; gap: 6px; }
+.answers { list-style: none; margin: 0; padding: 0 2px 24px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent); mask-image: linear-gradient(#000 calc(100% - 28px), transparent); }
+.ans { height: 46px; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 14px; align-items: center; padding: 0 14px; border-radius: 10px; font-size: 18px; font-weight: 600; overflow: hidden; border-bottom: 1px solid var(--line); }
+.ans .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ans.enter { animation: rowin .2s cubic-bezier(.2, .8, .3, 1); }
+@keyframes rowin { from { height: 0; opacity: 0; transform: translateY(-6px); } }
+.ans.fresh { animation: rowin .2s cubic-bezier(.2, .8, .3, 1), glow .9s ease-out; }
+@keyframes glow { 0% { background: rgba(143, 208, 245, .18); } 100% { background: transparent; } }
+.ans.again { animation: again .6s ease-out; }
+@keyframes again { 0%, 100% { background: transparent; } 20% { background: rgba(255, 207, 90, .16); } }
+.ans.no .t { color: var(--faint); text-decoration: line-through; text-decoration-color: rgba(98, 121, 158, .6); }
+.ans.maybe .t { color: var(--muted); }
+.mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.mark svg { width: 12px; height: 12px; }
+.mark.ok { background: var(--accent); color: #06112a; }
+.mark.maybe { box-shadow: inset 0 0 0 1.5px var(--amber); color: var(--amber); font-size: 12px; font-weight: 800; }
+.mark.no { box-shadow: inset 0 0 0 1.5px var(--faint); color: var(--faint); }
+.answers-empty { color: var(--faint); font-size: 15px; padding: 14px; }
+.round.sinking { animation: sink .7s cubic-bezier(.5, 0, .75, 0) forwards; }
+@keyframes sink { to { opacity: 0; transform: translateY(40px); } }
+.hurry .timer { box-shadow: 0 0 0 1px rgba(255, 143, 143, .15); }
+
+/* Results */
+.res { display: grid; gap: 18px; }
+.res-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+.res-head h2 { font-size: clamp(24px, 3.6vw, 32px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; display: flex; gap: 10px; align-items: center; }
+.res-points { font-size: clamp(30px, 4vw, 40px); font-weight: 800; color: var(--gold); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.res-points { text-align: right; flex: none; }
+.res-points small { white-space: nowrap; display: block; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); text-align: right; margin-bottom: 6px; }
+.res-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(330px, 1fr); gap: 28px; align-items: start; }
+#ib { height: min(calc(var(--vvh) - 160px), 780px); min-height: 520px; border-radius: 18px; box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(0,0,0,.5); position: sticky; top: 12px; }
+.panel { display: grid; gap: 26px; min-width: 0; }
+.section h3 { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.section h3 .aside { letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--faint); font-size: 13px; }
+.watching { display: flex; align-items: center; gap: 12px; color: var(--muted); font-weight: 600; padding: 4px 0; }
+.watching .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+#sum { list-style: none; margin: 0; padding: 0; display: grid; }
+#sum li.hide { display: none; }
+#sum li.show { animation: fadein .45s ease both; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } }
+.sum-row { width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 34px; grid-template-areas: "dot name freq pts" ". sub sub sub"; column-gap: 12px; align-items: center; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--text); padding: 10px 8px; border-radius: 0; }
+.sum-row:hover, #sum li.active .sum-row { background: rgba(143, 208, 245, .07); }
+#sum li.active .sum-name { color: var(--gold); }
+.sum-dot { grid-area: dot; width: 9px; height: 9px; transform: rotate(45deg); background: var(--tier); }
+.sum-name { grid-area: name; font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sum-freq { grid-area: freq; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sum-pts { grid-area: pts; color: var(--gold); font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.sum-sub { grid-area: sub; font-size: 13px; color: var(--faint); display: flex; gap: 10px; flex-wrap: wrap; }
+.sum-sub .zone { color: var(--tier); font-weight: 600; }
+.sum-row.zero .sum-pts { color: var(--faint); }
+.forgot { margin: 12px 0 0; color: var(--muted); font-size: 14px; }
+.forgot b { color: var(--text); }
+.not-counted { list-style: none; margin: 0; padding: 0; display: grid; }
+.nc { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 8px; border-bottom: 1px solid var(--line); }
+.nc .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nc .why { font-size: 13px; color: var(--faint); grid-column: 2; }
+.nc .t-wrap { min-width: 0; }
+.nc button { border: 0; background: rgba(143, 208, 245, .1); color: var(--text); font-size: 13px; font-weight: 600; padding: 7px 11px; border-radius: 8px; white-space: nowrap; }
+.nc button:disabled { background: transparent; color: var(--faint); cursor: default; }
+.review-note { font-size: 13px; color: var(--faint); margin: 10px 0 0; }
+.bars { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 9px; }
+.bars li { display: grid; grid-template-columns: minmax(80px, 34%) minmax(0, 1fr) auto; gap: 12px; align-items: center; font-size: 14px; }
+.bar-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars li.me .bar-name { color: var(--gold); }
+.bars li.me .bar-name::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 7px 2px 0; transform: rotate(45deg); background: var(--gold); }
+.track { height: 8px; position: relative; }
+.track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 2px; opacity: .85; }
+.bars li.me .track i { background: var(--gold); opacity: 1; }
+.track::before { content: ""; position: absolute; inset: 3px 0; background: rgba(143, 208, 245, .08); }
+.bar-val { color: var(--muted); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 13px; }
+.bar-val b { color: var(--text); font-weight: 600; }
+.axis { display: grid; grid-template-columns: minmax(80px, 34%) minmax(0, 1fr) auto; gap: 12px; font-size: 11px; color: var(--faint); margin: -6px 0 4px; }
+.axis .ticks { position: relative; height: 14px; border-top: 1px solid var(--line-2); }
+.axis .ticks span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.axis .ticks span::before { content: ""; position: absolute; left: 50%; top: -5px; height: 4px; border-left: 1px solid var(--line-2); }
+.axis .ticks span.first { transform: none; } .axis .ticks span.first::before { left: 0; }
+.axis .ticks span.last { transform: translateX(-100%); } .axis .ticks span.last::before { left: 100%; }
+.axis .pad { visibility: hidden; font-size: 13px; }
+.sublabel { font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
+.sample-badge { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); box-shadow: inset 0 0 0 1px rgba(255,207,90,.5); border-radius: 5px; padding: 2px 6px; margin-right: 6px; vertical-align: 1px; }
+.fine { font-size: 12.5px; color: var(--faint); margin: 6px 0 0; line-height: 1.45; }
+.rules-list { margin: 6px 0 0; padding-left: 18px; color: var(--faint); font-size: 13px; }
+details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; }
+.next-row { position: sticky; bottom: 0; margin-top: -8px; padding: 28px 0 calc(14px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(rgba(4, 9, 23, 0), rgba(4, 9, 23, .97) 42%); pointer-events: none; }
+.next-row .btn { pointer-events: auto; }
+
+/* Iceberg component (iceberg.js) */
+.ib { position: relative; overflow: hidden; background: #050b20; isolation: isolate; user-select: none; }
+.ib-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.ib-world canvas { display: block; image-rendering: pixelated; }
+.ib-snow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; }
+.ib-shade { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(1, 3, 10, 0) 0, rgba(1, 3, 10, 0) var(--r, 200px), rgba(1, 3, 10, .97) calc(var(--r, 200px) * 2.4)); }
+.ib-glow { position: absolute; left: 0; top: 0; width: 420px; height: 420px; margin: -210px 0 0 -210px; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, rgba(170, 220, 255, .32) 0%, rgba(150, 205, 250, .1) 32%, rgba(150, 205, 250, 0) 62%); mix-blend-mode: screen; transition: opacity .8s; }
+.ib-glow.rare { background: radial-gradient(circle, rgba(210, 180, 255, .45) 0%, rgba(190, 160, 255, .14) 30%, rgba(190, 160, 255, 0) 62%); }
+.ib-layer { position: absolute; inset: 0; pointer-events: none; }
+.ib-mark { position: absolute; left: 0; top: 0; width: 12px; height: 12px; margin: -6px 0 0 -6px; pointer-events: auto; cursor: pointer; }
+.ib-mark::before { content: ""; position: absolute; inset: 0; transform: rotate(45deg); background: var(--tier); box-shadow: 0 0 0 2px #050b20, 0 0 0 3.5px var(--gold), 0 0 16px rgba(255,207,90,.35); transition: transform .4s; }
+.ib-mark { transition: opacity .3s; } .ib-mark.dim { opacity: 0; pointer-events: none; }
+.ib-mark.focus::before { transform: rotate(45deg) scale(1.4); }
+.ib-mark.focus::after { content: ""; position: absolute; inset: -12px; border: 1.5px solid rgba(255,207,90,.6); border-radius: 50%; animation: ring 1.8s ease-out 1; opacity: 0; }
+@keyframes ring { from { transform: scale(.5); opacity: .9; } to { transform: scale(1.9); opacity: 0; } }
+.ib-card { position: absolute; left: 0; top: 0; width: min(300px, calc(100% - 24px)); padding: 14px 16px 14px; border-radius: 14px;
+  background: rgba(5, 11, 27, .9); box-shadow: 0 0 0 1px var(--line-2), 0 12px 34px rgba(0,0,0,.45); opacity: 0; transition: opacity .35s ease; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.ib-card.in { opacity: 1; }
+.ib-card.deepest { box-shadow: 0 0 0 1px rgba(255,207,90,.65), 0 14px 40px rgba(0,0,0,.5), 0 0 48px rgba(255,207,90,.12); }
+.ib-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ib-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--tier); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ib-n { font-size: 12px; color: var(--faint); font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
+.ib-name { font-size: 25px; font-weight: 800; letter-spacing: -.015em; line-height: 1.15; overflow-wrap: anywhere; margin: 3px 0 6px; padding-right: 48px; }
+.ib-stat { font-size: 15px; font-weight: 600; }
+.ib-stat span { color: var(--muted); font-weight: 500; }
+.ib-rank { font-size: 13px; color: var(--muted); }
+.ib-blurb { font-size: 13px; color: var(--faint); margin-top: 6px; font-style: italic; }
+.ib-pts { position: absolute; top: 34px; right: 16px; font-size: 22px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+.ib-tag { margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,207,90,.25); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--gold); }
+.ib-pill { position: absolute; left: 0; top: 0; display: inline-flex; align-items: baseline; gap: 8px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; max-width: 46%;
+  background: rgba(5, 11, 27, .82); box-shadow: 0 0 0 1px rgba(255,207,90,.35); font-size: 13px; font-weight: 700; color: var(--gold); transition: opacity .3s; pointer-events: auto; cursor: pointer; }
+.ib-pill span { overflow: hidden; text-overflow: ellipsis; }
+.ib-pill b { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ib-pill.dim { opacity: 0; pointer-events: none; }
+.ib-hud { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; align-items: center; opacity: 0; transition: opacity .5s; }
+.ib-hud.on { opacity: 1; }
+.ib-depth { font-size: 13px; font-weight: 700; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: #bcd8f2; background: rgba(5,11,27,.7); padding: 4px 10px; border-radius: 8px; }
+.ib-controls { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; }
+.ib-controls button { border: 0; background: rgba(5, 11, 27, .82); box-shadow: 0 0 0 1px var(--line-2); color: var(--text); border-radius: 10px; height: 38px; padding: 0 14px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+.ib-controls button:hover { background: rgba(20, 34, 66, .95); }
+.ib-controls svg { width: 15px; height: 15px; }
+.ib-nav { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 6px; }
+.ib-nav button { width: 38px; height: 38px; border: 0; border-radius: 10px; background: rgba(5, 11, 27, .82); box-shadow: 0 0 0 1px var(--line-2); color: var(--text); display: grid; place-items: center; }
+.ib-nav svg { width: 16px; height: 16px; }
+.ib-empty { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); text-align: center; color: var(--muted); font-weight: 600; width: 80%; }
+.ib-empty b { display: block; color: var(--text); font-size: 20px; margin-bottom: 4px; }
+
+/* End of day */
+.end { max-width: 620px; margin: 0 auto; display: grid; gap: 28px; padding-top: 12px; }
+.total { margin-top: 10px; font-size: clamp(72px, 14vw, 112px); font-weight: 800; line-height: .9; color: var(--gold); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+#e-rounds { list-style: none; margin: 0; padding: 0; display: grid; }
+#e-rounds li { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 40px; gap: 12px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.e-cat { display: flex; gap: 12px; align-items: center; font-weight: 600; min-width: 0; }
+.e-cat .cat-icon { font-size: 22px; }
+.e-cat span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.e-deep { color: var(--tier, var(--muted)); font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.e-pts { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+pre.sharecard { margin: 0 0 14px; padding: 16px 18px; border-radius: 12px; background: rgba(4, 10, 26, .7); box-shadow: inset 0 0 0 1px var(--line-2); font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.end-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* Small screens */
+@media (max-width: 920px) {
+  .home { grid-template-columns: 1fr; gap: 26px; min-height: 0; padding-top: 4px; }
+  .scene { aspect-ratio: 16 / 10; order: -1; }
+  .res-grid { grid-template-columns: 1fr; gap: 22px; }
+  #ib { height: min(66vh, 620px); min-height: 440px; position: relative; top: 0; }
+}
+@media (max-width: 520px) {
+  :root { --top-h: 56px; }
+  .brand { font-size: 19px; }
+  .steps { gap: 7px; } .steps i { width: 8px; height: 8px; }
+  main { padding-bottom: 28px; }
+  .round { gap: 11px; }
+  .q-icon { font-size: 24px; }
+  .q-hint { margin-left: 36px; font-size: 13px; }
+  #answer { font-size: 19px; padding: 15px 60px 15px 16px; }
+  #add { width: 42px; height: 42px; }
+  .ans { height: 42px; font-size: 17px; padding: 0 10px; }
+  .key { display: none; }
+  .axis .ticks span:nth-last-child(even) { color: transparent; } /* narrow: label every other mark, always keeping 100% */
+  .bars li, .axis { grid-template-columns: minmax(74px, 38%) minmax(30px, 1fr) auto; gap: 8px; }
+  .sum-row { padding: 10px 4px; }
+  .ib-card { padding: 12px 14px; }
+  .ib-name { font-size: 22px; }
+  #e-rounds li { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 34px; }
+  .e-cat span:last-child { white-space: normal; line-height: 1.25; }
+}
+@media (max-height: 560px) and (max-width: 920px) { .q-hint { display: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<canvas id="sea" aria-hidden="true"></canvas>
+<div class="app">
+<header class="top">
+  <button class="brand" id="brand" type="button" aria-label="Iceberg home"><span class="brand-mark" aria-hidden="true"></span>Iceberg</button>
+  <div class="steps" id="steps" aria-hidden="true" hidden><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="top-right">
+    <span class="top-meta" id="top-meta">Daily #1</span>
+    <button class="icon-btn" id="sound-btn" type="button" aria-label="Sound settings" aria-expanded="false" aria-controls="sound-panel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path class="wave" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave" d="M18.5 5.5a9 9 0 0 1 0 13"/><path class="cross" d="m16 9 6 6m0-6-6 6" hidden/></svg>
+    </button>
+    <div class="sound-panel" id="sound-panel" role="dialog" aria-label="Sound settings" hidden>
+      <label class="switch">Sound <input type="checkbox" id="snd-on" role="switch" checked></label>
+      <label><span class="row">Effects <output id="snd-sfx-out">80%</output></span><input type="range" id="snd-sfx" min="0" max="100" step="5" value="80"></label>
+      <label><span class="row">Ambience <output id="snd-amb-out">55%</output></span><input type="range" id="snd-amb" min="0" max="100" step="5" value="55"></label>
+    </div>
+  </div>
+</header>
+<main>
+  <!-- Home -->
+  <section data-screen="home" class="home">
+    <div>
+      <h1 class="wordmark">Ice<span>berg</span></h1>
+      <p class="tagline">Name as many as you can. The rarer your answer, the deeper it sinks.</p>
+      <p class="rules">Five categories, 20 seconds each. Then dive down today's iceberg and see where every answer landed.</p>
+      <ul class="depths" aria-label="Points by depth">
+        <li class="tier-tip"><i></i><b>The Tip</b><span>almost everyone · 1 pt</span></li>
+        <li class="tier-shallows"><i></i><b>Shallows</b><span>lots of players · 2 pts</span></li>
+        <li class="tier-mid"><i></i><b>Midwater</b><span>some players · 4 pts</span></li>
+        <li class="tier-deep"><i></i><b>The Deep</b><span>very few · 7 pts</span></li>
+        <li class="tier-abyss"><i></i><b>The Abyss</b><span>almost no one · 10 pts</span></li>
+      </ul>
+      <div class="home-actions">
+        <button class="btn" id="play" type="button">Play today's iceberg</button>
+        <button class="btn ghost" id="practice" type="button" hidden>Practice run</button>
+      </div>
+      <div class="home-foot">
+        <span class="streak" id="home-streak"></span>
+        <span class="next-in" id="home-next"></span>
+        <label class="option"><input type="checkbox" id="timer-option"> Give me 30 seconds per round</label>
+      </div>
+    </div>
+    <div class="scene" id="scene" aria-hidden="true"><canvas id="scene-art"></canvas></div>
+  </section>
+
+  <!-- Category preview -->
+  <section data-screen="preview" class="preview" hidden>
+    <p class="eyebrow" id="pre-num">Round 1 of 5</p>
+    <div class="big cat-icon" id="pre-icon" aria-hidden="true"></div>
+    <h2 id="pre-title">Animals</h2>
+    <p class="hint" id="pre-hint"></p>
+    <div class="count-ring" aria-live="polite"><svg viewBox="0 0 76 76"><circle class="bg" cx="38" cy="38" r="35"/><circle class="fg" id="pre-ring" cx="38" cy="38" r="35"/></svg><b id="pre-count">3</b></div>
+  </section>
+
+  <!-- Round -->
+  <section data-screen="round" class="round" hidden>
+    <div class="round-top">
+      <div>
+        <div class="q-title"><span class="q-icon cat-icon" id="play-icon" aria-hidden="true"></span><h2 id="play-title">Animals</h2></div>
+        <p class="q-hint" id="play-hint"></p>
+      </div>
+      <div class="clock" id="time-left" role="timer" aria-label="Seconds left">20</div>
+    </div>
+    <div class="timer" aria-hidden="true"><div id="time-bar"></div></div>
+    <form class="entry" id="entry" autocomplete="off" novalidate>
+      <label class="sr" for="answer">Your answer</label>
+      <input id="answer" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="send" maxlength="60" placeholder="Type an answer, press Enter">
+      <button id="add" type="submit" aria-label="Submit answer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 5v7a3 3 0 0 1-3 3H5"/><path d="m9 11-4 4 4 4"/></svg></button>
+    </form>
+    <div class="list-head">
+      <span><b id="count">0</b><span id="count-label">answers</span></span>
+      <span class="key" aria-hidden="true"><span><span class="mark ok"><svg viewBox="0 0 12 12"><path d="m2.5 6.2 2.2 2.2 4.8-4.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>counted</span><span><span class="mark maybe">?</span>checking later</span><span><span class="mark no"><svg viewBox="0 0 12 12"><path d="m3.5 3.5 5 5m0-5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>doesn't count</span></span>
+    </div>
+    <ol class="answers" id="answers" aria-live="polite" aria-label="Your answers, newest first"></ol>
+  </section>
+
+  <!-- Results -->
+  <section data-screen="results" class="res" hidden>
+    <div class="res-head">
+      <div><p class="eyebrow" id="res-round">Round 1 of 5</p><h2><span class="cat-icon" id="res-icon" aria-hidden="true"></span><span id="res-title">Animals</span></h2></div>
+      <div class="res-points"><small>This round</small><span id="res-points">0</span></div>
+    </div>
+    <div class="res-grid">
+      <div id="ib" aria-label="Your answers on today's iceberg"></div>
+      <aside class="panel" aria-live="polite">
+        <div class="section">
+          <h3>Your answers <span class="aside" id="sum-aside"></span></h3>
+          <div class="watching" id="watching"><span class="pulse"></span><span id="watch-text">Diving…</span></div>
+          <ol id="sum"></ol>
+          <p class="forgot after" id="forgot"></p>
+        </div>
+        <div class="section after" id="nc-section">
+          <h3>Not counted <span class="aside" id="nc-aside"></span></h3>
+          <ul class="not-counted" id="nc"></ul>
+          <p class="review-note" id="review-note"></p>
+        </div>
+        <div class="section after">
+          <h3>Everyone's answers <span class="aside" id="players"></span></h3>
+          <p class="sublabel">Most common</p>
+          <ul class="bars" id="common"></ul>
+          <p class="sublabel">Rarest valid answers</p>
+          <ul class="bars" id="rare"></ul>
+          <div class="axis" aria-hidden="true"><span></span><span class="ticks" id="axis"></span><span class="pad">1 in 9,999</span></div>
+          <p class="fine">Bar length uses a log scale (each mark is 10× rarer) so rare answers stay visible. Only recognised answers are ranked.</p>
+          <p class="fine" id="sample-note"><span class="sample-badge">Sample</span>These are estimates from 2,400 simulated players, for testing. Real counts replace them once the game's database is connected.</p>
+          <details class="rules-box fine"><summary>How answers are judged</summary><ul class="rules-list" id="rules"></ul></details>
+        </div>
+        <div class="next-row after"><button class="btn wide" id="res-next" type="button">Next round</button></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- End of day -->
+  <section data-screen="end" class="end" hidden>
+    <div><p class="eyebrow">Today's score</p><div class="total" id="e-total">0</div><p class="streak" id="e-streak"></p></div>
+    <ul id="e-rounds"></ul>
+    <div>
+      <p class="eyebrow" style="margin-bottom:12px">Share without spoilers</p>
+      <pre class="sharecard" id="e-card"></pre>
+      <div class="end-actions"><button class="btn" id="copy" type="button">Copy result</button><button class="btn ghost" id="home" type="button">Back to start</button></div>
+    </div>
+    <p class="muted" id="e-note"></p>
+  </section>
+</main>
+</div>
+<script src="icons.js"></script>
+<script src="audio.js"></script>
+<script src="validate.js"></script>
+<script src="sea.js"></script>
+<script src="iceberg.js"></script>
+<script>
+// Home illustration: the same artwork as the reveal, cropped to the tip and the shallows.
+(function () {
+  const c = document.getElementById("scene-art"), box = document.getElementById("scene"), I = window.Iceberg;
+  c.width = I.WORLD.WW; c.height = I.WORLD.WH; I.paint(c);
+  const fit = () => {
+    const s = Math.max(1, Math.floor(box.clientWidth / 200));
+    c.style.width = I.WORLD.WW * s + "px"; c.style.height = I.WORLD.WH * s + "px";
+    c.style.transform = `translate(-50%, ${Math.round(box.clientHeight * 0.6 - I.WORLD.W * s)}px)`;
+    // The page's sea meets the picture's waterline, so the picture reads as a close-up of the same ocean.
+    const r = box.getBoundingClientRect();
+    if (window.Sea && r.height) window.Sea.homeLine((r.top + window.scrollY + r.height * 0.6) / window.innerHeight);
+  };
+  window.addEventListener("resize", fit);
+  new ResizeObserver(fit).observe(box); fit();
+})();
+</script>
+<script src="game.js"></script>
+</body>
+</html>

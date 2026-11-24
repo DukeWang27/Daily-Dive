@@ -13,6 +13,48 @@
 
   // Each mark is drawn on a 16 x 16 grid from a few flat shapes, so it stays crisp at tab size and scales up cleanly.
   const BRANDS = {
+    // The second round, in the Mariana direction.
+    nerodeep: {
+      name: "Nero Deep", parts: ["Nero", " Deep"], noun: "iceberg",
+      tagline: ["Three guesses.", "The rarer, the deeper."],
+      title: "Nero Deep: the daily game where rare answers go deeper",
+      description: "Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sinks. A free daily game in your browser.",
+      mark: [{ d: "M1 1h14v2H1z", fill: "accent" }, { d: "M7.3 3h1.4v8.4H7.3z", fill: "ice" }, { d: "M9.6 5h2v1.2h-2zM9.6 8h2v1.2h-2z", fill: "accent" }, { d: "M8 10.2l2.4 2.4L8 15l-2.4-2.4z", fill: "lumen" }],
+      concept: "A sounding line with its marks and its weight: how the Nero Deep was found.",
+    },
+    mariana: {
+      name: "Mariana", parts: ["Mari", "ana"], noun: "iceberg",
+      tagline: ["Three guesses.", "The rarer, the deeper."],
+      title: "Mariana: the daily game where rare answers go deeper",
+      description: "Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sinks. A free daily game in your browser.",
+      mark: [{ d: "M1 2h3v3.4c0 3.4 1.8 5.6 4 5.6s4-2.2 4-5.6V2h3v3.6C15 10.6 12 14 8 14S1 10.6 1 5.6z", fill: "accent" }, { d: "M8 3.6l1.8 1.8L8 7.2 6.2 5.4z", fill: "ice" }],
+      concept: "The trench's crescent, and an answer on its way down.",
+    },
+    marianadeep: {
+      name: "Mariana Deep", parts: ["Mariana", " Deep"], noun: "iceberg",
+      tagline: ["Three guesses.", "The rarer, the deeper."],
+      title: "Mariana Deep: the daily game where rare answers go deeper",
+      description: "Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sinks. A free daily game in your browser.",
+      mark: [{ d: "M1 2h3v3.4c0 3.4 1.8 5.6 4 5.6s4-2.2 4-5.6V2h3v3.6C15 10.6 12 14 8 14S1 10.6 1 5.6z", fill: "accent" }, { d: "M8 6.4l1.8 1.8L8 10 6.2 8.2z", fill: "lumen" }],
+      concept: "The trench's crescent, with something glowing at the bottom.",
+    },
+    sirenadeep: {
+      name: "Sirena Deep", parts: ["Sirena", " Deep"], noun: "iceberg",
+      tagline: ["Three guesses.", "The rarer, the deeper."],
+      title: "Sirena Deep: the daily game where rare answers go deeper",
+      description: "Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sinks. A free daily game in your browser.",
+      mark: [{ d: "M8 1l3 3-3 3-3-3z", fill: "ice" }, { d: "M7.2 7h1.6v3H7.2z", fill: "accent" }, { d: "M8 10l5 4.6h-3.4L8 12.8l-1.6 1.8H3z", fill: "accent" }],
+      concept: "A siren's tail, diving.",
+    },
+    isobath: {
+      name: "Isobath", parts: ["Iso", "bath"], noun: "iceberg",
+      tagline: ["Three guesses.", "The rarer, the deeper."],
+      title: "Isobath: the daily game where rare answers go deeper",
+      description: "Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sinks. A free daily game in your browser.",
+      mark: [{ d: "M1 2h5v1.6H1zM6 3.6h4v1.6H6zM10 2h5v1.6h-5z", fill: "ice" }, { d: "M1 7h4v1.6H1zM5 8.6h6v1.6H5zM11 7h4v1.6h-4z", fill: "accent" }, { d: "M3 12h3v1.6H3zM6 13.6h4v1.6H6zM10 12h3v1.6h-3z", fill: "lumen" }],
+      concept: "Lines of equal depth on a sea chart, each one lower.",
+    },
+    // The first round.
     iceberg: {
       name: "Iceberg", parts: ["Ice", "berg"], noun: "iceberg",
       tagline: ["Three guesses.", "How deep can you go?"],

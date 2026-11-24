@@ -154,6 +154,12 @@
       h("p.note-line", p ? `Diving since ${G().dateOf(1) && new Date(p.since).toLocaleDateString("en-US", { month: "long", year: "numeric" })}` : "Kept on this device only."))));
     if (!own) box.append(relationRow(p));
     box.append(statsGrid(stats, own));
+    // Submarine races: a record of their own, never mixed into the daily numbers above.
+    if (st === "in" && (own || p.relation === "friend")) {
+      const races = h("p.r-record"); box.append(races);
+      A.rpc("race_record", { p_username: p.username }).then(r => { if (stale(t)) return; if (!r.races) { races.remove(); return; }
+        races.append(h("span", "Submarine races "), h("span", h("b", String(r.races)), r.races === 1 ? " race" : " races"), h("span", h("b", String(r.wins)), r.wins === 1 ? " win" : " wins"), h("span", "furthest ", h("b", `${Number(r.best).toLocaleString("en-US")} m`))); }).catch(() => races.remove());
+    }
     if (days) box.append(h("div.section", h("h3", "Calendar"), calendar(days, { open: openDay, own, who: p ? p.username : "guest" })), h("div.section", h("h3", own ? "Recent dives" : "Their recent dives"), recent(days, openDay, own)));
     else box.append(h("p.note-line", p.relation === "friend" ? `${p.username} keeps their calendar private.` : "Friends can see each other's calendar and dives."));
     if (own && st === "in") box.append(h("div.row", h("button.btn.ghost.small", { type: "button", onclick: () => go("friends") }, plural(+p.friends || 0, "friend")), h("button.btn.ghost.small", { type: "button", onclick: () => go("ranks") }, "Today's rankings")));

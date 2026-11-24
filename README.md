@@ -59,10 +59,15 @@ on the results screen and on the share card. No ranking, friend or other player 
 | `social.js` | Dive log and calendar, friends, rankings, settings and sign-in screens |
 | `viewer.js` | Exploring a finished dive, replay, and comparing two dives |
 | `demo.js` | Invented, labelled players for previewing the social screens (`?demo`) |
+| `race.js` | **The submarine race**: the ocean scene, camera, lobbies, live questions, round summaries and results |
+| `subs.js` | The racers' pixel-art submarines (eight colours, three hull designs), built from parts |
+| `race/1001.json` … | The race's own question pool (29 questions, separate from the daily bank), and `race/index.json` |
 | `vendor/supabase.js` | Supabase's browser library (MIT), only loaded when a database is configured |
 | `BACKEND.md` | **How to switch on accounts, friends and rankings**, and what is and isn't protected |
-| `supabase/` | The database: `0001` play counts, `0002` accounts and all access rules, `0003` the rarity tables |
+| `supabase/` | The database: `0001` play counts, `0002` accounts and all access rules, `0003` the rarity tables, `0004` the race, `0005` the race's rarity tables |
 | `tools/seed_answers.py` | Turns the day files into the `0003` rarity tables |
+| `tools/race_questions.py`, `tools/build_race.py` | The race question pool, and the builder that writes `race/` and `0005` |
+| `tools/sounds.html` | Every sound on one board with buttons, for listening to them |
 | `wildlife.js` | The animals: one entry per species, how each is drawn and moves, and the rare encounters |
 | `tools/wildlife.html` | Every animal on one sheet, enlarged, for checking the artwork |
 | `share.js` | The share card image and the plain-text share |
@@ -293,6 +298,41 @@ it moves) and `draw`. Open `tools/wildlife.html` to see it enlarged.
 `iceberg:sightings`), lists a few on the results panel, and shows a count at the end of the day. There is no
 collection screen yet; `Wildlife.species()` and that record are what one would be built from.
 
+## Submarine race
+
+A live race against other players, separate from the daily game. Open it from **Submarine race** on the home
+screen. It needs the database and an account (so everyone in a race is a real person); there are no bots.
+
+- **How it plays.** Everyone gets the same question at the same moment, with three guesses each and one clock for
+  all (20, 30 or 45 seconds). Each racer's submarine descends from the iceberg's waterline. Only your rarest answer
+  on each question counts, and the submarine moves by the *improvement* only: 30 m, then a 180 m answer moves you
+  150 m more, then a 420 m answer 240 m more, to 420 m in all. A shallower guess doesn't move you. Deepest at the
+  end wins (ties: deepest single answer, then questions won, then whoever got there first).
+- **The ocean.** Past the iceberg into twilight water, the cliffs (from about 750 m), the canyons (1,300 m), the
+  abyssal plain (2,100 m) and the trench (3,100 m), with the daily game's animals along the way. The camera follows
+  your own submarine down and never zooms out to fit everyone: other racers show with their name and depth, as a
+  marker at the edge of the water when they are out of view, and on the race map at the side. You get a note when
+  you pass someone and when you enter a new region. A very rare answer brings a large animal past your submarine.
+- **Ways in.** *Quick race* matches you with whoever is waiting (2 to 8 players; it starts by itself 15 seconds
+  after a second racer arrives, and shows how many are waiting). *Race with friends* makes a private room with a
+  six-letter code and an invite link; the host picks Sprint (5), Standard (10) or Expedition (15) questions, the
+  time per question and the number of racers, invites friends, and starts once everyone is ready. *Practice
+  alone* is a 5-question race on your own.
+- **Between questions** everyone's deepest answer is shown for a few seconds. **Results** show the winner, places,
+  distances, deepest answers and questions won, a table of everyone's best answer per question, **Explore** (each
+  racer's expedition opens in the dive viewer), rematch, play again, leave and add friend.
+- **Fairness.** The database runs the race: the clock, which question is live, the three-guess limit, the scoring,
+  and who may see what. Nobody's answers are sent to anyone else until the question has closed, and a guess after
+  the deadline (plus 1.5 seconds for the network) is refused. Answers are judged in the browser for speed and
+  checked again by the database (the same check the daily game now uses).
+- **Kept apart.** Race questions come from their own pool (`race/`, ids 1001 and up), and races never touch daily
+  scores, streaks, rankings or calendars. A profile shows a separate race record (races, wins, furthest).
+- **Connections.** Each browser asks the database for the race every second, and a Supabase Realtime broadcast
+  nudges everyone to ask at once when something changes. Submarines glide between updates. Reloading or losing
+  the connection puts you back into the race you were in; a racer who has gone quiet for 20 seconds is shown faded
+  and stops holding up the question; if the host leaves, the longest-waiting racer becomes host; a race with
+  nobody left closes after 90 seconds.
+
 ## The name
 
 The game is still called Iceberg. Everything that names it (header, home page, browser tab and icon, search-engine
@@ -300,7 +340,7 @@ text, share card, share message) reads from `brand.js`, so renaming is one line:
 that file to another entry, or add an entry of your own.
 
 To see a name in the real game without changing anything, add `?brand=` and its key to the address:
-`?brand=oddfish`, `brinicle`, `dropstone`, `thirddive` or `hadal`. `brand.html` shows all five side by side with
+`?brand=nerodeep`, `mariana`, `marianadeep`, `sirenadeep`, `isobath`, `oddfish`, `brinicle`, `dropstone`, `thirddive` or `hadal`. `brand.html` shows all five side by side with
 the research on each. Saved progress uses a fixed internal key, so renaming never loses anyone's streak.
 
 ## Sound
@@ -309,7 +349,10 @@ All sound is generated by `audio.js`, so there is nothing to license. It starts 
 press, as browsers require. The speaker button in the header has a mute switch and separate sliders for effects and
 ambience; the choices are remembered on the device. The game is fully playable muted or in a browser with no audio.
 The underwater ambience follows the camera: open and airy near the surface, a low hum in the deep. A rare encounter
-has its own quiet cue: two slow, falling calls from far off.
+has its own quiet cue: two slow, falling calls from far off. The race adds its own sounds: racers arriving and
+leaving, ready, the countdown and start, the engine pushing the submarine deeper (bigger for a bigger gain), passing
+or being passed, a new region, the question closing, the standings, and the finish. `tools/sounds.html` plays every
+sound from buttons. They were checked by measurement (level, length, no clipping), not yet by ear.
 
 ## Sharing
 
@@ -319,25 +362,32 @@ depths and zones only, never answers or questions.
 
 ## Tests
 
-Three sets of checks, all run against the real code:
+Five sets of checks, all run against the real code:
 
 - **`tests/matrix.cjs`** plays the game in a real browser: 255 checks. Three rarer answers in a row, the
   rarest first, duplicates, typos, invalid and pending answers, review verdicts, finishing early, all five
   questions, reloading at every stage, sound on, off and unavailable, seven screen sizes, the calendar of days,
-  wildlife by depth, encounters, annotations, reduced motion, frame times, trial names, and the timer (starting,
-  stopping for reveals, running out with two, one or no answers, reloads, slow checking, muted, reduced motion).
-- **`tests/db/run.cjs`** checks the database rules on a real PostgreSQL database: 89 checks. Usernames, direct
-  table access, server-side scoring, one dive a day, streaks, guest progress, friends, blocking, the spoiler rule,
-  privacy, rankings and ties, deleting an account. Needs PostgreSQL installed; `sh tests/db/setup.sh` builds a
-  throwaway database first.
-- **`tests/social.cjs`** runs the account and social screens in a real browser against that database: 83 checks.
-  Signing up, duplicate usernames, guest progress, signing in and out, password reset, friends, what is hidden
-  before diving (including requests made by hand with a real sign-in token), rankings, exploring and comparing
-  dives, privacy switches, streaks over several days, a second device, blocking, Google, deleting an account.
-  It talks to `tests/gateway.cjs`, a local stand-in for Supabase's web service: the database rules are real, the
-  sign-in service is imitated.
+  wildlife by depth, encounters, annotations, reduced motion, frame times, trial names, and the timer.
+- **`tests/db/run.cjs`** checks the database rules on a real PostgreSQL database: 90 checks. Usernames, direct
+  table access, server-side scoring and the server's answer check, one dive a day, streaks, guest progress, friends,
+  blocking, the spoiler rule, privacy, rankings and ties, deleting an account. Needs PostgreSQL installed;
+  `sh tests/db/setup.sh` builds a throwaway database first.
+- **`tests/db/race.cjs`** checks the race's database rules: 55 checks. Matching, codes, seats, the host, ready
+  states, settings, the clock, the three-guess limit, late guesses, scoring by improvement, answer secrecy,
+  disconnects, results, rematches, invitations, and that races leave the daily game alone.
+- **`tests/social.cjs`** runs the account and social screens in a real browser against that database: 92 checks.
+  Signing up, guest progress, friends, what is hidden before diving (including requests made by hand), rankings,
+  exploring and comparing dives, best-of-three scoring end to end, the calendar, privacy, a second device,
+  blocking, Google, deleting an account.
+- **`tests/race-ui.cjs`** runs races in several browsers at once against that database: 48 checks. A private race
+  from link to rematch (desktop and phone), a three-player quick race that starts by itself, a player who closes
+  the tab mid-race, a reload mid-race, simultaneous guesses, the same guess sent twice at once, answer secrecy,
+  explore, leaving, the race record, practice, the camera, and layout. To keep it short it shortens the fixed
+  pauses (countdown, break between questions, quick-race wait) in the test database only.
 
-Instructions are at the top of the file.
+The browser suites talk to `tests/gateway.cjs`, a local stand-in for Supabase's web service: the database rules
+are real, the sign-in service is imitated, and Realtime is switched off (polling carries the race). Instructions
+are at the top of each file.
 
 ## Known limits of this test version
 
@@ -350,8 +400,9 @@ Instructions are at the top of the file.
 - Guests are anonymous random IDs, so a guest could clear their browser data to replay. Players with accounts get
   one dive a day, scored by the database. `BACKEND.md` lists what remains open (above all: the answer files are
   public, and the timer is kept in the browser).
-- Accounts were tested against a local database and an imitation of Supabase's sign-in service, not a real
-  Supabase project.
+- Accounts were tested against a local database and an imitation of Supabase's sign-in service, and the main
+  flows once against the real Supabase project. The race has only been tested locally: it is not on the live
+  database yet, and Supabase Realtime and real network delays have not been tried.
 - A few questions are very wide ("Name an animal", "Name a part of the human body"): almost any unusual answer
   reaches the Abyss. Narrower questions make for better days.
 - Sound was checked by measurement, not by ear, and phone layouts in a desktop browser at phone sizes, not on real

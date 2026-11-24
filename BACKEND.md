@@ -6,6 +6,10 @@
 > test players, who were then deleted. **Confirm email is OFF** because Supabase's built-in sender allows only two
 > emails an hour; switch it back on after connecting an email service (section 4). Password-reset emails are subject
 > to the same two-an-hour limit until then. The steps below are kept for reference and for a fresh project.
+>
+> **Not on the live database yet:** the submarine race (`0004`, `0005`), the server-side answer check added to
+> `0002` (with the `set_keys` lists that `0003` now fills in), and the calendar's `friends_level`. They are tested
+> locally only. Applying them is step 2 below: re-run `0002`, the three `0003` files, then `0004` and `0005`.
 
 The game plays without any of this: everyone is a guest and progress stays on their device. This guide connects
 it to a free Supabase project so players can make accounts, keep streaks across devices, add friends, appear in
@@ -35,6 +39,15 @@ Each can be run again safely.
 | 3 | `supabase/0003_answers_01_05.sql` | The rarity tables for question sets 1 to 5 |
 | 4 | `supabase/0003_answers_06_10.sql` | Sets 6 to 10 |
 | 5 | `supabase/0003_answers_11_15.sql` | Sets 11 to 15 |
+| 6 | `supabase/0004_race.sql` | The submarine race: rooms, players, guesses, results, invitations, and the rules that run a race |
+| 7 | `supabase/0005_race_answers.sql` | The race's own question pool and its rarity tables |
+
+**If you ever re-run `0002` later, run `0004` again straight after it.** `0004` sets which functions players may
+call, `0002`'s included.
+
+The race uses Supabase **Realtime** broadcast to nudge racers when something changes. Nothing needs setting up:
+it works on public channels with the public key, and the race carries on by asking every second if it is off.
+If **Realtime → Settings → "Allow public access"** has been switched off, races still work, a little less snappily.
 
 The last three are large (100 to 230 KB each). If the editor struggles, anyone comfortable with a terminal can
 load them with `psql` and the connection string from **Project Settings → Database** instead.
@@ -128,6 +141,14 @@ If any step fails, the browser's console (F12) shows the database's reply.
   letters, numbers or underscores. Reserved and unsuitable names are refused, including look-alikes such as
   `Adm1n`. A name that is given up is held for 30 days.
 - **Limits.** Friend requests (20 an hour), searches, dive submissions and imports are rate-limited per player.
+- **Answers are checked twice.** The browser judges a guess for speed, then the database checks that what was typed
+  really is the answer claimed (the same rules: other names, describing words, small typos). A claim that doesn't
+  match is kept for review and scores nothing.
+- **Races are run by the database.** Each race has one deadline per question, held in the database. The database
+  decides which question is live, refuses a fourth guess or a guess after the deadline (1.5 seconds' grace for the
+  network), scores each guess by how much it improves on your best, and works out the places. While a question is
+  open, the race state sent to each player contains their own guesses only; others' answers are released once the
+  question closes. Races never change daily scores, streaks, rankings or calendars.
 
 ## Days and time zones
 
@@ -147,24 +168,25 @@ alive until the end of the day after your last dive.
 
 ## What still needs doing before a public launch
 
-1. **Try it on a real Supabase project** (section 8). Sign-in was only tested against an imitation.
+1. **Load the race and the answer check onto the live project** (step 2, files 2 to 7), then try a race between
+   two real accounts on two devices. The race has only been tested against a local copy of the database.
 2. **Email sending** (section 4) and, if wanted, **Google** (section 5).
-3. **A privacy policy and a minimum age.** Accounts mean storing email addresses. The game is aimed partly at
-   teenagers; in many places collecting personal details from under-13s (under 16 in parts of Europe) needs a
-   parent's consent. Decide the age you allow, say so at sign-up, and publish a privacy policy. This is a legal
-   question, not a technical one, and it is not handled in the code.
-4. **The answer lists are still public.** Answers are judged in the browser, so each day's file of accepted
-   answers and their rarity can be read by anyone who looks. The database stops score tampering and stops players
-   seeing *each other's* answers early, but a determined player could look up rare answers in that file, or run
-   past the timer, which is also kept in the browser. Closing this means judging guesses on the server, which is a
-   larger change.
-5. **Guest history is taken on trust.** Days played before signing up are scored by the database, but it cannot
+3. **Privacy.** A privacy page is published (`privacy.html`). There is deliberately no age check at sign-up. Whether
+   that is enough where you are (for example, rules about collecting details from under-13s) is a legal question,
+   not a technical one.
+4. **The answer lists are still public.** Each day's file of accepted answers and their rarity sits on the site
+   (the browser needs it to judge guesses instantly), and so do the race's. The database now checks every claimed
+   answer and stops tampering with scores, but a determined player could look up rare answers in those files.
+   Closing this fully means judging guesses only on the server.
+5. **The daily timer is kept in the browser.** (The race's clock is the database's.)
+6. **Guest history is taken on trust.** Days played before signing up are scored by the database, but it cannot
    prove when they were played. They are marked as such, limited to the last 90 days, and days that had already
    closed do not enter their ranking.
-6. **A bot check on sign-up.** Supabase can add a CAPTCHA (Authentication → Attack Protection). Worth switching on.
-7. **Reporting.** There is blocking, but no way yet for a player to report a username to you.
-8. **Scale.** Rankings are calculated when asked for. That is fine into the thousands of players a day; beyond
-   that they should be stored when each dive arrives.
+7. **A bot check on sign-up.** Supabase can add a CAPTCHA (Authentication → Attack Protection). Worth switching on.
+8. **Reporting.** There is blocking, but no way yet for a player to report a username to you.
+9. **Scale.** Rankings are calculated when asked for, and each racer asks for the race every second. Both are fine
+   into the thousands of players; beyond that, rankings should be stored as dives arrive and races should lean on
+   Realtime more and polling less.
 
 Not built yet, by design, and left room for: uploaded profile pictures (players choose one of the game's animals
 instead), rankings by streak or all-time record, achievements, a creature collection, private groups.

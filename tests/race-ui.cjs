@@ -99,6 +99,8 @@ const SHOTS = process.env.SHOTS || '';
   const subB = await bo.evaluate(() => Race.scene.subs.find(s => !s.me));
   ok('Ann\'s submarine is in Bo\'s scene', !!subB && subB.name === 'Ann');
   await shot(ann, 'question-desk'); await shot(bo, 'question-phone');
+  const layB = await audit(bo, '#rdock'), layA = await audit(ann, '#rdock');
+  ok('question screen on a phone and a desktop: nothing clipped or off-screen', !layA.length && !layB.length, [...layA, ...layB].slice(0, 3).join('; '));
   // Bo types while Ann's sub animates: one guess, then done.
   const bAns = await answer(bo, 0.5); const gb = await guess(bo, bAns);
   ok('Bo can guess while the other sub is moving', gb.mine && gb.mine.status === 'ok');
@@ -150,6 +152,9 @@ const SHOTS = process.env.SHOTS || '';
   await bo.click('#r-leave'); await waitView(bo, 'home');
   const rec = await ann.evaluate(() => document.querySelector('.r-record') && document.querySelector('.r-record').innerText);
   ok('race record on the race home (separate from the daily game)', /1\s*race/.test(rec || ''), rec);
+  await ann.evaluate(() => Hub.open('log')); await ann.waitForSelector('[data-screen="hub"]:not([hidden])'); await ann.waitForFunction(() => /Submarine races/.test(document.querySelector('#hub-body').innerText), null, { timeout: 8000 }).catch(() => {});
+  const logText = await ann.evaluate(() => document.querySelector('#hub-body').innerText);
+  ok('the dive log shows the race record apart from the daily stats', /Submarine races\s*1\s*race/.test(logText.replace(/\n/g, ' ')), (logText.match(/Submarine races[^\n]*/) || [''])[0]);
 
   // ---------- Quick race: three players matched, auto-start, one drops out mid-race ----------
   const cat = await fresh(), dex = await fresh('small'); await signUp(cat, 'cat@example.test', 'Cat'); await signUp(dex, 'dex@example.test', 'Dex');

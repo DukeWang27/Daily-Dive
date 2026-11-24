@@ -194,7 +194,7 @@ td { color: var(--muted); } td:first-child { color: var(--text); font-weight: 60
   [["Night sea", "#040917", "Background"], ["Deep navy", "#071433", "Icon, panels"], ["Ice white", "#eaf6ff", "Wordmark, key figures"], ["Pale blue", "#8fd0f5", "Accent, buttons"], ["Mid blue", "#4f9fe6", "The Deep"], ["Living light", "#7df0df", "Earned moments only"]]
     .forEach(([n, hex, use]) => document.getElementById("swatches").append(el("div", "sw", `<i style="background:${hex}"></i><b>${n}</b><span>${hex} · ${use}</span>`)));
   const sizes = document.getElementById("sizes");
-  [[13, 11], [18, 15], [22, 18], [34, 28], [56, 46]].forEach(([font, m]) => { const l = el("div", "lockup", mark(pick, m) + `<span>${pick.name}</span>`); l.style.fontSize = font + "px"; l.querySelector("svg").style.cssText = `width:${m}px;height:${m}px`; l.style.gap = Math.round(font * 0.45) + "px"; sizes.append(l); });
+  [[13, 11], [18, 15], [22, 18], [30, 25], [42, 34]].forEach(([font, m]) => { const l = el("div", "lockup", mark(pick, m) + `<span>${pick.name}</span>`); l.style.fontSize = font + "px"; l.querySelector("svg").style.cssText = `width:${m}px;height:${m}px`; l.style.gap = Math.round(font * 0.45) + "px"; sizes.append(l); });
   [16, 24, 32, 48, 96].forEach(s => { const f = el("div", null, icon(pick, s)); f.style.lineHeight = 0; sizes.append(f); });
   [["Tagline", `<b>${pick.tagline.join(" ")}</b> It explains the rule in five words and does not echo Krillion's “How far down can you go?”.`],
     ["About line", "“Every day, a little further toward the bottom of the Mariana Trench. In 1899 a weighted line found the deepest water then known; it is still called the Nero Deep.”"],

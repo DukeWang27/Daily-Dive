@@ -72,44 +72,55 @@
 
   // ---------- The dive log: a profile, and the calendar ----------
   // Colour by the day's total depth. One scale everywhere, shown in the key beneath the calendar.
-  const LEVELS = [[800, "l4", "800 m or more"], [500, "l3", "500 m"], [200, "l2", "200 m"], [0, "l1", "a finished dive"]];
+  // A typical day is 400 to 700 m, so the steps sit there; 800 m+ is a standout day.
+  const LEVELS = [[800, "l4", "800 m or more"], [600, "l3", "600 to 799 m"], [400, "l2", "400 to 599 m"], [0, "l1", "under 400 m"]], RARE_FIND = 250;
   const levelOf = total => LEVELS.find(l => total >= l[0])[1];
   function calendar(days, opts) {
-    const game = G(), today = game.today(), byDay = new Map(days.map(d => [d.day, d])), wrap = h("div.cal-wrap"), grid = h("div.cal", { role: "grid", "aria-label": "Dive calendar: one square per day" }), detail = h("div.cal-day", { "aria-live": "polite" });
+    const game = G(), today = game.today(), byDay = new Map(days.map(d => [d.day, d]));
+    const scroller = h("div.cal-wrap"), grid = h("div.cal", { role: "grid", "aria-label": "Dive calendar: one square per day" }), detail = h("div.cal-day", { "aria-live": "polite" });
     const end = game.dateOf(today), startCol = new Date(end); startCol.setDate(end.getDate() - end.getDay() - 52 * 7);     // 53 weeks, Sunday at the top
+    // The streak each day belonged to: how many days in a row it was by then.
+    const run = new Map(); let n = 0; for (let d = 1; d <= today; d++) { n = byDay.has(d) ? n + 1 : 0; if (n) run.set(d, n); }
     let picked = null, lastMonth = -1;
     const pick = (day, cell) => {
       if (picked) picked.classList.remove("sel"); picked = cell; cell.classList.add("sel");
-      const d = byDay.get(day), parts = [h("b", dateText(day, true)), ` · Daily #${day}`];
-      detail.textContent = "";
-      if (day > today) parts.push(" · not yet");
-      else if (!d) parts.push(day === today ? " · not finished yet" : " · no dive");
-      else {
-        parts.push(` · ${m(d.total)} total · deepest ${m(d.max_depth)}`);
-        if (d.deepest_answer) parts.push(" (", h("i", d.deepest_answer), ")");
-        if (d.rank && d.players) parts.push(` · ${d.ranked === false ? "would place" : "placed"} #${fmt(d.rank)} of ${fmt(d.players)}`);
-      }
-      detail.append(h("span", parts));
-      if (d && opts.open && opts.open(d)) detail.append(h("button.link", { type: "button", onclick: () => opts.open(d)() }, "Open this dive"));
+      const d = byDay.get(day), dt = game.dateOf(day);
+      detail.textContent = ""; detail.className = "cal-day" + (d ? " has" : "");
+      const head = h("div.cd-head", h("b", dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: dt.getFullYear() === end.getFullYear() ? undefined : "numeric" })), h("span", `Daily #${day}`));
+      if (!d) { head.append(h("span.cd-state", day > today ? "not yet" : day === today ? "not finished yet" : "no dive")); detail.append(head); return; }
+      if (d.max_depth >= RARE_FIND) head.append(h("span.cd-abyss", "Rare find"));
+      const facts = h("div.cd-facts",
+        h("span", h("b", m(d.total)), "total"),
+        h("span", "deepest", h("b", m(d.max_depth)), d.deepest_answer ? h("i", `(${d.deepest_answer})`) : null),
+        d.rank && d.players ? h("span", h("b", `#${fmt(d.rank)}`), `of ${fmt(d.players)}${d.ranked === false ? " (unlisted)" : ""}`) : null,
+        run.get(day) > 1 ? h("span", h("b", `day ${run.get(day)}`), "of a streak") : null);
+      detail.append(head, facts);
+      if (opts.open && opts.open(d)) detail.append(h("button.link", { type: "button", onclick: () => opts.open(d)() }, "Open this dive"));
     };
     for (let w = 0; w < 53; w++) {
       const first = new Date(startCol); first.setDate(startCol.getDate() + w * 7);
-      const label = h("span.m"); for (let k = 0; k < 7; k++) { const dt = new Date(first); dt.setDate(first.getDate() + k); if (dt.getDate() === 1) { if (dt.getMonth() !== lastMonth) { label.textContent = dt.toLocaleDateString("en-US", { month: "short" }); lastMonth = dt.getMonth(); } } }
+      const label = h("span.m"); for (let k = 0; k < 7; k++) { const dt = new Date(first); dt.setDate(first.getDate() + k); if (dt.getDate() === 1 && dt.getMonth() !== lastMonth) { label.textContent = dt.toLocaleDateString("en-US", { month: "short" }); lastMonth = dt.getMonth(); } }
       grid.append(label);
       for (let k = 0; k < 7; k++) {
         const dt = new Date(first); dt.setDate(first.getDate() + k);
         const day = Math.round((dt - game.dateOf(1)) / 86400000) + 1, d = byDay.get(day);
-        const cls = day < 1 ? "pre" : day > today ? "future" : d ? levelOf(d.total) + (d.max_depth >= 200 ? " abyss" : "") : day === today ? "open" : "none";
-        const state = day < 1 ? "" : day > today ? "not yet" : d ? `${m(d.total)}` : day === today ? "not finished yet" : "no dive";
-        const cell = h("button." + cls.replace(/ /g, ".") + (day === today ? ".today" : ""), { type: "button", tabIndex: day < 1 ? -1 : 0, disabled: day < 1, "aria-label": day < 1 ? null : `${dt.toLocaleDateString("en-US", { day: "numeric", month: "long" })}: ${state}`, "data-day": day });
+        const cls = day < 1 ? "pre" : day > today ? "future" : d ? levelOf(d.total) + (d.max_depth >= RARE_FIND ? " abyss" : "") : day === today ? "open" : "none";
+        const state = day < 1 ? "" : day > today ? "not yet" : d ? `${m(d.total)}${d.max_depth >= RARE_FIND ? `, with a ${RARE_FIND} m+ find` : ""}` : day === today ? "not finished yet" : "no dive";
+        const cell = h("button." + cls.replace(/ /g, ".") + (day === today ? ".today" : ""), { type: "button", tabIndex: day < 1 ? -1 : 0, disabled: day < 1, "aria-label": day < 1 ? null : `${dt.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}: ${state}`, "data-day": day });
         if (day >= 1) { cell.onclick = () => pick(day, cell); cell.onmouseenter = () => { if (matchMedia("(hover: hover)").matches) pick(day, cell); }; }
         grid.append(cell);
         if (day === (opts.select || today)) setTimeout(() => pick(day, cell), 0);
       }
     }
-    wrap.append(grid); setTimeout(() => { wrap.scrollLeft = wrap.scrollWidth; }, 0);
-    const key = h("div.cal-key", h("span", "Total depth for the day:"), h("span", h("i.none"), "no dive"), ...LEVELS.slice().reverse().map(l => h("span", h("i." + l[1]), l[2])), h("span", h("i.l2.abyss"), "an answer in the Abyss"));
-    return h("div.cal-block", wrap, detail, key);
+    // Today's square fills in, once, the first time the log is opened after finishing.
+    const doneToday = byDay.has(today), seenKey = "cal-filled:" + (opts.who || "me");
+    if (doneToday && opts.own && game.store.get(seenKey, 0) !== today) { const c = grid.querySelector("button.today"); if (c) { c.classList.add("fill-in"); game.store.set(seenKey, today); if (window.Sound) setTimeout(() => window.Sound.play("fill"), 350); } }
+    scroller.append(grid); setTimeout(() => { scroller.scrollLeft = scroller.scrollWidth; }, 0);
+    const weekdays = h("div.cal-dow", { "aria-hidden": "true" }, h("span"), ...["", "Mon", "", "Wed", "", "Fri", ""].map(x => h("span", x)));
+    const year = days.filter(d => d.day > today - 371), abyss = year.filter(d => d.max_depth >= RARE_FIND).length;
+    const top = h("div.cal-top", h("span", h("b", fmt(year.length)), year.length === 1 ? " dive in the last year" : " dives in the last year"), abyss ? h("span", h("b", fmt(abyss)), ` with a rare find (${RARE_FIND} m+)`) : null);
+    const key = h("div.cal-key", h("span.k-label", "Total depth"), h("i.none", { title: "no dive" }), ...LEVELS.slice().reverse().map(l => h("i." + l[1], { title: l[2] })), h("span.k-scale", "less → 800+ m"), h("span.k-abyss", h("i.l2.abyss"), `${RARE_FIND} m+ find`));
+    return h("div.cal-block", top, h("div.cal-frame", weekdays, scroller), detail, key);
   }
   const stat = (label, value, sub) => h("div.stat", h("span", label), h("b", value), sub ? h("small", sub) : null);
   function statsGrid(s, own) {
@@ -141,7 +152,7 @@
       h("p.note-line", p ? `Diving since ${G().dateOf(1) && new Date(p.since).toLocaleDateString("en-US", { month: "long", year: "numeric" })}` : "Kept on this device only."))));
     if (!own) box.append(relationRow(p));
     box.append(statsGrid(stats, own));
-    if (days) box.append(h("div.section", h("h3", "Calendar"), calendar(days, { open: openDay })), h("div.section", h("h3", own ? "Recent dives" : "Their recent dives"), recent(days, openDay, own)));
+    if (days) box.append(h("div.section", h("h3", "Calendar"), calendar(days, { open: openDay, own, who: p ? p.username : "guest" })), h("div.section", h("h3", own ? "Recent dives" : "Their recent dives"), recent(days, openDay, own)));
     else box.append(h("p.note-line", p.relation === "friend" ? `${p.username} keeps their calendar private.` : "Friends can see each other's calendar and dives."));
     if (own && st === "in") box.append(h("div.row", h("button.btn.ghost.small", { type: "button", onclick: () => go("friends") }, plural(+p.friends || 0, "friend")), h("button.btn.ghost.small", { type: "button", onclick: () => go("ranks") }, "Today's rankings")));
     if (own && st === "off" && G().demo && G().demo.offered) box.append(h("div.invite", h("p", h("b", "Friends, rankings and accounts "), "need the game's database, which isn't connected to this copy. You can still see how they look."), h("button.btn.small.ghost", { type: "button", onclick: () => G().demo.set(true) }, "Preview with demonstration data")));

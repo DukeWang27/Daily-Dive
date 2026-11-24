@@ -95,6 +95,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .depths b { font-weight: 600; } .depths span { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; text-align: right; }
 .home-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .home-foot { margin-top: 18px; display: grid; gap: 8px; font-size: 14px; color: var(--muted); min-height: 22px; }
+.foot-link { color: var(--faint); font-size: 13px; text-decoration: none; width: max-content; } .foot-link:hover { color: var(--muted); text-decoration: underline; }
 .streak { color: var(--accent); font-weight: 700; }
 .scene { position: relative; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 5; background: #060c22; box-shadow: 0 30px 80px rgba(0,0,0,.45), 0 0 0 1px var(--line); }
 .scene canvas { position: absolute; left: 50%; image-rendering: pixelated; }
@@ -605,6 +606,7 @@ html.in-play .acct-btn { display: none; }
       <div class="home-foot">
         <span class="streak" id="home-streak"></span>
         <span class="next-in" id="home-next"></span>
+        <a class="foot-link" href="privacy.html">Privacy</a>
       </div>
     </div>
     <div class="scene" id="scene" aria-hidden="true"><canvas id="scene-art"></canvas></div>

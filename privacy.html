@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy</title>
+<meta name="description" content="What the game stores about players, who can see it, and how to delete it.">
+<meta name="theme-color" content="#040917">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600&family=Inter:wght@400;600;700;800&display=swap">
+<style>
+:root { --bg: #040917; --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e; --accent: #8fd0f5; --line: rgba(143, 208, 245, .14); color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+main { max-width: 680px; margin: 0 auto; padding: 32px 16px 80px; }
+.back { display: inline-flex; align-items: center; gap: 10px; font: 600 20px "Pixelify Sans", ui-monospace, monospace; color: var(--text); text-decoration: none; }
+.back svg { width: 18px; height: 18px; }
+h1 { font-size: clamp(30px, 6vw, 40px); letter-spacing: -.02em; line-height: 1.1; margin: 36px 0 8px; }
+h2 { font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 40px 0 12px; }
+p, li { color: var(--muted); } p { margin: 0 0 12px; }
+b, strong { color: var(--text); font-weight: 600; }
+ul { margin: 0 0 12px; padding-left: 20px; } li { margin: 4px 0; }
+a { color: var(--accent); }
+.lede { font-size: 18px; color: var(--text); }
+.date { color: var(--faint); font-size: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; margin: 4px 0 12px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+td { color: var(--muted); } td:first-child { color: var(--text); font-weight: 600; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="./" id="back"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 13 9H3z" fill="#eaf6ff"/><path d="M3 10h10l-2.5 5h-5z" fill="#8fd0f5"/></svg><span id="name">Iceberg</span></a>
+  <h1>Privacy</h1>
+  <p class="date">Last updated 24 November 2026</p>
+  <p class="lede">You can play without an account, and then nothing about you leaves your device except your answers, with no name attached. If you make an account, this page says what is kept, who can see it, and how to delete it.</p>
+
+  <h2>Playing without an account</h2>
+  <ul>
+    <li>Your progress, streak and settings are kept in your own browser. Clearing your browser's data removes them.</li>
+    <li>So that the game can show how many players gave each answer, your recognised answers are sent to our database with a random code made up by your browser. That code is not linked to your name, email or device, and nobody can see which answers came from you.</li>
+    <li>Answers the game didn't recognise, and answers you dispute, are sent the same way so they can be reviewed.</li>
+  </ul>
+
+  <h2>If you make an account</h2>
+  <div class="scroll"><table>
+    <tr><th>What</th><th>Why</th><th>Who can see it</th></tr>
+    <tr><td>Email address</td><td>To sign you in and, if you ask, to reset your password</td><td>Nobody but you. It is never shown to other players or returned by the game to anyone else.</td></tr>
+    <tr><td>Password</td><td>To sign you in</td><td>Nobody. It is stored scrambled by our sign-in provider, and we can't read it.</td></tr>
+    <tr><td>Username and picture</td><td>So friends can find you and you can appear in rankings</td><td>Other players. Choose a username you are happy to be public.</td></tr>
+    <tr><td>Your dives: answers, depths, scores, dates</td><td>Your streak, log, calendar, rankings, and friends exploring your icebergs</td><td>You. Accepted friends, if you allow it in Settings, and only once they have finished that day themselves. Your total and deepest depth appear in that day's ranking unless you switch rankings off.</td></tr>
+    <tr><td>Friends, requests and blocks</td><td>The friends features</td><td>You, and the other player in each friendship or request.</td></tr>
+  </table></div>
+  <p>If you sign in with Google, Google tells us your email address so we can sign you in. We don't ask for anything else from your Google account.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li><b>Settings</b> lets you stop people finding you by username, leave the global ranking, and stop friends seeing your icebergs, your answers or your calendar.</li>
+    <li><b>Blocking</b> a player stops them finding you, viewing your profile or sending you requests.</li>
+    <li><b>Deleting your account</b> (Settings → Delete my account) removes your username, email, dives, streak and friendships straight away. It can't be undone. Your username is kept aside for 30 days afterwards so nobody else can take it and pretend to be you.</li>
+  </ul>
+
+  <h2>What we don't do</h2>
+  <ul>
+    <li>No advertising, no ad trackers, no selling or sharing your information with anyone for their own use.</li>
+    <li>No messages between players, no public comments.</li>
+  </ul>
+
+  <h2>Where it is kept</h2>
+  <p>The website is hosted by <b>Vercel</b>. Accounts and game data are stored by <b>Supabase</b>, on servers in the United States. They store it for us and may not use it for anything else. The page also loads its fonts from <b>Google Fonts</b>, which sees your IP address when it does.</p>
+
+  <h2>Children</h2>
+  <p>The game is made for teenagers and adults. It is not aimed at children under 13.</p>
+
+  <h2>Changes and questions</h2>
+  <p>If this page changes, the date at the top changes too. <span id="contact">Questions, or a request about your information: <a href="https://github.com/DukeWang27/Daily-Dive/issues">open an issue on the game's GitHub page</a>, or delete your account from Settings at any time.</span></p>
+</main>
+<script src="brand.js"></script>
+<script>
+  // Use the game's current name and mark, wherever it is set (brand.js).
+  if (window.Brand) { document.getElementById("name").textContent = Brand.name; document.querySelector("#back svg").outerHTML = Brand.markSvg(Brand, 18); document.title = "Privacy · " + Brand.name; }
+</script>
+</body>
+</html>

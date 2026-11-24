@@ -234,7 +234,7 @@
       form,
       mode === "forgot" || !A.google ? null : h("div.or", h("span", "or")), mode === "forgot" || !A.google ? null : h("button.btn.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.google(), () => {}) }, "Continue with Google"),
       h("p.note-line", mode === "in" ? ["New here? ", h("button.link", { type: "button", onclick: () => { mode = "up"; render(); } }, "Create an account")] : ["Already have one? ", h("button.link", { type: "button", onclick: () => { mode = "in"; render(); } }, "Sign in")]),
-      h("p.fine", "You can always play without an account. Anything you've already played on this device moves across when you sign in."));
+      h("p.fine", "You can always play without an account. Anything you've already played on this device moves across when you sign in. ", h("a", { href: "privacy.html" }, "Privacy")));
   }
   function nameField(current) {
     const input = h("input", { type: "text", autocomplete: "username", autocapitalize: "none", spellcheck: false, maxLength: 20, value: current || "", placeholder: "3 to 20 letters, numbers or _" }), msg = h("span.msg", { role: "status" });
@@ -250,7 +250,7 @@
   }
   function chooseName() {
     const box = body(), name = nameField(""), pic = avatarPicker("dumbo"), submit = h("button.btn", { type: "submit" }, "Start diving");
-    box.append(h("div.lead", h("h2.title", "Choose a username"), h("p.note-line", "This is how friends find you and how you appear in rankings. It's public, so don't use your real name unless you want to.")),
+    box.append(h("div.lead", h("h2.title", "Choose a username"), h("p.note-line", "This is how friends find you and how you appear in rankings. It's public, so don't use your real name unless you want to. ", h("a", { href: "privacy.html" }, "Privacy"))),
       h("form.form", { novalidate: true, onsubmit: async e => { e.preventDefault(); submit.disabled = true; try { await A.claim(name.input.value.trim(), pic.value); go("log"); } catch (err) { name.msg.className = "msg bad"; name.msg.textContent = err.message; submit.disabled = false; } } }, name.el, pic.el, h("div.row", submit, h("button.link", { type: "button", onclick: () => A.signOut().then(render) }, "Sign out"))));
   }
   function newPassword() {

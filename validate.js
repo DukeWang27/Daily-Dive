@@ -71,7 +71,7 @@
       cat, index, byFirst,
       general: new Set((cat.general || []).map(normalize)),
       notIn: new Set((cat.notIn || []).map(normalize)),
-      prefix: cat.prefix || "",
+      pattern: cat.pattern || (cat.prefix ? { type: "start", s: cat.prefix } : null),
       cache: loadCache(cat.key),
     };
   }
@@ -126,10 +126,16 @@
     const dupOf = row => given && given.rows.has(row.a);
     const ok = (row, via) => Object.assign(res, dupOf(row) ? { status: "dup", row, via } : { status: "ok", row, via });
 
-    if (P.prefix && !n.replace(/ /g, "").startsWith(P.prefix)) return Object.assign(res, { status: "invalid", reason: `Doesn't start with ${P.prefix.toUpperCase()}` });
     if (P.general.has(n) || variants(n).some(v => P.general.has(v))) return Object.assign(res, { status: "invalid", reason: "Too general" });
     const hit = lookup(n, P);
     if (hit) return ok(hit.row, hit.alias ? "alias" : "exact");
+    // Word questions: anything that doesn't fit the letters can't be an answer (checked after known word forms,
+    // so "clocks" still counts as clock for words ending in OCK).
+    if (P.pattern) {
+      const p = P.pattern.s, up = p.toUpperCase(), fits = w => P.pattern.type === "start" ? w.startsWith(p) : P.pattern.type === "end" ? w.endsWith(p) : w.includes(p);
+      if (n.includes(" ")) return Object.assign(res, { status: "invalid", reason: "One word only" });
+      if (!variants(n).some(fits)) return Object.assign(res, { status: "invalid", reason: P.pattern.type === "start" ? `Doesn't start with ${up}` : P.pattern.type === "end" ? `Doesn't end in ${up}` : `Doesn't have ${up} in it` });
+    }
     if (P.notIn.has(n) || variants(n).some(v => P.notIn.has(v))) return Object.assign(res, { status: "invalid", reason: "Doesn't fit this category" });
 
     // "red car", "baby elephant": a describing word doesn't make a new answer.

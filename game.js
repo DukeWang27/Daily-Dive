@@ -9,7 +9,7 @@
 //   url + anonKey: a Supabase project (run supabase.sql) for real player counts, rankings and review requests.
 //   verifyUrl: an endpoint that reviews unknown answers (see api/verify.js). Never put a secret key in this file.
 const BACKEND = { url: "", anonKey: "", verifyUrl: "" };
-const LAUNCH_DAY = Date.UTC(2026, 10, 23); // Daily #1
+const LAUNCH = [2026, 11, 24];     // Daily #1: year, month, day. Days change at each player's local midnight.
 const GUESSES = 3;                // per question
 const FREE_MISSES = 3;            // answers that don't count are free up to this many per question; after that each uses a guess
 const IMAGINARY_PLAYERS = 200;    // early-estimate weight blended with real counts
@@ -31,7 +31,8 @@ const store = {
   set(k, v) { try { localStorage.setItem("iceberg:" + k, JSON.stringify(v)); } catch { /* private mode: fine */ } },
   del(k) { try { localStorage.removeItem("iceberg:" + k); } catch { /* fine */ } },
 };
-const dayNumber = () => Math.floor((Date.now() - LAUNCH_DAY) / 86400000) + 1;
+const localMidnight = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+const dayNumber = () => Math.max(1, Math.round((localMidnight() - new Date(LAUNCH[0], LAUNCH[1] - 1, LAUNCH[2])) / 86400000) + 1);
 // Today's finished result, if there is one. Results saved by the earlier timed version of the game are ignored.
 const todayResult = () => { const d = store.get("day:" + dayNumber(), null); return d && d.v === 3 ? d : null; };
 const playerId = (() => { let id = store.get("pid", null); if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); store.set("pid", id); } return id; })();
@@ -150,7 +151,7 @@ function renderHome() {
   $("#practice").hidden = !today;
   const tick = () => {
     if (!today) { $("#home-next").textContent = ""; return; }
-    const left = 86400000 - ((Date.now() - LAUNCH_DAY) % 86400000), h = Math.floor(left / 3600000), m = Math.floor(left % 3600000 / 60000);
+    const left = Math.max(0, localMidnight().getTime() + 86400000 - Date.now()), h = Math.floor(left / 3600000), m = Math.floor(left % 3600000 / 60000);
     $("#home-next").textContent = `Next iceberg in ${h}h ${String(m).padStart(2, "0")}m`;
   };
   clearInterval(nextTimer); tick(); nextTimer = setInterval(tick, 30000);
@@ -406,9 +407,11 @@ function boardFor(cat, r) {
   const countOf = x => isLive ? (stats.counts.get(x.row.a) || 0) : Math.max(1, Math.round(x.share * players));
   // Only answers enough players gave can be listed as "rarest". With sample data the list sticks to the hand-made
   // answers (plus anything you said), so it reads like a real day.
-  const eligible = ranked.filter(x => isLive ? (stats.counts.get(x.row.a) || 0) >= BOARD_MIN_COUNT : (!x.row.x || mine.has(x.row.a)));
+  // Some real words are accepted but never listed (row.h), so the boards stay fit for any audience.
+  const shown = ranked.filter(x => !x.row.h || mine.has(x.row.a));
+  const eligible = shown.filter(x => isLive ? (stats.counts.get(x.row.a) || 0) >= BOARD_MIN_COUNT : (!x.row.x || mine.has(x.row.a)));
   const item = x => ({ name: display(x.row), share: x.share, count: countOf(x), me: mine.has(x.row.a) });
-  return { isLive, players, common: ranked.slice(0, 5).map(item), rare: eligible.slice(-5).reverse().map(item), top: ranked.find(x => !mine.has(x.row.a)) };
+  return { isLive, players, common: shown.slice(0, 5).map(item), rare: eligible.slice(-5).reverse().map(item), top: shown.find(x => !mine.has(x.row.a)) };
 }
 
 function renderDone(cat, r) {
@@ -531,6 +534,8 @@ function renderEnd(day, fresh, practice) {
   $("#e-deepest").textContent = ""; if (data.deepest) $("#e-deepest").append("Deepest find: ", el("b", null, `${data.deepest.name} · ${data.deepest.depth} m`));
   $("#e-rank").textContent = "";
   if (!practice) live.ranking(day.day, day.total).then(rk => { if (rk && screen === "end") $("#e-rank").textContent = `Deeper than ${Math.round(100 * rk.below / rk.players)}% of ${fmt(rk.players)} players today`; });
+  // A link back to the game, when it is hosted somewhere people can open.
+  data.link = /^https:$/.test(location.protocol) && !/claude|anthropic|localhost/.test(location.hostname) ? location.host + (location.pathname === "/" ? "" : location.pathname) : "";
   $("#e-card").textContent = Share.text(data);
   $("#e-streak").textContent = data.streak ? `${data.streak}-day streak` : "";
   $("#e-note").textContent = practice ? "Practice dive: this doesn't change your daily result or streak." : "A new iceberg surfaces tomorrow.";
@@ -590,11 +595,16 @@ async function boot() {
   fitViewport();
   (window.visualViewport || window).addEventListener("resize", fitViewport);
   wireSound();
-  let data = null;
-  try { data = await (await fetch("categories.json")).json(); } catch { data = window.ICEBERG_CATEGORIES || null; }
-  CATS = data ? (Array.isArray(data) ? data : data.categories || []) : [];
-  if (data && data.commonWords) V.setCommonWords(data.commonWords);
-  if (data && data.samplePlayers) SAMPLE_PLAYERS = data.samplePlayers;
+  // Today's five questions live in their own file: days/<n>.json. The calendar decides which one; when the bank
+  // runs out it starts again from day 1. (Day 0 is a fixed set used by the automated tests.)
+  try {
+    const index = await (await fetch("days/index.json")).json();
+    const n = PARAMS.has("test") && PARAMS.has("day") ? +PARAMS.get("day") : ((dayNumber() - 1) % index.count) + 1;
+    const [day, words] = await Promise.all([fetch(`days/${n}.json`).then(r => r.json()), fetch("words.json").then(r => r.json()).catch(() => null)]);
+    CATS = day.questions || [];
+    if (words && words.commonWords) V.setCommonWords(words.commonWords);
+    SAMPLE_PLAYERS = day.samplePlayers || index.samplePlayers || SAMPLE_PLAYERS;
+  } catch { CATS = []; }
   if (!CATS.length) { $("#home-streak").textContent = "Couldn't load today's questions. Refresh to try again."; show("home"); return; }
   if (PARAMS.has("reset")) { store.del("game:" + dayNumber()); store.del("game:practice"); store.del("day:" + dayNumber()); }
 
@@ -635,7 +645,7 @@ async function boot() {
   }
   // Pick up where you left off: a game in progress is never reset by a reload.
   const saved = [store.get("game:" + dayNumber(), null), store.get("game:practice", null)].find(g => g && !g.finished);
-  if (saved && saved.v === 3 && saved.day === dayNumber() && saved.rounds && saved.rounds.length === CATS.length) {
+  if (saved && saved.v === 3 && saved.day === dayNumber() && saved.rounds && saved.rounds.length === CATS.length && saved.rounds.every((r, i) => r.key === CATS[i].key)) {
     state = saved; state.rounds.forEach(r => { r.guesses.forEach(g => { g.checking = false; delete g.bi; }); });
     recheckPending(); save();
     if (state.round >= CATS.length) { finishDay(); return; }

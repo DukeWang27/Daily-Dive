@@ -1,4 +1,7 @@
-"""Build the category data: every recognised answer, its other names, its rules and an early-estimate share.
+"""Word lists for the first five questions (animals, fruits, kitchen, wheels, SN) and helpers shared with
+build_days.py, which is the script that builds the game's data. This file is no longer run on its own.
+
+How answers are gathered (the same for every question in tools/questions.py):
 
 Recognition comes from four layers, merged here so the game can check answers instantly with no network:
   1. Hand-made core lists (the answers most people give), with hand-set shares for the most typical ones.
@@ -543,4 +546,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    print("This file now only holds the first five questions' word lists and the shared helpers.")
+    print("To build the game's daily files run:  python3 tools/build_days.py")

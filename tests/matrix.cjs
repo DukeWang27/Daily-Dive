@@ -1,10 +1,11 @@
 // Full play-through checks for the three-guess game. Needs Node and Playwright.
 // Run from the project folder:  node tests/matrix.cjs            (everything, about 3 minutes)
-//                               node tests/matrix.cjs audio,sizes (parts: desk, phone, edge, reload, review, audio, timing, sizes)
+//                               node tests/matrix.cjs audio,sizes (parts: desk, phone, edge, reload, review, audio, timing, sizes, daily)
 const { chromium, serve, open, audit } = require('./lib.cjs');
 const R = []; let fails = 0;
 const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${name}${extra ? '  [' + extra + ']' : ''}`); if (!cond) fails++; };
 const URL = 'http://localhost:8782/';
+// All play-through checks use days/0.json, a fixed set of five questions, so they don't change with the calendar.
 const S = p => p.evaluate(() => { const st = ICEBERG_TEST.state, r = st && st.rounds[st.round]; return st ? { round: st.round, phase: st.phase, n: r.guesses.length, status: r.guesses.map(g => g.status), names: r.guesses.map(g => g.name || g.typed), shares: r.guesses.map(g => g.share), misses: r.misses, busy: ICEBERG_TEST.busy } : null; });
 const settle = async p => { await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 10000 }); await p.waitForTimeout(250); };
 const enter = async (p, text) => { await p.fill('#answer', text); await p.keyboard.press('Enter'); await p.waitForTimeout(60); };
@@ -22,7 +23,7 @@ const overlaps = p => p.evaluate(() => {
   marks.forEach((a, i) => marks.slice(i + 1).forEach(b => { if (hit(box(a), box(b))) out.push('markers overlap'); }));
   return out; });
 const slots = p => p.$$eval('#slots .slot', els => els.map(e => ({ cls: e.className.replace('slot ', ''), text: e.innerText.replace(/\n/g, ' | ') })));
-async function fresh(b, vp, extra = '') { const p = await open(b, vp, URL + '?test&fast&reset' + extra); await p.evaluate(() => { window.__snd = []; const o = Sound.play; Sound.play = (n, a) => { window.__snd.push(n); return o(n, a); }; }); return p; }
+async function fresh(b, vp, extra = '') { const p = await open(b, vp, URL + '?test&day=0&fast&reset' + extra); await p.evaluate(() => { window.__snd = []; const o = Sound.play; Sound.play = (n, a) => { window.__snd.push(n); return o(n, a); }; }); return p; }
 const start = async p => { await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(500); };
 
 async function fullGame(b, vp) {
@@ -127,7 +128,7 @@ async function fullGame(b, vp) {
   const snd = await p.evaluate(() => window.__snd), need = ['start', 'question', 'submit', 'final', 'travel', 'reveal', 'deeper', 'neutral', 'rare', 'round', 'day', 'duplicate', 'invalid', 'pending', 'click'];
   ok(T('every moment has its sound; no countdown sounds remain'), need.every(n => snd.includes(n)) && !snd.includes('tick') && !snd.includes('timeup'), need.filter(n => !snd.includes(n)).join(',') || `${snd.length} sound calls`);
   ok(T('no console or page errors'), !p.errs.length, p.errs.join(' | '));
-  await p.goto(URL + '?test&fast'); await p.waitForSelector('#play');
+  await p.goto(URL + '?test&day=0&fast'); await p.waitForSelector('#play');
   ok(T('coming back: results button, practice, streak'), await p.evaluate(() => /See today/.test(document.querySelector('#play').textContent) && !document.querySelector('#practice').hidden && /1-day streak/.test(document.querySelector('#home-streak').textContent)));
   await p.context().close();
 }
@@ -135,7 +136,7 @@ async function fullGame(b, vp) {
 async function edge(b) {
   // Three answers with identical rarity.
   let p = await fresh(b, 'desk'); await start(p);
-  const same = await p.evaluate(async () => { const cats = (await (await fetch('categories.json')).json()).categories, by = {}; for (const r of cats[0].answers) if (!r.x && !/ /.test(r.a)) (by[r.s] = by[r.s] || []).push(r.a); return Object.values(by).filter(v => v.length >= 3).sort((a, b) => 0)[0].slice(0, 3); });
+  const same = await p.evaluate(async () => { const cats = (await (await fetch('days/0.json')).json()).questions, by = {}; for (const r of cats[0].answers) if (!r.x && !/ /.test(r.a)) (by[r.s] = by[r.s] || []).push(r.a); return Object.values(by).filter(v => v.length >= 3).sort((a, b) => 0)[0].slice(0, 3); });
   const hs = []; for (const a of same) { await guess(p, a); await p.waitForTimeout(350); hs.push(await hint(p)); ok(`identical rarity (${a}): labels and markers don't overlap`, !(await overlaps(p)).length, (await overlaps(p)).join('; ')); }
   let s = await S(p), st = await slots(p);
   ok('identical rarity: all three sit at the same depth, the first stays the deepest', new Set(s.shares).size === 1 && /best/.test(st[0].cls) && !/best/.test(st[1].cls) && !/best/.test(st[2].cls) && /Level with your deepest/.test(hs[1]), `${same.join(', ')} | ${hs[1]}`);
@@ -175,7 +176,7 @@ async function edge(b) {
   await p.context().close();
   p = await fresh(b, 'desk'); await p.evaluate(() => { const st = JSON.parse(localStorage.getItem('iceberg:game:' + 2) || 'null'); }); await start(p);
   await p.evaluate(() => { const s = ICEBERG_TEST.state; s.round = 4; localStorage.setItem('iceberg:game:' + s.day, JSON.stringify(s)); });
-  await p.goto(URL + '?test&fast'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(300);
+  await p.goto(URL + '?test&day=0&fast'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(300);
   for (const a of ['Ferrari', 'Lamborghini', 'Porsche']) await guess(p, a);
   s = await S(p);
   ok('category rules: three car makes all count now (the old cap is gone); "Lambo" style names still merge', s.status.join() === 'ok,ok,ok' && s.names.join() === 'ferrari,lamborghini,porsche', s.names.join());
@@ -186,7 +187,7 @@ async function edge(b) {
 async function reload(b) {
   const p = await fresh(b, 'phone'); await start(p);
   await guess(p, 'kangaroo'); await guess(p, 'octopus');
-  await p.goto(URL + '?test&fast'); await p.waitForTimeout(600);
+  await p.goto(URL + '?test&day=0&fast'); await p.waitForTimeout(600);
   let s = await S(p), st = await slots(p);
   ok('reload mid-question: back in the same question with both guesses and one left', await p.evaluate(() => ICEBERG_TEST.screen === 'play') && s.n === 2 && s.names.join() === 'kangaroo,octopus' && /done/.test(st[0].cls) && /best/.test(st[1].cls) && /next/.test(st[2].cls), st.map(x => x.cls).join(' | '));
   ok('reload: markers are back on the iceberg, camera at the deepest', await p.evaluate(() => document.querySelectorAll('.ib-mark').length === 2 && document.querySelector('.ib-card .ib-name')?.textContent === 'octopus'));
@@ -195,14 +196,14 @@ async function reload(b) {
   ok('reload: an earlier guess still counts as a duplicate', (await S(p)).n === 2 && /already tried/.test(await hint(p)));
   // Reload in the middle of a reveal: the guess was saved the moment it was sent.
   await p.fill('#answer', 'axolotl'); await p.keyboard.press('Enter'); await p.waitForTimeout(80);
-  await p.goto(URL + '?test&fast'); await p.waitForTimeout(700);
+  await p.goto(URL + '?test&day=0&fast'); await p.waitForTimeout(700);
   s = await S(p);
   ok('reload during a reveal: the guess is not lost or refunded', s.n === 3 && s.names[2] === 'axolotl', `${s.n} guesses, phase ${s.phase}`);
   await waitDone(p);
-  await p.goto(URL + '?test&fast'); await p.waitForTimeout(600);
+  await p.goto(URL + '?test&day=0&fast'); await p.waitForTimeout(600);
   ok('reload on the results: still the results, same score', (await S(p)).phase === 'done' && await p.evaluate(() => document.querySelector('#best-name').textContent === 'axolotl' && !document.querySelector('#done-panel').hidden));
   await p.click('#next'); await p.waitForFunction(() => ICEBERG_TEST.state.round === 1); await p.waitForTimeout(300);
-  await p.goto(URL + '?test&fast'); await p.waitForTimeout(600);
+  await p.goto(URL + '?test&day=0&fast'); await p.waitForTimeout(600);
   s = await S(p);
   ok('reload at the start of question 2: question 2, three fresh guesses, question 1 kept', s.round === 1 && s.n === 0 && /\d+ m/.test(await p.textContent('#top-meta')), await p.textContent('#top-meta'));
   ok('reload runs: no errors', !p.errs.length, p.errs.join(' | '));
@@ -215,7 +216,7 @@ async function review(b) {
     const verdict = { batmobile: { status: 'ok', canonical: 'batmobile', reason: 'A car' }, 'time machine': { status: 'invalid', canonical: '', reason: 'Not a real thing with wheels' }, whip: { status: 'ok', canonical: 'car', reason: 'Slang for car' } }[body.answers[0]];
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: body.answers[0], ...verdict }] }) }); });
   await start(p); await p.evaluate(() => { const s = ICEBERG_TEST.state; s.round = 4; localStorage.setItem('iceberg:game:' + s.day, JSON.stringify(s)); });
-  await p.goto(URL + '?test&fast&verify=/verify-mock'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(300);
+  await p.goto(URL + '?test&day=0&fast&verify=/verify-mock'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(300);
   await enter(p, 'batmobile'); await p.keyboard.press('Enter'); await p.waitForTimeout(80);
   let s = await S(p);
   ok('review: an unknown answer takes a slot at once and waits', s.n === 1 && s.status[0] === 'pending' && /Being checked/.test((await slots(p))[0].text));
@@ -234,7 +235,7 @@ async function review(b) {
   const q = await fresh(b, 'desk', '&verify=/verify-mock');
   await q.route('**/verify-mock', route => route.request().method() !== 'POST' ? route.continue() : route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: 'whip', status: 'ok', canonical: 'car', reason: 'Slang for car' }] }) }));
   await start(q); await q.evaluate(() => { const s = ICEBERG_TEST.state; s.round = 4; localStorage.setItem('iceberg:game:' + s.day, JSON.stringify(s)); });
-  await q.goto(URL + '?test&fast&verify=/verify-mock'); await q.waitForSelector('[data-screen="play"]:not([hidden])'); await q.waitForTimeout(300);
+  await q.goto(URL + '?test&day=0&fast&verify=/verify-mock'); await q.waitForSelector('[data-screen="play"]:not([hidden])'); await q.waitForTimeout(300);
   await guess(q, 'car'); await enter(q, 'whip'); await q.keyboard.press('Enter');
   await q.waitForFunction(() => ICEBERG_TEST.state.rounds[4].guesses[1].status === 'miss', null, { timeout: 6000 }); await q.waitForTimeout(200);
   ok('review: an approved answer that equals an earlier guess scores nothing extra', /Same answer as car/.test((await slots(q))[1].text), (await slots(q))[1].text);
@@ -247,14 +248,14 @@ async function review(b) {
   ok('pending answers earn nothing: score comes from the valid guess only', await d.evaluate(() => document.querySelector('#best-name').textContent === 'dog' && document.querySelector('#best-depth').textContent === '0m'));
   // A verdict that arrives later (remembered on the device) updates the pending guess and the score.
   await d.evaluate(() => localStorage.setItem('iceberg:verdicts:animals', JSON.stringify({ pikachu: { status: 'ok' } })));
-  await d.goto(URL + '?test&fast'); await d.waitForTimeout(600);
+  await d.goto(URL + '?test&day=0&fast'); await d.waitForTimeout(600);
   ok('pending verified later: the score updates', await d.evaluate(() => document.querySelector('#best-name').textContent === 'pikachu' && document.querySelector('#best-depth').textContent === '52m'), await d.textContent('#best-depth'));
   ok('review runs: no errors', !d.errs.filter(e => !/nope|404/.test(e)).length, d.errs.join(' | '));
   await d.context().close();
 }
 
 async function audio(b) {
-  const p = await open(b, 'desk', URL + '?test&fast&reset');
+  const p = await open(b, 'desk', URL + '?test&day=0&fast&reset');
   await p.click('#sound-btn');
   ok('audio: starts after the first tap', await p.evaluate(() => Sound.ready));
   const lv = await p.evaluate(async () => { const out = []; for (const n of Sound.names) out.push(await Sound.renderTest(n, { depth: 0.8, seconds: 1.2, lead: 1.2, dir: 1, step: 1 }, 5)); return out; });
@@ -268,18 +269,18 @@ async function audio(b) {
   const made = await p.evaluate(() => { let n = 0; const o = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { n++; return o.call(this); }; window.__count = () => n; return 0; });
   await guess(p, 'kangaroo'); await guess(p, 'octopus');
   ok('audio muted: the game plays normally and makes no sound', await p.evaluate(() => Sound.prefs.muted && window.__count() === 0) && (await S(p)).n === 2);
-  await p.goto(URL + '?test&fast'); await p.waitForTimeout(500);
+  await p.goto(URL + '?test&day=0&fast'); await p.waitForTimeout(500);
   ok('audio: preferences survive a reload', await p.evaluate(() => Sound.prefs.muted === true && Sound.prefs.sfx === 0.35 && Sound.prefs.amb === 0.2));
   ok('audio runs: no errors', !p.errs.length, p.errs.join(' | '));
   await p.context().close();
-  const q = await open(b, 'desk', URL + '?test&fast&reset'); await q.addInitScript(() => { delete window.AudioContext; delete window.webkitAudioContext; });
-  await q.goto(URL + '?test&fast&reset'); await q.waitForSelector('#play'); await q.click('#play'); await q.waitForSelector('[data-screen="play"]:not([hidden])'); await q.waitForTimeout(400); await guess(q, 'dog');
+  const q = await open(b, 'desk', URL + '?test&day=0&fast&reset'); await q.addInitScript(() => { delete window.AudioContext; delete window.webkitAudioContext; });
+  await q.goto(URL + '?test&day=0&fast&reset'); await q.waitForSelector('#play'); await q.click('#play'); await q.waitForSelector('[data-screen="play"]:not([hidden])'); await q.waitForTimeout(400); await guess(q, 'dog');
   ok('audio: works in a browser with no audio support', (await S(q)).n === 1 && !q.errs.length, q.errs.join(' | '));
   await q.context().close();
 }
 
 async function timing(b) {
-  const p = await open(b, 'desk', URL + '?test&reset'); // real speed
+  const p = await open(b, 'desk', URL + '?test&day=0&reset'); // real speed
   await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(1700);
   const times = [];
   for (const a of ['kangaroo', 'octopus', 'cat', 'axolotl']) {
@@ -292,10 +293,55 @@ async function timing(b) {
   await p.context().close();
 }
 
+async function daily(b) {
+  const index = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'days', 'index.json'), 'utf8'));
+  const at = async (offsetDays) => { const ctx = await b.newContext({ viewport: { width: 1100, height: 760 } }); const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') p.errs.push(m.text()); });
+    await p.clock.install({ time: new Date(2026, 10, 24 + offsetDays, 9, 30) }); await p.goto(URL + '?test&fast'); await p.waitForSelector('#play'); return p; };
+  const seen = new Map(), keys = new Set(); let bad = [], small = [], icons = [];
+  for (let d = 0; d < index.count; d++) {
+    const p = await at(d);
+    const meta = await p.textContent('#top-meta');
+    await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(150);
+    const info = await p.evaluate(async n => { const day = await (await fetch(`days/${n}.json`)).json(); return { title: document.querySelector('#q-title').textContent, qs: day.questions.map(q => ({ key: q.key, prompt: q.prompt, n: q.answers.length, tip: q.answers.filter(a => a.s >= 0.1).length, icon: document.createElement('i').innerHTML = IcebergIcons.svg(q.icon), rules: q.rules.length, hint: !!q.hint })) }; }, d + 1);
+    if (meta !== `Daily #${d + 1}` || info.title !== info.qs[0].prompt) bad.push(`day ${d + 1}: header "${meta}", shows "${info.title}"`);
+    info.qs.forEach(q => { if (keys.has(q.key)) bad.push('repeated question ' + q.key); keys.add(q.key); if (q.n < 25 || q.tip < 1 || !q.rules || !q.hint) small.push(`${q.key} (${q.n} answers, ${q.tip} at the tip)`); if (/M4 21 11 8l4 5 3-3 10 11z/.test(q.icon)) icons.push(q.key); });
+    seen.set(d + 1, info.qs.map(q => q.prompt).join(' | '));
+    // One real guess on each day's first question: the top answer must be recognised and land at the tip.
+    const top = await p.evaluate(async n => (await (await fetch(`days/${n}.json`)).json()).questions[0].answers[0], d + 1);
+    await p.fill('#answer', top.d || top.a); await p.keyboard.press('Enter'); await p.waitForTimeout(80); await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 9000 });
+    const g = await p.evaluate(() => ICEBERG_TEST.state.rounds[0].guesses[0]);
+    if (!g || g.status !== 'ok' || p.errs.length) bad.push(`day ${d + 1}: top answer "${top.a}" -> ${g && g.status} ${p.errs.join(' ')}`);
+    await p.context().close();
+  }
+  ok(`daily: each of the ${index.count} days loads its own five questions by date, with the right "Daily #"`, !bad.length, bad.join('; ') || [...seen.values()][0]);
+  ok('daily: no question is used twice across the calendar', keys.size === index.count * 5, `${keys.size} different questions`);
+  ok('daily: every question has rules, a hint, at least 25 answers and an answer at the tip', !small.length, small.join('; '));
+  ok('daily: every question has its own icon (none falls back to the default)', !icons.length, icons.join(', '));
+  const wrap = await at(index.count); const again = await wrap.evaluate(() => fetch('days/1.json').then(r => r.json()).then(d => d.questions[0].prompt));
+  await wrap.click('#play'); await wrap.waitForSelector('[data-screen="play"]:not([hidden])');
+  ok('daily: after the last day the calendar starts again from day 1 (numbering carries on)', await wrap.textContent('#q-title') === again && await wrap.evaluate(() => ICEBERG_TEST.state.day) === index.count + 1);
+  await wrap.context().close();
+  // Yesterday's unfinished game must not leak into today.
+  const ctx = await b.newContext({ viewport: { width: 1100, height: 760 } }); const p = await ctx.newPage(); await p.clock.install({ time: new Date(2026, 10, 24, 23, 50) });
+  await p.goto(URL + '?test&fast'); await p.waitForSelector('#play'); await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(200);
+  await p.fill('#answer', 'eagle'); await p.keyboard.press('Enter'); await p.waitForTimeout(80); await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 9000 });
+  const first = await p.textContent('#q-title'); await p.clock.setFixedTime(new Date(2026, 10, 25, 0, 10)); await p.goto(URL + '?test&fast'); await p.waitForSelector('#play'); await p.waitForTimeout(300);
+  const home = await p.evaluate(() => ({ screen: ICEBERG_TEST.screen, meta: document.querySelector('#top-meta').textContent, btn: document.querySelector('#play').textContent }));
+  await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])');
+  ok('daily: after midnight the new day starts fresh with new questions', home.screen === 'home' && home.meta === 'Daily #2' && /Play today/.test(home.btn) && await p.textContent('#q-title') !== first && await p.evaluate(() => ICEBERG_TEST.state.rounds[0].guesses.length === 0), `${home.meta}: ${await p.textContent('#q-title')}`);
+  await ctx.close();
+  // Word questions: starts-with, ends-in and contains.
+  const w = await at(1); // day 2 has "ends in OCK"
+  const verdicts = await w.evaluate(async () => { const day = await (await fetch('days/2.json')).json(), i = day.questions.findIndex(q => q.key === 'ock'); const j = t => { const r = ICEBERG_TEST.judge(t, i); return r.status + (r.answer ? ':' + r.answer : '') + (r.reason ? ' (' + r.reason + ')' : ''); };
+    return { clock: j('clock'), clocks: j('Clocks'), knocked: j('knocked'), apple: j('apple'), two: j('rock star'), typo: j('padlokc'), i }; });
+  ok('word questions: "ends in OCK" accepts clock, folds clocks and knocked, rejects apple and two-word answers', verdicts.clock === 'ok:clock' && verdicts.clocks === 'ok:clock' && verdicts.knocked === 'ok:knock' && /invalid \(Doesn't end in OCK\)/.test(verdicts.apple) && /invalid \(One word only\)/.test(verdicts.two), JSON.stringify(verdicts));
+  await w.context().close();
+}
+
 async function sizes(b) {
   const { VPS } = require('./lib.cjs'); VPS.keyboard = { width: 390, height: 430 }; VPS.laptop = { width: 1366, height: 700 };
   for (const vp of ['small', 'keyboard', 'tablet', 'laptop', 'wide']) {
-    const p = await open(b, vp, URL + '?test&fast&reset'); const a0 = await audit(p);
+    const p = await open(b, vp, URL + '?test&day=0&fast&reset'); const a0 = await audit(p);
     await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(500);
     const issues = [];
     for (const a of ['great white shark', 'kangaroo', 'axolotl']) { await guess(p, a); await p.waitForTimeout(300); issues.push(...await audit(p), ...await overlaps(p)); if (a === 'kangaroo') await p.screenshot({ path: `tests/shot-${vp}-play.png` }); }
@@ -310,7 +356,7 @@ async function sizes(b) {
 (async () => {
   const srv = serve(8782), b = await chromium.launch({ args: ['--autoplay-policy=document-user-activation-required'] });
   const only = process.argv[2];
-  const jobs = { desk: () => fullGame(b, 'desk'), phone: () => fullGame(b, 'phone'), edge: () => edge(b), reload: () => reload(b), review: () => review(b), audio: () => audio(b), timing: () => timing(b), sizes: () => sizes(b) };
+  const jobs = { desk: () => fullGame(b, 'desk'), phone: () => fullGame(b, 'phone'), edge: () => edge(b), reload: () => reload(b), review: () => review(b), audio: () => audio(b), timing: () => timing(b), sizes: () => sizes(b), daily: () => daily(b) };
   for (const [k, f] of Object.entries(jobs)) if (!only || only.split(',').includes(k)) { try { await f(); } catch (e) { ok(`${k}: test run completed`, false, e.message.split('\n')[0]); } }
   console.log(R.join('\n')); console.log(`\n${R.length - fails} passed, ${fails} failed`);
   await b.close(); srv.close();

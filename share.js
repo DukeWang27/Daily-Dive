@@ -94,7 +94,7 @@
     const bar = d => { const n = Math.max(0, Math.min(10, Math.round(d / 30))); return "▓".repeat(n) + "░".repeat(10 - n); };
     const lines = data.rounds.map((r, i) => `${i + 1} ${bar(r ? r.depth : 0)} ${r ? r.depth + " m" : "–"}`);
     const last = [data.deepest ? `Deepest: ${data.deepest.depth} m (${data.deepest.tierName})` : "", data.streak > 1 ? `streak ${data.streak}` : ""].filter(Boolean).join(" · ");
-    return [`Iceberg #${data.day} · ${data.total.toLocaleString("en-US")} m`, ...lines, last, "Three guesses. How deep can you go?"].filter(Boolean).join("\n");
+    return [`Iceberg #${data.day} · ${data.total.toLocaleString("en-US")} m`, ...lines, last, "Three guesses. How deep can you go?", data.link || ""].filter(Boolean).join("\n");
   }
   window.IcebergShare = { draw, blob, text };
 })();

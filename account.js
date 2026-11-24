@@ -82,12 +82,18 @@
       session = data.session; await refresh(); return { confirm: false };
     },
     async signIn(email, password) { const { data, error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw fail(error); session = data.session; await refresh(); },
-    async google() { const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: here() } }); if (error) throw fail(error); },
+    async withGoogle() { const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: here() } }); if (error) throw fail(error); },
     async recover(email) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: here() }); if (error) throw fail(error); },
     async setPassword(password) { const { error } = await sb.auth.updateUser({ password }); if (error) throw fail(error); recovery = false; emit(); },
     async signOut() { if (demo) return; await sb.auth.signOut(); session = null; profile = null; state = "out"; emit(); },
     async claim(username, avatar) { profile = await rpc("claim_profile", { p_username: username, p_avatar: avatar || "dumbo" }); state = "in"; emit(); return profile; },
     async remove() { await rpc("delete_account"); if (sb) await sb.auth.signOut().catch(() => {}); session = null; profile = null; state = demo ? "in" : "out"; emit(); },
+    // A realtime channel for one race: a "poke" from anyone in it means "something changed, ask again".
+    // Only a nudge: the race itself is always read from the database. Off in tests (the stand-in server has no realtime).
+    channel(name, onPoke) {
+      if (demo || !sb || new URLSearchParams(location.search).has("test")) return null;
+      try { const ch = sb.channel(name, { config: { broadcast: { self: false } } }); ch.on("broadcast", { event: "poke" }, onPoke).subscribe(); return ch; } catch { return null; }
+    },
     fail,
   };
   window.Account = api;

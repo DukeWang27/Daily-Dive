@@ -30,14 +30,16 @@
     const raw = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
     if (!raw || raw.includes("=")) return null;                  // empty, or a sign-in link on its way back from Supabase
     const [view, a, b] = raw.split("/");
-    return ["log", "friends", "ranks", "settings", "account", "u", "dive", "vs"].includes(view) ? { view, a, b } : null;
+    return ["log", "friends", "ranks", "settings", "account", "u", "dive", "vs", "race"].includes(view) ? { view, a, b } : null;
   }
   function show() {
     const r = parse(), game = G(); if (!game) return;
-    if (!r) { route = { view: "" }; if (game.screen === "hub" || game.screen === "dive") { if (window.Viewer) window.Viewer.close(); game.openEnd(); } return; }
+    if (game.screen === "race" && (!r || r.view !== "race") && window.Race) window.Race.close();
+    if (!r) { route = { view: "" }; if (game.screen === "race") { game.home(); return; } if (game.screen === "hub" || game.screen === "dive") { if (window.Viewer) window.Viewer.close(); game.openEnd(); } return; }
     if (r.view === "account" && route.view !== "account") mode = "in";      // arriving fresh: start at "Sign in"
     if (game.playing && game.screen === "play") { history.replaceState(null, "", location.pathname + location.search); return; }   // not in the middle of a question
     route = r;
+    if (r.view === "race") { if (window.Viewer) window.Viewer.close(); lastPage = location.hash; if (window.Race) window.Race.open(r.a ? r.a.toUpperCase() : ""); return; }
     if (r.view === "dive" || r.view === "vs") { if (window.Viewer) window.Viewer.open(r.a, +r.b || game.today(), r.view === "vs"); return; }
     if (window.Viewer) window.Viewer.close();
     lastPage = location.hash; game.show("hub"); render();
@@ -243,7 +245,7 @@
     box.append(h("div.lead", h("h2.title", mode === "in" ? "Sign in" : mode === "up" ? "Create an account" : "Reset your password"),
       h("p.note-line", mode === "up" ? "Free. Keeps your streak and dives on any device, and lets you add friends and join the daily rankings. Your email is only used to sign you in: other players never see it." : mode === "in" ? "Welcome back." : "Enter the email you signed up with.")),
       form,
-      mode === "forgot" || !A.google ? null : h("div.or", h("span", "or")), mode === "forgot" || !A.google ? null : h("button.btn.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.google(), () => {}) }, "Continue with Google"),
+      mode === "forgot" || !A.google ? null : h("div.or", h("span", "or")), mode === "forgot" || !A.google ? null : h("button.btn.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.withGoogle(), () => {}) }, "Continue with Google"),
       h("p.note-line", mode === "in" ? ["New here? ", h("button.link", { type: "button", onclick: () => { mode = "up"; render(); } }, "Create an account")] : ["Already have one? ", h("button.link", { type: "button", onclick: () => { mode = "in"; render(); } }, "Sign in")]),
       h("p.fine", "You can always play without an account. Anything you've already played on this device moves across when you sign in. ", h("a", { href: "privacy.html" }, "Privacy")));
   }

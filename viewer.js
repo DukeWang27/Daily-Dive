@@ -80,16 +80,17 @@
 
   // ---------- The dock: whose dive, the five questions, the guesses ----------
   function head() {
-    const game = G(), d = dive, date = game.dateOf(d.day).toLocaleDateString("en-US", { day: "numeric", month: "long" });
-    $("#v-day").textContent = `Daily #${d.day} · ${date}`;
+    const game = G(), d = dive, date = d.race ? "" : game.dateOf(d.day).toLocaleDateString("en-US", { day: "numeric", month: "long" });
+    $("#v-day").textContent = d.race ? `Race expedition · ${d.qs.length} questions` : `Daily #${d.day} · ${date}`;
     const av = $("#v-av"); av.textContent = ""; av.className = "av"; const c = document.createElement("canvas"); if (window.Wildlife) window.Wildlife.portrait(c, mine ? mine.avatar : d.avatar); av.append(c);
     if (mine) {
       const diff = mine.total - d.total, deep = mine.max_depth - d.max_depth;
       $("#v-title").textContent = `You and ${d.name}`;
       $("#v-sub").textContent = `You ${m(mine.total)} · ${d.name} ${m(d.total)} · ${diff === 0 ? "level" : diff > 0 ? `you're ${m(diff)} ahead` : `${d.name} is ${m(-diff)} ahead`}. Deepest answer: ${deep === 0 ? "the same depth" : deep > 0 ? `yours, by ${m(deep)}` : `${d.name}'s, by ${m(-deep)}`}.`;
     } else {
-      $("#v-title").textContent = d.own ? "Your dive" : `${d.name}'s dive`;
-      $("#v-sub").textContent = `${m(d.total)} total · deepest ${m(d.max_depth)}${d.rank && d.players ? ` · #${d.rank} of ${d.players}` : ""}${d.hidden ? " · answers hidden by " + d.name : ""}`;
+      $("#v-title").textContent = d.race ? (d.own ? "Your expedition" : `${d.name}'s expedition`) : d.own ? "Your dive" : `${d.name}'s dive`;
+      if (d.race) $("#v-sub").textContent = `${m(d.total)} descended · deepest answer ${m(d.max_depth)}${d.race.racers > 1 ? ` · place ${d.race.place} of ${d.race.racers}` : ""}`;
+      else $("#v-sub").textContent = `${m(d.total)} total · deepest ${m(d.max_depth)}${d.rank && d.players ? ` · #${d.rank} of ${d.players}` : ""}${d.hidden ? " · answers hidden by " + d.name : ""}`;
     }
     $("#v-vs").hidden = !!mine || d.own || !canCompare; $("#v-replay").hidden = !!mine;
     $("#v-all").disabled = q < 0 && !replaying;
@@ -171,7 +172,7 @@
   }
 
   async function open(username, day, versus) {
-    const game = G(); game.show("dive"); ensure(); stopReplay();
+    const game = G(); game.show("dive"); ensure(); stopReplay(); backTo = null;
     dive = null; mine = null; q = -1; met = new Set(); canCompare = false;
     const msg = $("#v-msg"); msg.hidden = false; msg.textContent = "Bringing the dive up…"; $("#v-qs").textContent = ""; $("#v-slots").hidden = true; $("#v-title").textContent = ""; $("#v-sub").textContent = ""; $("#v-day").textContent = `Daily #${day}`; $("#v-av").textContent = "";
     berg.setFrame({ l: 0, r: 0, t: 64, b: 0 }, 0); berg.overview([]); requestAnimationFrame(() => frame(0));
@@ -182,6 +183,32 @@
       msg.hidden = true; whole(false);
     } catch (e) { msg.textContent = e.message || "That dive can't be opened."; $("#v-vs").hidden = true; $("#v-replay").hidden = true; }
   }
+  // A racer's expedition from a finished race: the same scene, with the race's questions in place of a day's.
+  let backTo = null;
+  async function openRace(raceId, match, username) {
+    const game = G(); game.show("dive"); ensure(); stopReplay();
+    dive = null; mine = null; q = -1; met = new Set(); canCompare = false; backTo = () => window.Race.open();
+    const msg = $("#v-msg"); msg.hidden = false; msg.textContent = "Bringing the expedition up…"; $("#v-qs").textContent = ""; $("#v-slots").hidden = true; $("#v-title").textContent = ""; $("#v-sub").textContent = ""; $("#v-day").textContent = "Race expedition"; $("#v-av").textContent = "";
+    berg.setFrame({ l: 0, r: 0, t: 64, b: 0 }, 0); berg.overview([]); requestAnimationFrame(() => frame(0));
+    try {
+      const d = await A.rpc("race_expedition", { p_race: raceId, p_match: match, p_username: username });
+      const cats = await Promise.all(d.questions.map(id => fetch(`race/${id}.json`).then(r => r.json()).then(j => j.questions[0])));
+      const list = d.guesses.slice();
+      // The deepest answer on each question counts; equal depths keep the earlier guess.
+      cats.forEach((c, i) => { const ok = list.filter(g => g.round === i + 1 && g.status === "ok"); const b = ok.reduce((x, g) => !x || g.depth > x.depth ? g : x, null); if (b) b.best = true; });
+      const own = A.signedIn && username.toLowerCase() === A.profile.username.toLowerCase();
+      const qs = cats.map((c, i) => {
+        const guesses = list.filter(g => g.round === i + 1).sort((a, b) => a.slot - b.slot).map(g => {
+          const row = g.answer ? c.answers.find(a => a.a === g.answer) : null;
+          return { slot: g.slot, status: g.status, share: g.share, depth: g.depth, best: !!g.best, sight: "", blurb: row && row.b || "", name: row ? game.display(row) : g.answer || g.typed || "", rank: g.status === "ok" && g.share != null ? rarer(c, g.share) : "" };
+        });
+        return { title: c.title, prompt: c.prompt || c.title, icon: c.icon, guesses, best: guesses.find(g => g.best) || null };
+      });
+      dive = { name: d.username, avatar: d.avatar, own, day: raceId % 100000, race: d.result, total: d.result.distance, max_depth: d.result.deepest, hidden: false, qs };
+      if (game.screen !== "dive") return;
+      msg.hidden = true; whole(false);
+    } catch (e) { msg.textContent = e.message || "That expedition can't be opened."; $("#v-vs").hidden = true; $("#v-replay").hidden = true; }
+  }
   function close() { stopReplay(); if (berg) berg.stop(); }
 
   const wire = () => {
@@ -189,9 +216,9 @@
     $("#v-all").onclick = () => whole(true);
     $("#v-replay").onclick = replay;
     $("#v-vs").onclick = () => window.Hub.open("vs", dive.name, dive.day);
-    $("#v-close").onclick = () => window.Hub.back();
-    document.addEventListener("keydown", e => { if (!G() || G().screen !== "dive" || !dive || e.target.closest("input")) return; if (e.key === "Escape") $("#v-close").click(); else if (e.key === "ArrowDown") { e.preventDefault(); berg.step(1); } else if (e.key === "ArrowUp") { e.preventDefault(); berg.step(-1); } else if (/^[1-5]$/.test(e.key)) pick(+e.key - 1); });
+    $("#v-close").onclick = () => { if (backTo) { const f = backTo; backTo = null; f(); } else window.Hub.back(); };
+    document.addEventListener("keydown", e => { if (!G() || G().screen !== "dive" || !dive || e.target.closest("input")) return; if (e.key === "Escape") $("#v-close").click(); else if (e.key === "ArrowDown") { e.preventDefault(); berg.step(1); } else if (e.key === "ArrowUp") { e.preventDefault(); berg.step(-1); } else if (/^[1-9]$/.test(e.key) && +e.key <= dive.qs.length) pick(+e.key - 1); });
   };
   wire();
-  window.Viewer = { open, close, get state() { return { name: dive && dive.name, q, compare: !!mine, replaying, items: items.length, total: dive && dive.total }; }, get berg() { return berg; }, get life() { return life; } };
+  window.Viewer = { open, openRace, close, get state() { return { name: dive && dive.name, q, compare: !!mine, replaying, items: items.length, total: dive && dive.total }; }, get berg() { return berg; }, get life() { return life; } };
 })();

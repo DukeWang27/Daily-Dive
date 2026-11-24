@@ -140,7 +140,7 @@ function show(id) {
   for (const s of document.querySelectorAll("[data-screen]")) s.hidden = s.dataset.screen !== id;
   Sea.mood(id); Sound.setAmbience(id, 0);
   if (id !== "play") { clock.on = false; clearInterval(clock.timer); cancelAnimationFrame(clock.raf); }
-  document.documentElement.classList.toggle("in-play", id === "play" || id === "dive"); // the scene takes the whole window: nothing scrolls behind it
+  document.documentElement.classList.toggle("in-play", id === "play" || id === "dive" || id === "race"); // the scene takes the whole window: nothing scrolls behind it
   const playing = !!state && id === "play";
   $("#steps").hidden = !playing;
   updateHeader();
@@ -844,8 +844,9 @@ async function boot() {
     newGame(false); Sound.unlock(); Sound.play("start"); startQuestion(true);
   };
   $("#practice").onclick = () => { newGame(true); Sound.play("start"); startQuestion(true); };
+  $("#race-btn").onclick = () => { Sound.unlock(); location.hash = "#race"; };
   $("#home").onclick = renderHome;
-  $("#brand").onclick = () => { if (screen === "hub" || screen === "dive") { if (window.Hub) window.Hub.leave(); return; } if (screen === "end" || screen === "home") renderHome(); };
+  $("#brand").onclick = () => { if (screen === "race") { if (window.Race) window.Race.close(); history.replaceState(null, "", location.pathname + location.search); renderHome(); return; } if (screen === "hub" || screen === "dive") { if (window.Hub) window.Hub.leave(); return; } if (screen === "end" || screen === "home") renderHome(); };
   $("#acct-btn").onclick = () => { if (!window.Hub) return; if (screen === "hub") window.Hub.leave(); else window.Hub.open("log"); };
   $("#save-card").onclick = saveCard;
   $("#copy").onclick = async () => {

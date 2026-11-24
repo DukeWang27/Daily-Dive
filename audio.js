@@ -189,7 +189,7 @@
       if (k === 0) { glass(g, { f: note(88), t, gain: 0.07, decay: 0.5, index: 1.4, wet: 0.3 }); return; }
       if (k === 1) { glass(g, { f: note(81), t, gain: 0.08, decay: 0.9, wet: 0.38 }); glass(g, { f: note(88), t: t + 0.07, gain: 0.05, decay: 0.8, wet: 0.42 }); return; }
       if (k === 2) { ping(g, { f: note(72), t, gain: 0.07, decay: 1.1, echoes: 2, gap: 0.3, wet: 0.55 }); glass(g, { f: note(76), t: t + 0.02, gain: 0.06, decay: 1.6, index: 1.6, wet: 0.5, pan: -0.15 }); glass(g, { f: note(83), t: t + 0.09, gain: 0.05, decay: 1.6, index: 1.4, wet: 0.5, pan: 0.15 }); swell(g, t, { f: 49, gain: 0.07, rise: 0.08, decay: 0.8 }); return; }
-      SOUNDS.rare(g, t - 0.9, { lead: 0.9 });
+      SOUNDS.rare(g, t, { lead: 0.6 });   // the full swell plays during the camera's journey; here the answer is already in view
     },
     // Deeper than your last best: a small rising figure on top of the reveal. Bigger for bigger finds.
     deeper(g, t, o = {}) {

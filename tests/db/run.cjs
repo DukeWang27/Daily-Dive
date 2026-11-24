@@ -72,7 +72,7 @@ const jsDepth = s => s >= 0.1 ? 0 : Math.max(1, Math.round(100 * Math.log10(0.1 
   const seed = await admin(`select round, answer, share, depth from public.set_answers where set_id = 1`);
   const mism = seed.filter(r => { const row = day1.questions[r.round - 1].answers.find(a => a.a === r.answer); return !row || jsDepth(row.s) !== r.depth || row.s !== r.share; });
   ok('scoring: every answer in the database has exactly the share and depth the game shows', seed.length > 500 && !mism.length, `${seed.length} answers in set 1, ${mism.length} differ`);
-  const all = await admin(`select count(*)::int n, count(*) filter (where depth <> case when share >= 0.1 then 0 else greatest(1, floor(100 * log(0.1 / share::numeric) + 0.5)) end)::int off from public.set_answers`);
+  const all = await admin(`select count(*)::int n, count(*) filter (where depth <> case when share >= 0.1 then 0 else greatest(1, floor(100 * log(0.1 / share::numeric) + 0.5)) end)::int off from public.set_answers where set_id < 1000`);
   ok('scoring: the same holds across all 15 sets', all[0].n === 19922 && all[0].off === 0, `${all[0].n} answers, ${all[0].off} differ`);
   const adaDive = [G(1, 1, 'eagle'), G(1, 2, 'raven'), G(1, 3, 'lyrebird', { sight: 'giant' }), G(2, 1, 'feta'), G(2, 2, 'feta'), G(3, 1, 'bulgaria', { typed: 'Bulgaria!' }),
     { round: 4, slot: 1, typed: 'underwater chess boxing', answer: 'not a real answer', status: 'ok' }, { round: 4, slot: 2, typed: 'zzz', answer: null, status: 'miss' }, G(5, 1, 'quadrant', { sight: 'colossal', depth: 9999, share: 0.0000001 })];

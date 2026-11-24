@@ -1,0 +1,6 @@
+{
+  "name": "iceberg-tests",
+  "private": true,
+  "description": "Tools the tests need. Nothing here is part of the game.",
+  "dependencies": { "pg": "^8.11.0" }
+}

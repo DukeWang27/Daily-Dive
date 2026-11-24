@@ -101,4 +101,26 @@ create or replace view public.score_counts as
   from public.day_results
   group by day, total;
 
-grant select on public.round_players, public.answer_counts, public.score_counts to anon;
+-- Totals only: safe for anyone to read. The answer counts are not: they would tell someone who has not played
+-- yet which answers are rare today. They are handed out by round_counts() below, and only for a question that
+-- device has already finished.
+revoke all on public.round_players, public.answer_counts from anon, authenticated;
+grant select on public.score_counts to anon, authenticated;
+grant insert on public.round_plays, public.day_results, public.flags to authenticated;
+drop policy if exists "add plays (signed in)" on public.round_plays;
+create policy "add plays (signed in)" on public.round_plays for insert to authenticated with check (true);
+drop policy if exists "add results (signed in)" on public.day_results;
+create policy "add results (signed in)" on public.day_results for insert to authenticated with check (true);
+drop policy if exists "add flags (signed in)" on public.flags;
+create policy "add flags (signed in)" on public.flags for insert to authenticated with check (true);
+
+create or replace function public.round_counts(p_day int, p_round int, p_player text)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select case when exists (select 1 from public.round_plays where day = p_day and round = p_round and player = p_player)
+    then jsonb_build_object(
+      'players', coalesce((select n from public.round_players where day = p_day and round = p_round), 0),
+      'counts', coalesce((select jsonb_object_agg(answer, n) from public.answer_counts where day = p_day and round = p_round), '{}'::jsonb))
+    else jsonb_build_object('locked', true) end;
+$$;
+revoke all on function public.round_counts(int, int, text) from public;
+grant execute on function public.round_counts(int, int, text) to anon, authenticated;

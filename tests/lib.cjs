@@ -21,7 +21,7 @@ async function audit(p, scope = 'main, header') {
     const issues = [], vw = document.documentElement.clientWidth;
     if (document.documentElement.scrollWidth > vw + 1) issues.push('horizontal scroll: ' + document.documentElement.scrollWidth + ' > ' + vw);
     for (const root of document.querySelectorAll(sel)) for (const n of root.querySelectorAll('*')) {
-      if (n.closest('[hidden]') || n.matches('.ib-glow, .ib-shade, .sr') || n.closest('svg') || n.closest('.ib-world') || n.closest('.scene') || n.tagName === 'CANVAS') continue;
+      if (n.closest('[hidden]') || n.matches('.ib-glow, .ib-shade, .sr') || n.closest('svg') || n.closest('.ib-world') || n.closest('.scene') || n.closest('.cal-wrap') || n.tagName === 'CANVAS') continue;   // (.cal-wrap scrolls sideways on purpose)
       const cs = getComputedStyle(n); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
       const r = n.getBoundingClientRect(); if (!r.width || !r.height) continue;
       if (r.right > vw + 1 || r.left < -1) issues.push(`off-screen: ${n.tagName}.${n.className} ${Math.round(r.left)}..${Math.round(r.right)}`);

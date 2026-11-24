@@ -257,7 +257,7 @@
 
     const TIP_Y = (PEAK + W) / 2 + 8;
     let compact = false, stack = false, U = 2, Z = 2, camW = 0, camH = 0, camY = TIP_Y, aim = 0, axis = 0, focusIdx = -1, bestIdx = -1, items = [], raf = 0, snowRaf = 0, busy = false;
-    let frame = { l: 0, r: 0, t: 0, b: 0 }, frameRun = null, gaugeW = 84, noteBox = null;
+    let frame = { l: 0, r: 0, t: 0, b: 0 }, frameRun = null, gaugeW = 84, noteBox = null, wide = false;   // wide: the whole iceberg in view, every marker labelled
     let run = { cancelled: true };
     const handlers = { focus: () => {}, depth: () => {}, travel: () => {}, land: () => {}, render: () => {}, resize: () => {} };
     let seed = 20261123; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; // fixed seed: same drift every visit
@@ -375,7 +375,7 @@
       items.forEach((k, j) => {
         const mx = X0 + k.x * Z, my = Y0 + k.y * Z;
         const hitPill = nr && k.rect && k.rect.l < nr.r + 6 && nr.l - 6 < k.rect.r && k.rect.t < nr.b + 6 && nr.t - 6 < k.rect.b;
-        if (k.pill) k.pill.classList.toggle("dim", !k.shown || j === focusIdx || k.under || !!hitPill || !settled);
+        if (k.pill) k.pill.classList.toggle("dim", !k.shown || j === focusIdx || k.under || !!hitPill || (!settled && !wide));
         k.mark.classList.toggle("dim", !k.shown || (!!nr && j !== focusIdx && mx > nr.l - 10 && mx < nr.r + 10 && my > nr.t - 10 && my < nr.b + 10));
       });
       handlers.depth(depth);
@@ -422,7 +422,7 @@
       const zone = document.createElement("span"); zone.className = "ib-zone"; zone.textContent = it.tier.name;
       if (it.depth > 0) add("ib-below", b(it.depth + " m"), " below the surface ", zone); else add("ib-below", b("0 m"), " · above the waterline ", zone);
       if (it.rankText) add("ib-rank", it.rankText);
-      add("ib-meta", "Guess " + it.n + (it.countText ? " · " + it.countText + " players" : ""));
+      add("ib-meta", it.meta || "Guess " + it.n + (it.countText ? " · " + it.countText + " players" : ""));
       if (it.blurb && it.depth >= 100) add("ib-blurb", it.blurb);
       if (it.tag) add("ib-tag", it.tag);
       if (it.sight) add("ib-sight", it.sight);
@@ -444,11 +444,12 @@
     function build(a) {
       // a: { n, name, share, shareText, countText, rankText, blurb }
       const i = items.length, depth = depthOf(a.share);
-      const it = { ...a, depth, tier: tierOfDepth(depth), y: depthY(a.share), x: CX + XSLOT[i % 3], side: i % 2 === 0 ? 1 : -1, shown: false, best: false, tag: "", sight: "" };
-      const m = document.createElement("button"); m.type = "button"; m.className = "ib-mark dim tier-" + it.tier.key; m.setAttribute("aria-label", `Guess ${it.n}: ${it.name}, ${depth} metres`);
+      // a.who: "them" draws another player's marker (hollow) so two dives can share one iceberg. a.dx / a.side place it by hand.
+      const it = { ...a, depth, tier: tierOfDepth(depth), y: depthY(a.share), x: CX + (a.dx != null ? a.dx : XSLOT[i % 3]), side: a.side || (i % 2 === 0 ? 1 : -1), shown: false, best: false, tag: "", sight: "" };
+      const m = document.createElement("button"); m.type = "button"; m.className = "ib-mark dim tier-" + it.tier.key + (a.who === "them" ? " them" : ""); m.setAttribute("aria-label", `${a.label ? a.label + ": " : "Guess " + it.n + ": "}${it.name}, ${depth} metres`);
       m.onclick = () => focus(i); layer.append(m); it.mark = m;
-      const p = document.createElement("button"); p.type = "button"; p.className = "ib-pill dim tier-" + it.tier.key; p.title = it.name;
-      const nm = document.createElement("span"); nm.textContent = it.name; const d = document.createElement("b"); d.textContent = depth + " m";
+      const p = document.createElement("button"); p.type = "button"; p.className = "ib-pill dim tier-" + it.tier.key + (a.who === "them" ? " them" : ""); p.title = it.name;
+      const nm = document.createElement("span"); nm.textContent = (a.label ? a.label + " · " : "") + it.name; const d = document.createElement("b"); d.textContent = depth + " m";
       p.append(nm, d); p.onclick = () => focus(i); layer.append(p); it.pill = p;
       items.push(it);
       return it;
@@ -464,7 +465,7 @@
     // Start of a question: a clean iceberg, all of it in view, then a short push in to the tip.
     async function enter(animated = true) {
       stop(); const r = run = { cancelled: false };
-      layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; nav.hidden = true; busy = false; host.classList.remove("ib-drawn");
+      layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; nav.hidden = true; busy = false; wide = false; host.classList.remove("ib-drawn");
       measure();
       if (!animated) { Z = U; camY = clampCam(tipY()); aim = 0; render(); return; }
       Z = wideZ(); camY = clampCam(WH / 2); aim = 0; render();
@@ -476,7 +477,7 @@
     // One guess: a beat of anticipation, the journey, the landing. Resolves when the marker lands and the annotation
     // starts to draw; the box is ready for the next guess from that moment.
     async function add(a, o = {}) {
-      stop(); const r = run = { cancelled: false }; busy = true; Z = U;
+      stop(); const r = run = { cancelled: false }; busy = true; Z = U; wide = false;
       const it = build(a), i = items.length - 1;
       showNote(-1);
       await wait((o.special ? 420 : 280) / speed, r);
@@ -493,19 +494,41 @@
       return it;
     }
     // After a reload: put every earlier guess back without replaying anything.
+    // glide: instead of cutting to the answer, travel there from wherever the camera is (used when exploring a finished dive).
     function restore(list, o = {}) {
       stop(); run = { cancelled: true };
-      layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; busy = false;
+      const from = { y: camY, z: Z, had: items.length > 0 || wide };
+      layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; busy = false; wide = false;
       measure(); Z = U;
       list.forEach(a => { const it = build(a); it.shown = true; it.tag = a.tag || ""; it.sight = a.sight || ""; });
       markBest();
       const at = o.focus != null ? o.focus : bestIdx;
+      if (at >= 0 && o.glide && from.had) { Z = from.z; camY = from.y; render(); focus(at); return; }
       if (at >= 0) { camY = clampCam(focusY(items[at])); aim = items[at].y; showNote(at, true); } else { camY = clampCam(tipY()); aim = 0; render(); }
+    }
+    // The whole iceberg in one view, every answer marked and labelled: the summary of a finished dive.
+    function overview(list, o = {}) {
+      stop(); const r = run = { cancelled: false };
+      const from = { y: camY, z: Z, had: items.length > 0 };
+      layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; busy = false; nav.hidden = true; host.classList.remove("ib-drawn");
+      measure();
+      list.forEach(a => { const it = build(a); it.shown = true; });
+      markBest(); nav.hidden = true; wide = true; aim = 0;
+      // Frame every marker: the middle of the span from the waterline to the deepest answer.
+      const ys = items.map(k => k.y), zTo = wideZ(), yTo = items.length ? (Math.min(W - 20, ...ys) + Math.max(W + 220, ...ys)) / 2 : WH / 2;
+      if (!o.glide || !from.had) { Z = zTo; camY = clampCam(yTo); render(); return; }
+      Z = from.z; camY = from.y; render();
+      animate(800 / speed, r, k => { const e = easeInOut(k); Z = from.z + (zTo - from.z) * e; camY = clampCam(from.y + (yTo - from.y) * e); render(); }).then(() => { if (!r.cancelled) { Z = zTo; camY = clampCam(yTo); render(); } });
     }
     async function focus(i) {
       if (!items[i] || !items[i].shown || busy) return;
       stop(); const r = run = { cancelled: false };
-      showNote(-1);
+      showNote(-1); wide = false;
+      if (Z !== U) {                                   // coming from the wide view: push in and travel in one move
+        const z0 = Z, y0 = camY;
+        await animate(950 / speed, r, k => { const e = easeInOut(k); Z = z0 + (U - z0) * e; camY = clampCam(y0 + (focusY(items[i]) - y0) * e); render(); });
+        if (r.cancelled) return; Z = U;
+      }
       const target = focusY(items[i]);
       await moveTo(target, Math.min(1100, Math.max(450, 350 + Math.abs(clampCam(target) - camY) * U * 0.7)) / speed, r, easeInOut, items[i].y);
       if (!r.cancelled) { aim = items[i].y; showNote(i); }
@@ -554,7 +577,8 @@
     ro.observe(host);
     measure(); render(); snowRaf = requestAnimationFrame(drawSnow);
     return {
-      enter, add, restore, focus, step, setTag, setSight, setFrame, life,
+      enter, add, restore, overview, focus, step, setTag, setSight, setFrame, life, stop,
+      get wide() { return wide; },
       get busy() { return busy; }, get focused() { return focusIdx; }, get best() { return bestIdx; }, get count() { return items.length; },
       get depth() { const it = focusIdx >= 0 ? items[focusIdx] : null; return it && !busy && aim === it.y ? it.depth : metres(aim); },
       // For anything that draws into the scene (wildlife): where the artwork is on screen right now.

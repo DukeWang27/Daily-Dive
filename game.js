@@ -14,6 +14,7 @@ const GUESSES = 3;                // per question
 const QUESTION_SECONDS = 45;        // thinking time per question, shared by its three guesses. It stops while an answer is revealed. 0 = no timer
 const FREE_MISSES = 3;            // answers that don't count are free up to this many per question; after that each uses a guess
 const IMAGINARY_PLAYERS = 200;    // early-estimate weight blended with real counts
+const BOARD_MIN_PLAYERS = 30;       // real counts replace the sample board once this many players have answered a question
 const BOARD_MIN_COUNT = 5;        // a rare answer needs this many real players before it's listed (no one-off junk)
 const RANK_MIN_PLAYERS = 30;      // a ranking is only shown once this many real players have finished the day
 const REVIEWED_SHARE = 0.03;      // approved by review but not yet counted: sits in Midwater (52 m), never the maximum
@@ -22,8 +23,11 @@ const SPEED = PARAMS.has("fast") ? 4 : 1;
 // The automated tests run untimed unless they ask for a clock (?test&time=20).
 const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : QUESTION_SECONDS);
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
+if (PARAMS.has("test") && PARAMS.get("api")) { BACKEND.url = PARAMS.get("api"); BACKEND.anonKey = PARAMS.get("key") || ""; }   // tests point the game at a local stand-in
+if (PARAMS.has("test") && /^\d{4}-\d\d-\d\d$/.test(PARAMS.get("launch") || "")) { const d = PARAMS.get("launch").split("-").map(Number); LAUNCH[0] = d[0]; LAUNCH[1] = d[1]; LAUNCH[2] = d[2]; }
 const { depthOf, tierOfDepth } = window.Iceberg;
 const Brand = window.Brand || { name: "Iceberg", noun: "iceberg", slug: "iceberg" }; // brand.js: the game's name, in one place
+const Account = window.Account;   // account.js: sign-in and the database (everyone is a guest without it)
 const V = window.IcebergValidate, Sound = window.Sound, Sea = window.Sea || { mood() {} }, Icons = window.IcebergIcons, Share = window.IcebergShare, Wildlife = window.Wildlife;
 let SAMPLE_PLAYERS = 50000;       // shown with sample statistics, clearly labelled as simulated (set from categories.json)
 
@@ -63,16 +67,13 @@ const live = {
     if (!live.on()) return;
     try { await live.post("day_results", { day, player: playerId, total, depths }); } catch { /* ignore */ }
   },
-  // Share of unique players who gave each answer at least once.
+  // How many players gave each answer today. The database only releases this for a question this device has
+  // already finished, so it is asked for afterwards, never before.
   async counts(day, round) {
     if (!live.on()) return null;
     try {
-      const q = `day=eq.${day}&round=eq.${round}`;
-      const [players, answers] = await Promise.all([
-        fetch(`${BACKEND.url}/rest/v1/round_players?${q}`, { headers: live.headers() }).then(r => r.json()),
-        fetch(`${BACKEND.url}/rest/v1/answer_counts?${q}`, { headers: live.headers() }).then(r => r.json()),
-      ]);
-      return { players: players[0]?.n || 0, counts: new Map(answers.map(r => [r.answer, r.n])) };
+      const res = await fetch(`${BACKEND.url}/rest/v1/rpc/round_counts`, { method: "POST", headers: live.headers(), body: JSON.stringify({ p_day: day, p_round: round, p_player: playerId }) }).then(r => r.json());
+      return res && !res.locked ? { players: res.players || 0, counts: new Map(Object.entries(res.counts || {})) } : null;
     } catch { return null; }
   },
   // How today's totals are spread, for a percentile. Real players only.
@@ -105,14 +106,13 @@ async function requestReview(cat, texts) {
     return Array.isArray(data.results) ? data.results : null;
   } catch { return null; }
 }
-function shareOf(row, stats) {
-  if (!stats || !stats.players) return row.s;
-  const n = stats.counts.get(row.a) || 0;
-  return (n + row.s * IMAGINARY_PLAYERS) / (stats.players + IMAGINARY_PLAYERS);
-}
+// How rare an answer is: its share in the day's rarity table. The table is fixed when the day is published, so an
+// answer is worth the same to everyone, whenever they play, and a finished iceberg never shifts afterwards.
+// (Today's real counts are shown on the results panel once enough players have answered.)
+const shareOf = row => row.s;
 
 // ---------- State (saved after every change, so a reload never resets a question) ----------
-let CATS = [], state = null, berg = null, life = null, screen = "home", busy = false, unknownKey = "", autoFinish = 0;
+let CATS = [], state = null, berg = null, life = null, cameFrom = "home", screen = "home", busy = false, unknownKey = "", autoFinish = 0;
 const prepared = new Map();
 const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
@@ -131,11 +131,12 @@ const totalSoFar = () => state ? state.rounds.reduce((s, r) => s + scoreOf(r), 0
 const guessName = (cat, g) => { const row = g.name && cat.answers.find(a => a.a === g.name); return row ? display(row) : g.typed; };
 
 function show(id) {
+  if ((id === "hub" || id === "dive") && screen !== "hub" && screen !== "dive") cameFrom = screen;   // so leaving those pages returns here
   screen = id;
   for (const s of document.querySelectorAll("[data-screen]")) s.hidden = s.dataset.screen !== id;
   Sea.mood(id); Sound.setAmbience(id, 0);
   if (id !== "play") { clock.on = false; clearInterval(clock.timer); cancelAnimationFrame(clock.raf); }
-  document.documentElement.classList.toggle("in-play", id === "play"); // the scene takes the whole window: nothing scrolls behind it
+  document.documentElement.classList.toggle("in-play", id === "play" || id === "dive"); // the scene takes the whole window: nothing scrolls behind it
   const playing = !!state && id === "play";
   $("#steps").hidden = !playing;
   updateHeader();
@@ -150,9 +151,8 @@ function updateHeader() {
 // ---------- Home ----------
 let nextTimer = 0;
 function renderHome() {
-  const streak = store.get("streak", { count: 0, last: 0, freezes: 0 });
-  const today = todayResult();
-  $("#home-streak").textContent = streak.count ? `${streak.count}-day streak${streak.freezes ? ` · ${streak.freezes} freeze${streak.freezes > 1 ? "s" : ""} saved` : ""}` : "";
+  const today = todayResult(), n = streakNow().count;
+  $("#home-streak").textContent = n ? `${n}-day streak` : "";
   $("#play").textContent = today ? "See today's results" : `Play today's ${Brand.noun}`;
   $("#practice").hidden = !today;
   const tick = () => {
@@ -273,7 +273,7 @@ async function startQuestion(animated) {
   syncFrame(0);
   if (life) life.reset(state.day * 10 + state.round + 1);
   // Real counts for this question, if a database is connected. Depths are fixed from what's known when you guess.
-  r.stats = null; live.counts(state.day, state.round + 1).then(s => { if (state && cur() === r) { r.stats = s; if (s && s.players) r.players = s.players; } });
+  r.stats = null;
   const shown = okGuesses(r);
   let ready = Promise.resolve();
   if (shown.length || done) { shown.forEach((g, i) => { g.bi = i; }); berg.restore(shown.map(g => bergItem(cat, r, g, r.guesses.indexOf(g) + 1))); tagBest(cat, r); }
@@ -348,7 +348,7 @@ function renderSlots(revealing = -1, landed = -1) {
 function rankText(cat, r, share) {
   // What part of all answers given were more common than this one.
   let above = 0, total = 0;
-  for (const row of cat.answers) { const s = shareOf(row, r.stats); total += s; if (s > share) above += s; }
+  for (const row of cat.answers) { const s = shareOf(row); total += s; if (s > share) above += s; }
   if (above === 0) return "The most common answer";
   return `Rarer than ${Math.min(99, Math.floor(100 * above / (total || 1)))}% of answers given`;
 }
@@ -404,7 +404,7 @@ function submit() {
   }
   // A recognised answer: place it, then go and find it.
   unknownKey = "";
-  const share = j.row ? shareOf(j.row, r.stats) : REVIEWED_SHARE;
+  const share = j.row ? shareOf(j.row) : REVIEWED_SHARE;
   const g = { status: "ok", typed: j.text, key: j.key, name: j.row ? j.row.a : null, share, via: j.via, rank: rankText(cat, r, share) };
   r.guesses.push(g); input.value = "";
   const name = guessName(cat, g);
@@ -480,7 +480,7 @@ function applyVerdict(cat, r, g, status, row, reason) {
   if (status === "invalid") { g.status = "miss"; g.reason = reason || "Reviewed: doesn't count"; return; }
   if (row && r.guesses.some(x => x !== g && x.status === "ok" && x.name === row.a)) { g.status = "miss"; g.reason = `Same answer as ${display(row)}`; return; }
   g.status = "ok"; g.name = row ? row.a : null; g.via = "review";
-  g.share = row ? shareOf(row, r.stats) : REVIEWED_SHARE; g.rank = rankText(cat, r, g.share);
+  g.share = row ? shareOf(row) : REVIEWED_SHARE; g.rank = rankText(cat, r, g.share);
   g.note = row ? "" : "Approved by review. It sits in Midwater until enough players have given it.";
 }
 // Verdicts remembered on this device (from an earlier review) are applied to anything still pending.
@@ -500,7 +500,8 @@ function finishQuestion() {
   clockStop();
   r.done = true; state.phase = "done"; save();
   const best = bestOf(r);
-  if (!state.practice) live.record(state.day, state.round + 1, okGuesses(r).map(g => g.name).filter(Boolean), best ? best.name : null, scoreOf(r));
+  if (!state.practice) live.record(state.day, state.round + 1, okGuesses(r).map(g => g.name).filter(Boolean), best ? best.name : null, scoreOf(r))
+    .then(() => live.counts(state ? state.day : 0, state ? state.round + 1 : 0)).then(c => { if (c && state && cur() === r && state.phase === "done") { r.stats = c; renderDone(cat, r); } });
   $('[data-screen="play"]').classList.remove("playing"); $('[data-screen="play"]').classList.add("done");
   $("#done-panel").hidden = false; $("#done-panel").scrollTop = 0;
   renderDone(cat, r);
@@ -510,8 +511,10 @@ function finishQuestion() {
 }
 
 function boardFor(cat, r) {
-  const stats = r.stats, isLive = !!(stats && stats.players), players = isLive ? stats.players : SAMPLE_PLAYERS;
-  const ranked = cat.answers.map(row => ({ row, share: shareOf(row, stats) })).sort((a, b) => b.share - a.share || a.row.a.localeCompare(b.row.a));
+  // Real counts are used once enough players have answered the question today; until then, the rarity table.
+  const stats = r.stats, isLive = !!(stats && stats.players >= BOARD_MIN_PLAYERS), players = isLive ? stats.players : SAMPLE_PLAYERS;
+  const seen = row => isLive ? (stats.counts.get(row.a) || 0) / stats.players : shareOf(row);
+  const ranked = cat.answers.map(row => ({ row, share: seen(row) })).sort((a, b) => b.share - a.share || shareOf(b.row) - shareOf(a.row) || a.row.a.localeCompare(b.row.a));
   const mine = new Set(okGuesses(r).map(g => g.name).filter(Boolean));
   const countOf = x => isLive ? (stats.counts.get(x.row.a) || 0) : Math.max(1, Math.round(x.share * players));
   // Only answers enough players gave can be listed as "rarest". With sample data the list sticks to the hand-made
@@ -519,7 +522,7 @@ function boardFor(cat, r) {
   // Some real words are accepted but never listed (row.h), so the boards stay fit for any audience.
   const shown = ranked.filter(x => !x.row.h || mine.has(x.row.a));
   const eligible = shown.filter(x => isLive ? (stats.counts.get(x.row.a) || 0) >= BOARD_MIN_COUNT : (!x.row.x || mine.has(x.row.a)));
-  const item = x => ({ name: display(x.row), share: x.share, count: countOf(x), me: mine.has(x.row.a) });
+  const item = x => ({ name: display(x.row), share: Math.max(x.share, 1e-6), count: countOf(x), me: mine.has(x.row.a) });
   return { isLive, players, common: shown.slice(0, 5).map(item), rare: eligible.slice(-5).reverse().map(item), top: shown.find(x => !mine.has(x.row.a)) };
 }
 
@@ -607,6 +610,92 @@ function offRow(number, g, waiting, rerender) {
   return row;
 }
 
+// ---------- Streaks, history and the account ----------
+// A streak grows by one for each game day finished in a row. Miss a day and it starts again; the longest is kept.
+// Signed-in players' streaks come from the database, which counts the dives themselves.
+function streakNow() {
+  const s = store.get("streak", { count: 0, last: 0 }), today = dayNumber();
+  if (Account && Account.signedIn) {
+    const st = Account.profile.stats; let count = st.streak_last_day >= today - 1 ? st.streak_raw : 0;      // alive until this player's own midnight
+    if (s.last === today && st.streak_last_day < today) count = st.streak_last_day === today - 1 ? st.streak_raw + 1 : 1;   // just finished: the account is still catching up
+    return { count, longest: Math.max(st.longest, count), played: st.dives };
+  }
+  return { count: s.last >= today - 1 ? s.count : 0, longest: Math.max(s.longest || 0, s.count || 0), played: s.played || 0 };
+}
+function bumpStreak(day) {
+  const s = store.get("streak", { count: 0, last: 0 });
+  if (s.last === day) return false;                        // already counted today: a refresh or a replay adds nothing
+  const extended = s.last === day - 1 && s.count > 0;
+  s.count = extended ? s.count + 1 : 1; s.last = day; s.played = (s.played || 0) + 1; s.longest = Math.max(s.longest || 0, s.count);
+  delete s.freezes; store.set("streak", s);
+  return extended;
+}
+// Which set of five questions a day uses, and its file.
+let DAY_COUNT = 1; const setCache = new Map();
+const setOf = day => ((day - 1) % DAY_COUNT) + 1;
+const loadSet = id => { if (!setCache.has(id)) setCache.set(id, fetch(`days/${id}.json`).then(r => r.json()).then(d => d.questions || [])); return setCache.get(id); };
+const dateOf = day => new Date(LAUNCH[0], LAUNCH[1] - 1, LAUNCH[2] + day - 1);
+// A finished day on this device, as the guesses the database scores: what was typed and what it counted as.
+function guessesOf(game) {
+  const out = [];
+  game.rounds.forEach((r, i) => r.guesses.slice(0, GUESSES).forEach((g, j) => out.push({ round: i + 1, slot: j + 1, typed: String(g.typed || "").slice(0, 60), answer: g.status === "ok" ? g.name || null : null, status: g.status, sight: g.sight || null })));
+  return out;
+}
+const finishedGame = day => { const g = store.get("game:" + day, null); return g && g.v === 3 && g.finished && !g.practice ? g : null; };
+// Hand a finished day in to the player's account. Safe to call again: the database keeps one dive per day.
+async function handIn(day) {
+  const game = finishedGame(day);
+  if (!game || !Account || !Account.signedIn) return null;
+  try {
+    const res = await Account.rpc("submit_dive", { p_day: day, p_guesses: guessesOf(game) });
+    const rec = store.get("day:" + day, null); if (rec) { rec.owner = Account.profile.username; rec.server = { total: res.total, max_depth: res.max_depth, rank: res.rank, players: res.players }; store.set("day:" + day, rec); }
+    await Account.refresh();
+    if (screen === "end") { const n = streakNow().count; $("#e-streak").textContent = n ? `${n}-day streak` : ""; }
+    return res;
+  } catch (e) {
+    if (e.code === "day_closed") return syncProgress();     // finished offline and the day has gone: it goes in as history
+    return null;
+  }
+}
+// After signing in: move this device's guest days into the account, and bring the account's today onto this device.
+let syncing = null;
+function syncProgress() {
+  if (!Account || !Account.signedIn) return Promise.resolve();
+  if (syncing) return syncing;
+  syncing = (async () => {
+    const me = Account.profile.username, today = dayNumber(), mine = [];
+    for (let d = Math.max(1, today - 89); d <= today; d++) { const rec = store.get("day:" + d, null), game = finishedGame(d); if (rec && rec.v === 3 && game && (!rec.owner || rec.owner === me) && !rec.server) mine.push({ day: d, guesses: guessesOf(game) }); }
+    try {
+      if (mine.length) {
+        const res = await Account.rpc("import_dives", { p_dives: mine });
+        res.forEach(x => { const rec = store.get("day:" + x.day, null); if (rec && x.state !== "refused") { rec.owner = me; rec.server = rec.server || {}; store.set("day:" + x.day, rec); } });
+      }
+      // The account is the record. If it has a dive for today that this device doesn't, today is done here too.
+      const dive = await Account.rpc("get_dive", { p_username: me, p_day: today }).catch(() => null);
+      if (dive) adoptDive(dive);
+      await Account.refresh();
+    } catch { /* offline: try again next time */ }
+    syncing = null;
+    if (screen === "home") renderHome();
+    else if (screen === "end" && window.Hub) window.Hub.endOfDay();
+  })();
+  return syncing;
+}
+// Rebuild today's local record from the account's dive (played on another device, or kept in place of a guest result).
+function adoptDive(dive) {
+  const day = dive.day, local = store.get("day:" + day, null);
+  if (local && local.server && local.total === dive.total) return;
+  if (day !== dayNumber() || !CATS.length) return;
+  const rounds = CATS.map((c, i) => ({ key: c.key, misses: 0, rejects: [], done: true, left: 0, at: 0,
+    guesses: dive.guesses.filter(g => g.round === i + 1).sort((a, b) => a.slot - b.slot).map(g => ({ status: g.status, typed: g.typed || g.answer || "", key: V.normalize(g.typed || g.answer || ""), name: g.status === "ok" ? g.answer : null, share: g.share, sight: g.sight || undefined })) }));
+  const game = { v: 3, day, practice: false, round: CATS.length, phase: "done", finished: true, rounds };
+  store.set("game:" + day, game);
+  const keep = state; state = game; const rec = daySummary(); state = keep;
+  rec.owner = Account.profile.username; rec.server = { total: dive.total, max_depth: dive.max_depth, rank: dive.rank, players: dive.players };
+  store.set("day:" + day, rec);
+  if (state && state.day === day && !state.practice) { state = null; renderHome(); }   // a game in progress here is over: the account already has today
+}
+
 // ---------- End of day ----------
 function daySummary() {
   const rounds = state.rounds.map((r, i) => {
@@ -619,22 +708,15 @@ function finishDay() {
   state.finished = true; save();
   const day = daySummary();
   if (!state.practice) {
-    store.set("day:" + state.day, day);
-    const s = store.get("streak", { count: 0, last: 0, freezes: 0 });
-    if (s.last !== state.day) {
-      const gap = state.day - s.last;
-      if (s.last && gap === 2 && s.freezes > 0) { s.freezes--; s.count += 1; }
-      else if (!s.last || gap !== 1) s.count = 0;
-      s.count += 1; s.last = state.day; s.played = (s.played || 0) + 1;
-      if (s.played % 7 === 0) s.freezes = Math.min(2, s.freezes + 1);
-      store.set("streak", s);
-    }
+    day.owner = Account && Account.signedIn ? Account.profile.username : ""; store.set("day:" + state.day, day);
+    day.extended = bumpStreak(state.day);
+    handIn(state.day);
     live.recordDay(state.day, day.total, day.rounds.map(r => r.depth));
   }
   renderEnd(day, true, state.practice);
 }
 function shareData(day, practice) {
-  const streak = practice ? 0 : store.get("streak", { count: 0 }).count;
+  const streak = practice ? 0 : streakNow().count;
   const found = day.rounds.filter(r => r.name).sort((a, b) => b.depth - a.depth)[0];
   return { day: day.day, total: day.total, streak, sample: !live.on(),
     rounds: day.rounds.map(r => r.name ? { depth: r.depth, share: r.share, tier: r.tier, tierName: r.tierName } : null),
@@ -659,6 +741,8 @@ function renderEnd(day, fresh, practice) {
   data.link = /^https:$/.test(location.protocol) && !/claude|anthropic|localhost/.test(location.hostname) ? location.host + (location.pathname === "/" ? "" : location.pathname) : "";
   $("#e-card").textContent = Share.text(data);
   $("#e-streak").textContent = data.streak ? `${data.streak}-day streak` : "";
+  drawStreak(day.day, data.streak, fresh && day.extended);
+  if (window.Hub) window.Hub.endOfDay(practice ? null : day);
   const logged = Object.keys(store.get("sightings", {})).length, cast = Wildlife ? Wildlife.species().length : 0;
   $("#e-seen").textContent = logged && cast ? `Animals seen so far: ${logged} of ${cast}` : "";
   $("#e-note").textContent = practice ? "Practice dive: this doesn't change your daily result or streak." : `A new ${Brand.noun} surfaces tomorrow.`;
@@ -671,6 +755,17 @@ function renderEnd(day, fresh, practice) {
   const t0 = performance.now(), dur = 1100;
   const step = now => { const k = Math.min(1, (now - t0) / dur); totalEl.textContent = fmt(Math.round(day.total * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
+}
+
+// The last seven days as a row of diamonds; today's lights up when it extends the streak.
+function drawStreak(day, count, celebrate) {
+  const box = $("#e-days"); box.textContent = ""; box.hidden = !count;
+  if (!count) return;
+  for (let d = day - 6; d <= day; d++) {
+    const done = d >= 1 && (d > day - count || !!store.get("day:" + d, null));
+    box.append(el("i", (done ? "on" : "") + (d === day ? " today" + (celebrate ? " pop" : "") : "")));
+  }
+  box.setAttribute("aria-label", `${count}-day streak`);
 }
 
 // ---------- Sound controls ----------
@@ -726,7 +821,7 @@ async function boot() {
     const index = await (await fetch("days/index.json")).json();
     const n = PARAMS.has("test") && PARAMS.has("day") ? +PARAMS.get("day") : ((dayNumber() - 1) % index.count) + 1;
     const [day, words] = await Promise.all([fetch(`days/${n}.json`).then(r => r.json()), fetch("words.json").then(r => r.json()).catch(() => null)]);
-    CATS = day.questions || [];
+    CATS = day.questions || []; DAY_COUNT = index.count || 1;
     if (words && words.commonWords) V.setCommonWords(words.commonWords);
     SAMPLE_PLAYERS = day.samplePlayers || index.samplePlayers || SAMPLE_PLAYERS;
   } catch { CATS = []; }
@@ -746,7 +841,8 @@ async function boot() {
   };
   $("#practice").onclick = () => { newGame(true); Sound.play("start"); startQuestion(true); };
   $("#home").onclick = renderHome;
-  $("#brand").onclick = () => { if (screen === "end" || screen === "home") renderHome(); };
+  $("#brand").onclick = () => { if (screen === "hub" || screen === "dive") { if (window.Hub) window.Hub.leave(); return; } if (screen === "end" || screen === "home") renderHome(); };
+  $("#acct-btn").onclick = () => { if (!window.Hub) return; if (screen === "hub") window.Hub.leave(); else window.Hub.open("log"); };
   $("#save-card").onclick = saveCard;
   $("#copy").onclick = async () => {
     const text = $("#e-card").textContent;
@@ -766,8 +862,17 @@ async function boot() {
     window.ICEBERG_TEST = {
       judge: (text, i) => { const j = V.judge(text, prep(CATS[i]), null); return j ? { status: j.status, answer: j.row ? j.row.a : null, via: j.via, reason: j.reason } : null; },
       shareOf: (name, i) => { const row = CATS[i].answers.find(a => a.a === name); return row ? row.s : null; },
-      depthOf, get clock() { return { on: clock.on, left: state ? timeLeft(cur()) : 0, total: TIME_MS, ice: clock.ice ? { length: clock.ice.length, fraction: clock.ice.fraction, melted: clock.ice.melted, drops: clock.ice.drops } : null }; }, get state() { return state; }, get screen() { return screen; }, get berg() { return berg; }, get busy() { return busy; }, get life() { return life; },
+      get cats() { return CATS; }, depthOf, get clock() { return { on: clock.on, left: state ? timeLeft(cur()) : 0, total: TIME_MS, ice: clock.ice ? { length: clock.ice.length, fraction: clock.ice.fraction, melted: clock.ice.melted, drops: clock.ice.drops } : null }; }, get state() { return state; }, get screen() { return screen; }, get berg() { return berg; }, get busy() { return busy; }, get life() { return life; },
     };
+  }
+  // What the other screens (account, log, friends, rankings, the dive viewer) may use.
+  window.Game = { LAUNCH, GUESSES, today: dayNumber, dateOf, setOf, loadSet, store, fmt, pctText, display, streak: streakNow, finishedGame, syncProgress, handIn,
+    get screen() { return screen; }, get playing() { return !!state; }, show, home: renderHome, backend: () => live.on(),
+    days: () => { const out = []; for (let d = Math.max(1, dayNumber() - 380); d <= dayNumber(); d++) { const r = store.get("day:" + d, null); if (r && r.v === 3) out.push(r); } return out; },
+    openEnd: () => { const t = todayResult(); if (t && cameFrom === "end") renderEnd(t, false, false); else renderHome(); } };
+  if (Account) {
+    Account.onChange(() => { if (window.Hub) window.Hub.changed(); if (Account.signedIn) syncProgress(); else if (screen === "home") renderHome(); });
+    Account.init(PARAMS.has("demo") && window.DemoBackend && !live.on() ? { demo: window.DemoBackend } : BACKEND).then(() => { if (window.Hub) { window.Hub.changed(); window.Hub.start(); } });
   }
   // Pick up where you left off: a game in progress is never reset by a reload.
   const saved = [store.get("game:" + dayNumber(), null), store.get("game:practice", null)].find(g => g && !g.finished);

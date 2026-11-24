@@ -101,7 +101,7 @@
     homeLine(f) { MOODS.home = Math.max(0.2, Math.min(0.8, f)); if (document.querySelector('[data-screen="home"]:not([hidden])')) { target = MOODS.home; if (!settled) { settled = true; horizon = target; } if (reduce) { horizon = target; draw(performance.now()); } } },
     mood(name) {
       // While playing, the full-screen scene covers this canvas, so it rests.
-      paused = name === "play"; if (paused) { cancelAnimationFrame(raf); return; } start();
+      paused = name === "play" || name === "dive"; if (paused) { cancelAnimationFrame(raf); return; } start();
       // While playing, the surface sits just under the header: everything you do happens underwater.
       const top = document.querySelector(".top");
       if (top && (name === "play" || name === "end")) MOODS[name] = (top.getBoundingClientRect().bottom + 2) / innerHeight;

@@ -106,7 +106,7 @@ html.in-play, html.in-play body { overflow: hidden; height: 100%; }
 html.in-play #sea { opacity: 0; }
 html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with the controls at the window's edge */
 .play { position: fixed; left: 0; top: 0; width: 100%; height: var(--vvh); overflow: hidden; z-index: 0; }
-#ib { position: absolute; inset: 0; }
+#ib, #ib2 { position: absolute; inset: 0; }
 .veil { position: absolute; inset: 0; pointer-events: none; transition: opacity .5s;
   background: linear-gradient(90deg, rgba(3, 8, 20, .78) 0, rgba(3, 8, 20, .55) 300px, rgba(3, 8, 20, 0) 540px), linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
 .play.done .veil { background: linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
@@ -265,6 +265,10 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-mark::before { content: ""; position: absolute; inset: 2.5px; transform: rotate(45deg); background: var(--tier); box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .92), 0 0 0 2.5px rgba(234, 246, 255, .72); transition: transform .4s, box-shadow .4s; }
 .ib-mark.best::before { box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .92), 0 0 0 2.5px var(--lumen), 0 0 14px rgba(125, 240, 223, .5); }
 .ib-mark.dim { opacity: 0; pointer-events: none; }
+/* Another player's answer on the same iceberg: the same diamond, hollow. */
+.ib-mark.them::before { background: rgba(3, 8, 20, .92); box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .92), 0 0 0 3px var(--tier); }
+.ib-mark.them.best::before { box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .92), 0 0 0 3px var(--lumen), 0 0 14px rgba(125, 240, 223, .5); }
+.ib-pill.them span { font-style: normal; color: var(--muted); }
 .ib-mark.focus::before { transform: rotate(45deg) scale(1.3); }
 .ib-mark.landed::before { animation: mark-in .5s cubic-bezier(.2, 1.5, .4, 1) backwards; }
 @keyframes mark-in { from { transform: rotate(45deg) scale(0); } }
@@ -359,6 +363,137 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
 .end-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .end-actions .btn { padding: 13px 18px; font-size: 15px; }
 
+/* Exploring a finished dive (viewer.js): the same scene, read-only. The questions take the place of the answer box. */
+.dive #v-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.dive .q-title .av { width: 40px; height: 40px; } .dive .q-title .av canvas { width: 40px; height: 40px; }
+.v-qs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.v-q { width: 100%; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 12px; align-items: center; text-align: left; padding: 9px 6px 9px 2px; min-height: 52px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); }
+.v-q:hover, .v-q[aria-current] { background: rgba(143, 208, 245, .08); }
+.v-q .cat-icon { font-size: 20px; }
+.v-q .t { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-q .a { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v-q .d { text-align: right; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v-q .d small { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.v-q .d .up { color: var(--lumen); }
+.v-q.deepest .d > b { color: var(--lumen); }
+.v-q .d b { font-weight: 800; }
+.dive .finish-row { gap: 8px; } .dive .finish-row .btn { padding: 9px 13px; font-size: 14px; }
+.v-msg { color: var(--muted); font-size: 15px; margin: 0; }
+
+/* The pages around the game (social.js): dive log, friends, rankings, settings, sign-in. One quiet column over the
+   sea. Hairlines, space and type do the organising; there are no cards. */
+.hub { max-width: 760px; margin: 0 auto; padding-top: 4px; display: grid; gap: 26px; }
+.hub-tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.hub-tabs button { flex: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0 12px; font-size: 15px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.hub-tabs button:hover { color: var(--text); }
+.hub-tabs button[aria-current] { color: var(--text); border-color: var(--accent); }
+.hub-tabs .n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 7px; padding: 0 5px; font-size: 11px; font-weight: 800; color: #06112a; background: var(--lumen); border-radius: 9px; }
+.hub-demo { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); box-shadow: inset 0 0 0 1px rgba(143, 208, 245, .4); border-radius: 6px; padding: 8px 12px; margin: 0; }
+.hub-demo span { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--muted); margin-left: 6px; }
+#hub-body { display: grid; gap: 28px; align-content: start; min-height: 50vh; }
+.title { font-size: clamp(26px, 4vw, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.lead { display: grid; gap: 12px; }
+.note-line { margin: 0; color: var(--muted); font-size: 15px; max-width: 60ch; }
+.row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.who { display: flex; gap: 18px; align-items: center; }
+.who .eyebrow { margin-bottom: 4px; }
+.av { width: 44px; height: 44px; flex: none; display: grid; place-items: center; background: rgba(9, 26, 56, .85); box-shadow: inset 0 0 0 1px var(--line-2); border-radius: 8px; overflow: hidden; }
+.av canvas { width: 44px; height: 44px; image-rendering: pixelated; display: block; }
+.av.s, .av.s canvas { width: 32px; height: 32px; } .av.s { border-radius: 6px; }
+.av.big, .av.big canvas { width: 66px; height: 66px; } .av.big { border-radius: 10px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 24px; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat { display: grid; gap: 2px; min-width: 0; }
+.stat span { font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.stat b { font-size: clamp(22px, 3.4vw, 30px); font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.stat small { font-size: 13px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The calendar: a year of days, a column per week. Deeper days are brighter; a ring of living light marks an answer in the Abyss. */
+.cal-block { display: grid; gap: 12px; }
+.cal-wrap { overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin; scrollbar-color: rgba(143, 208, 245, .25) transparent; }
+.cal { display: grid; grid-auto-flow: column; grid-template-rows: 14px repeat(7, 11px); grid-auto-columns: 11px; gap: 3px; width: max-content; }
+.cal .m { font-size: 10.5px; line-height: 12px; color: var(--faint); white-space: nowrap; overflow: visible; }
+.cal button { width: 11px; height: 11px; padding: 0; border: 0; border-radius: 2px; background: rgba(143, 208, 245, .08); }
+.cal .l1, .cal-key .l1 { background: #1d4a79; } .cal .l2, .cal-key .l2 { background: #2f76bd; } .cal .l3, .cal-key .l3 { background: #6cb8ec; } .cal .l4, .cal-key .l4 { background: #dbf2ff; }
+.cal .abyss, .cal-key .abyss { box-shadow: 0 0 0 1px var(--lumen), 0 0 6px rgba(125, 240, 223, .6); }
+.cal .future { background: transparent; box-shadow: inset 0 0 0 1px rgba(143, 208, 245, .1); }
+.cal .open { background: transparent; box-shadow: inset 0 0 0 1px var(--accent); }
+.cal .pre { background: transparent; box-shadow: inset 0 0 0 1px rgba(143, 208, 245, .05); }   /* before the game began */
+.cal button.sel { outline: 2px solid var(--ice); outline-offset: 1px; }
+.cal button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 2px; }
+.cal-day { min-height: 24px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; font-size: 14px; color: var(--muted); }
+.cal-day b { color: var(--text); font-weight: 600; } .cal-day i { font-style: normal; color: var(--text); }
+.cal-key { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--faint); align-items: center; }
+.cal-key span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-key i { width: 11px; height: 11px; border-radius: 2px; display: inline-block; } .cal-key .none { background: rgba(143, 208, 245, .08); }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 11px 4px; border-bottom: 1px solid var(--line); min-height: 56px; }
+.rows li.dim .val { color: var(--faint); font-weight: 600; font-size: 14px; }
+.rows .name { font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rows .sub { font-size: 13px; color: var(--muted); }
+.rows .val { text-align: right; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; display: grid; justify-items: end; gap: 1px; }
+.rows .val small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.rows .val .row { gap: 12px; } .rows .val .link { font-size: 13px; }
+.rows li.me { background: linear-gradient(90deg, rgba(125, 240, 223, .08), rgba(125, 240, 223, 0)); }
+.rows li.me .rank-n { color: var(--lumen); }
+.rows li.none { min-height: 0; }
+.rank-n { min-width: 34px; text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--muted); }
+.who-s { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.linkish { background: none; border: 0; padding: 0; color: var(--text); text-align: left; cursor: pointer; max-width: 100%; }
+.linkish:hover { color: var(--accent); }
+.tag { flex: none; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line-2); border-radius: 5px; padding: 3px 7px; }
+.rows li.me .tag { color: var(--lumen); box-shadow: inset 0 0 0 1px rgba(125, 240, 223, .45); }
+.link { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.link.quiet { color: var(--faint); font-weight: 500; margin-left: auto; }
+.btn.small { padding: 10px 15px; font-size: 14px; border-radius: 10px; box-shadow: 0 2px 0 #8fb8da; }
+.btn.small.ghost { box-shadow: inset 0 0 0 1px var(--line-2); }
+.btn.small.solid { background: var(--accent); box-shadow: none; }
+.btn:disabled { opacity: .5; cursor: default; }
+.form { display: grid; gap: 16px; max-width: 420px; }
+.field { display: grid; gap: 7px; font-size: 14px; font-weight: 600; }
+.field input { font-size: 17px; font-weight: 500; padding: 13px 14px; border: 0; border-radius: 12px; background: rgba(3, 8, 20, .7); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-2); min-width: 0; }
+.field input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 4px rgba(143, 208, 245, .12); }
+.field input::placeholder { color: var(--faint); }
+.msg { margin: 0; font-size: 13.5px; font-weight: 500; color: var(--muted); min-height: 18px; } .msg.bad { color: var(--warn); } .msg.good { color: var(--accent); }
+.or { display: flex; align-items: center; gap: 12px; max-width: 420px; color: var(--faint); font-size: 13px; }
+.or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.hub .btn.ghost { max-width: 420px; }
+.avatars { display: flex; gap: 10px; flex-wrap: wrap; }
+.avatars button { padding: 0; border: 0; background: none; border-radius: 10px; }
+.avatars button[aria-checked="true"] .av { box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 3px rgba(143, 208, 245, .18); }
+.toggle-row { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
+.toggle-row small { display: block; font-size: 13px; font-weight: 400; color: var(--faint); margin-top: 2px; }
+.toggle-row input { width: 40px; height: 22px; flex: none; accent-color: var(--accent); }
+.danger summary, details.section summary { cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 600; margin-top: 18px; }
+.danger .row { margin-top: 12px; } .danger input { font-size: 15px; padding: 10px 12px; border: 0; border-radius: 10px; background: rgba(3, 8, 20, .7); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-2); }
+.seg { display: inline-flex; box-shadow: inset 0 0 0 1px var(--line-2); border-radius: 10px; padding: 3px; width: max-content; }
+.seg button { border: 0; background: none; padding: 7px 16px; border-radius: 8px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.seg button[aria-selected="true"] { background: rgba(143, 208, 245, .16); color: var(--text); }
+.seg button:disabled { opacity: .4; }
+.day-step { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; }
+.day-step b { color: var(--text); } .day-step .icon-btn { font-size: 22px; line-height: 1; } .day-step .icon-btn:disabled { opacity: .3; }
+.standing { margin: 0; font-size: 18px; color: var(--muted); } .standing b { color: var(--lumen); font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.locked-panel { display: grid; gap: 10px; padding: 26px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); max-width: 60ch; }
+.locked-panel p { margin: 0; } .locked-panel .big svg { width: 26px; height: 26px; color: var(--accent); }
+.note-line.locked { display: flex; gap: 10px; align-items: center; } .note-line.locked svg { width: 18px; height: 18px; flex: none; color: var(--accent); }
+.invite { display: grid; gap: 12px; justify-items: start; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); max-width: 60ch; } .invite p { margin: 0; } .invite b { color: var(--text); }
+.acct-btn.alert::after { content: ""; position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--lumen); box-shadow: 0 0 0 2px var(--bg); }
+.acct-btn { position: relative; }
+html.in-play .acct-btn { display: none; }
+/* End of the day: the last seven days as diamonds, and what finishing has opened up. */
+.e-days { display: flex; gap: 9px; align-items: center; padding: 4px 2px 0; }
+.e-days i { width: 9px; height: 9px; transform: rotate(45deg); box-shadow: inset 0 0 0 1.5px var(--line-2); }
+.e-days i.on { background: var(--accent); box-shadow: none; }
+.e-days i.today { background: var(--ice); }
+.e-days i.pop { animation: streak-pop 1.1s cubic-bezier(.2, 1.4, .4, 1) .5s backwards; box-shadow: 0 0 14px rgba(125, 240, 223, .7); background: var(--lumen); }
+@keyframes streak-pop { 0% { transform: rotate(45deg) scale(0); background: var(--ice); box-shadow: 0 0 0 rgba(125, 240, 223, 0); } 60% { transform: rotate(45deg) scale(1.7); } 100% { transform: rotate(45deg) scale(1); } }
+.e-social { display: grid; gap: 10px; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); }
+.e-social p { margin: 0; } .e-social b { color: var(--text); } .e-social .standing b { color: var(--lumen); }
+@media (max-width: 620px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; }
+  .hub { gap: 20px; } #hub-body { gap: 22px; }
+  .rows li { gap: 10px; } .rows .val { font-size: 15px; }
+  .av.big, .av.big canvas { width: 54px; height: 54px; }
+}
+
 /* Small screens */
 @media (max-width: 920px) {
   .home { grid-template-columns: 1fr; gap: 26px; min-height: 0; padding-top: 4px; }
@@ -391,6 +526,15 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
   .finish-row { height: 42px; min-height: 0; gap: 10px; flex-wrap: nowrap; }
   .finish-row .btn { padding: 9px 14px; font-size: 14px; }
   .finish-note { font-size: 13px; }
+  .dive #v-panel { gap: 6px; padding: 0 var(--gutter) calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .dive .q-hint { display: block; font-size: 12.5px; margin-top: 2px; }
+  .v-qs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 0; }
+  .v-q { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 5px 6px; min-height: 46px; border-bottom: 0; border-left: 1px solid var(--line); justify-items: start; }
+  li:first-child > .v-q { border-left: 0; }
+  .v-q .cat-icon, .v-q .a { display: none; } .v-q .t { font-size: 10.5px; max-width: 100%; }
+  .v-q .d { text-align: left; font-size: 14px; } .v-q .d small { font-size: 10px; }
+  .dive .slot { height: 56px; }
+  .dive .finish-row { flex-wrap: wrap; height: auto; min-height: 38px; } .dive .finish-row .btn { padding: 7px 10px; font-size: 13px; }
   /* Results: a sheet that rises over the lower part of the scene and scrolls on its own. */
   .drawer { top: 42%; left: 0; width: auto; padding: 18px var(--gutter) 0; border-radius: 18px 18px 0 0; box-shadow: 0 -1px 0 var(--line-2); gap: 20px; animation-name: sheet-in; }
   @keyframes sheet-in { from { transform: translateY(60px); opacity: 0; } }
@@ -424,6 +568,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
   <div class="steps" id="steps" aria-hidden="true" hidden><i></i><i></i><i></i><i></i><i></i></div>
   <div class="top-right">
     <span class="top-meta" id="top-meta">Daily #1</span>
+    <button class="icon-btn acct-btn" id="acct-btn" type="button" aria-label="Dive log, friends and rankings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 15.500 7 12 10.500 8.500 7z"/><path d="M4.500 20c.6-4 3.600-6 7.500-6s6.900 2 7.500 6"/></svg></button>
     <button class="icon-btn" id="sound-btn" type="button" aria-label="Sound and display settings" aria-expanded="false" aria-controls="sound-panel">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path class="wave" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave" d="M18.5 5.5a9 9 0 0 1 0 13"/><path class="cross" d="m16 9 6 6m0-6-6 6" hidden/></svg>
     </button>
@@ -511,12 +656,39 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
     </div>
   </section>
 
+  <!-- A finished dive, mine or a friend's, explored on the iceberg (viewer.js) -->
+  <section data-screen="dive" class="play dive playing" hidden>
+    <div id="ib2" aria-label="A finished dive, with each answer marked at its depth"></div>
+    <div class="veil" aria-hidden="true"></div>
+    <div class="dock">
+      <div class="q">
+        <p class="eyebrow" id="v-day"></p>
+        <div class="q-title"><span id="v-av"></span><h2 id="v-title"></h2></div>
+        <p class="q-hint" id="v-sub"></p>
+      </div>
+      <div id="v-panel">
+        <p class="v-msg" id="v-msg" role="status" hidden></p>
+        <ol class="v-qs" id="v-qs" aria-label="The five questions"></ol>
+        <ol class="slots" id="v-slots" aria-label="Guesses on this question" hidden></ol>
+        <div class="finish-row"><button class="btn ghost" id="v-all" type="button">Whole dive</button><button class="btn ghost" id="v-replay" type="button">Replay</button><button class="btn ghost" id="v-vs" type="button" hidden>Compare with mine</button><button class="btn ghost" id="v-close" type="button">Close</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dive log, friends, rankings, settings, sign-in (social.js) -->
+  <section data-screen="hub" class="hub" hidden>
+    <nav class="hub-tabs" id="hub-tabs" aria-label="Sections"></nav>
+    <p class="hub-demo" id="hub-demo" hidden>Demonstration data<span>These players and scores are made up, to show how the screens look. Nothing here is real.</span></p>
+    <div id="hub-body"></div>
+  </section>
+
   <!-- End of day -->
   <section data-screen="end" class="end" hidden>
     <div class="card-wrap"><canvas id="share-canvas" width="1200" height="1500" role="img" aria-label="Your iceberg: the depth you reached on each question"></canvas></div>
     <div class="end-side">
       <div><p class="eyebrow">Today's total depth</p><div class="total"><span id="e-total">0</span><small>m</small></div></div>
-      <div class="end-facts"><span id="e-deepest"></span><span id="e-rank"></span><span class="streak" id="e-streak"></span><span id="e-seen"></span></div>
+      <div class="end-facts"><span id="e-deepest"></span><span id="e-rank"></span><span class="streak" id="e-streak"></span><span class="e-days" id="e-days" role="img" hidden></span><span id="e-seen"></span></div>
+      <div class="e-social" id="e-social" hidden></div>
       <ul id="e-rounds"></ul>
       <div>
         <p class="eyebrow" style="margin-bottom:10px">Share without spoilers</p>
@@ -555,6 +727,10 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
   new ResizeObserver(fit).observe(box); fit();
 })();
 </script>
+<script src="account.js"></script>
+<script src="social.js"></script>
+<script src="viewer.js"></script>
+<script src="demo.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

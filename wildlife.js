@@ -581,8 +581,20 @@
     all.forEach(({ s, enc }, i) => G.fillText(s.name + (enc ? `  ·  ${s.min} m+` : `  ·  ${Math.max(0, s.zone[0])}–${s.zone[1]} m`), ((i % cols) * cw + 4) * zoom, (Math.floor(i / cols) * ch + 3) * zoom));
   }
 
+  // One animal on a small square canvas: a player's picture. Only single, compact animals are offered.
+  const PORTRAITS = ["dumbo", "moon", "angler", "squid", "comb", "snail"];
+  function portrait(canvas, key, time = 1.2) {
+    const sp = SPECIES.find(s => s.key === key && PORTRAITS.includes(key)) || SPECIES.find(s => s.key === "dumbo"), N = 22;
+    canvas.width = N; canvas.height = N;
+    const g = canvas.getContext("2d"), E = { lo: 0, hi: N, calm: 0, avoid: null, t: time };
+    let rs = 11; const r = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+    const c = sp.make(E, r); c.sp = sp; c.dir = 1; c.x = N / 2 + (sp.key === "snail" ? 0 : 0); sp.step(c, 0, E); c.x = N / 2;
+    const dy = N / 2 - c.y + (sp.key === "comb" ? -3 : sp.key === "angler" ? 1 : 0);
+    sp.draw(c, { t: time, low: true, E, L: g, g, a: 1, X: x => Math.round(x), Y: y => Math.round(y + dy) });
+  }
+
   window.Wildlife = {
-    create, sheet,
+    create, sheet, portrait, PORTRAITS,
     // The cast, for anything that wants to list it (a collection screen, the README).
     species: () => [...SPECIES.map(s => ({ key: s.key, name: s.name, latin: s.latin, band: s.band, zone: s.zone, real: s.real, rare: false })),
       ...ENCOUNTERS.map(s => ({ key: s.key, name: s.name, latin: s.latin, band: "abyss", min: s.min, real: s.real, line: s.line, rare: true }))],

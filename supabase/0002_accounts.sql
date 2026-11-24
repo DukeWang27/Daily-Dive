@@ -78,7 +78,7 @@ end $$;
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   username text not null check (username ~ '^[A-Za-z][A-Za-z0-9_]{2,19}$'),
-  avatar text not null default 'seal' check (avatar ~ '^[a-z]{2,16}$'),
+  avatar text not null default 'dumbo' check (avatar ~ '^[a-z]{2,16}$'),
   created_at timestamptz not null default now(),
   username_changed_at timestamptz,
   -- Privacy. Friends only ever means accepted friends; nothing here is shown to strangers except a name in a ranking.
@@ -295,14 +295,14 @@ create or replace function public.username_check(p_username text) returns jsonb 
   $$ select jsonb_build_object('ok', private.username_problem(p_username, auth.uid()) is null, 'reason', private.username_problem(p_username, auth.uid())) $$;
 
 -- Choose a username: the step that turns a signed-in person into a player.
-create or replace function public.claim_profile(p_username text, p_avatar text default 'seal') returns jsonb language plpgsql security definer set search_path = public, private as $$
+create or replace function public.claim_profile(p_username text, p_avatar text default 'dumbo') returns jsonb language plpgsql security definer set search_path = public, private as $$
 declare v uuid := auth.uid(); why text;
 begin
   if v is null then raise exception 'not_signed_in'; end if;
   if exists (select 1 from public.profiles where id = v) then raise exception 'already_has_profile'; end if;
   why := private.username_problem(p_username, v);
   if why is not null then raise exception 'username_%', why; end if;
-  insert into public.profiles (id, username, avatar) values (v, p_username, coalesce(nullif(p_avatar, ''), 'seal'));
+  insert into public.profiles (id, username, avatar) values (v, p_username, case when p_avatar ~ '^[a-z]{2,16}$' then p_avatar else 'dumbo' end);
   insert into public.player_stats (user_id) values (v);
   delete from public.username_holds where name = lower(p_username);
   return public.me();
@@ -313,7 +313,7 @@ end $$;
 create or replace function public.me() returns jsonb language sql stable security definer set search_path = public, private as $$
   select jsonb_build_object('username', p.username, 'avatar', p.avatar, 'since', p.created_at, 'username_changed_at', p.username_changed_at,
     'settings', jsonb_build_object('searchable', p.searchable, 'ranked', p.ranked, 'share_dives', p.share_dives, 'share_answers', p.share_answers, 'share_calendar', p.share_calendar),
-    'stats', jsonb_build_object('streak', private.live_streak(s.current_streak, s.streak_last_day), 'streak_last_day', s.streak_last_day, 'longest', s.longest_streak, 'dives', s.total_dives, 'first_day', s.first_day,
+    'stats', jsonb_build_object('streak', private.live_streak(s.current_streak, s.streak_last_day), 'streak_raw', s.current_streak, 'streak_last_day', s.streak_last_day, 'longest', s.longest_streak, 'dives', s.total_dives, 'first_day', s.first_day,
       'average', case when s.total_dives > 0 then round(s.sum_total::numeric / s.total_dives) else 0 end, 'best_total', s.best_total, 'best_total_day', s.best_total_day,
       'best_depth', s.best_depth, 'best_depth_day', s.best_depth_day, 'best_depth_answer', s.best_depth_answer),
     'requests', (select count(*) from public.friendships f where (f.a = p.id or f.b = p.id) and f.status = 'pending' and f.requested_by <> p.id),

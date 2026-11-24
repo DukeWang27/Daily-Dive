@@ -369,6 +369,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
 .v-qs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .v-q { width: 100%; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 12px; align-items: center; text-align: left; padding: 9px 6px 9px 2px; min-height: 52px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); }
 .v-q:hover, .v-q[aria-current] { background: rgba(143, 208, 245, .08); }
+.v-q > div { min-width: 0; }
 .v-q .cat-icon { font-size: 20px; }
 .v-q .t { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v-q .a { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -532,7 +533,8 @@ html.in-play .acct-btn { display: none; }
   .v-q { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 5px 6px; min-height: 46px; border-bottom: 0; border-left: 1px solid var(--line); justify-items: start; }
   li:first-child > .v-q { border-left: 0; }
   .v-q .cat-icon, .v-q .a { display: none; } .v-q .t { font-size: 10.5px; max-width: 100%; }
-  .v-q .d { text-align: left; font-size: 14px; } .v-q .d small { font-size: 10px; }
+  .v-q .d { text-align: left; font-size: 14px; } .v-q .d small { font-size: 11px; } .v-q .d .nm { display: none; }
+  .v-q { overflow: hidden; }
   .dive .slot { height: 56px; }
   .dive .finish-row { flex-wrap: wrap; height: auto; min-height: 38px; } .dive .finish-row .btn { padding: 7px 10px; font-size: 13px; }
   /* Results: a sheet that rises over the lower part of the scene and scrolls on its own. */

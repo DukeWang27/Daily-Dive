@@ -4,7 +4,7 @@
 // (vendor/supabase.js), using the project's public key only.
 (function () {
   "use strict";
-  let sb = null, session = null, profile = null, state = "off", recovery = false, demo = null, starting = null;
+  let sb = null, session = null, profile = null, state = "off", recovery = false, demo = null, starting = null, google = false;
   const listeners = [];
   // state: "off" no database · "out" signed out · "new" signed in, no username yet · "in" a player
   const emit = () => listeners.slice().forEach(f => { try { f(api); } catch (e) { console.error(e); } });
@@ -55,6 +55,7 @@
       starting = (async () => {
         if (cfg && cfg.demo) { demo = cfg.demo; await refresh(); return true; }
         if (!cfg || !cfg.url || !cfg.anonKey) { state = "off"; emit(); return false; }
+        google = !!cfg.google;
         try {
           if (!window.supabase) await loadScript("vendor/supabase.js");
           sb = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "iceberg:auth" } });
@@ -70,8 +71,8 @@
       return starting;
     },
     get state() { return state; }, get on() { return state !== "off"; }, get signedIn() { return state === "in"; }, get demo() { return !!demo; },
-    get profile() { return profile; }, get email() { return session && session.user ? session.user.email : demo ? "you@example.com" : ""; },
-    get recovery() { return recovery; },
+    get profile() { return profile; }, get email() { return session && session.user ? session.user.email : ""; },
+    get recovery() { return recovery; }, get google() { return google; },
     onChange(f) { listeners.push(f); }, refresh, rpc,
     async signUp(email, password) {
       const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: here() } });

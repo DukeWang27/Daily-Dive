@@ -5,10 +5,13 @@
 // the explorable iceberg), share.js (share card), icons.js (category icons), categories.json (today's questions).
 
 // ---------- Settings ----------
-// Everything works with these left empty: statistics are then sample estimates and unknown answers stay "pending".
-//   url + anonKey: a Supabase project (run supabase.sql) for real player counts, rankings and review requests.
-//   verifyUrl: an endpoint that reviews unknown answers (see api/verify.js). Never put a secret key in this file.
-const BACKEND = { url: "", anonKey: "", verifyUrl: "" };
+// Everything works with these left empty: everyone is then a guest, statistics are sample estimates and unknown
+// answers stay "pending".
+//   url + anonKey: a Supabase project (see BACKEND.md) for accounts, friends, rankings and real player counts.
+//                  The anon key is the project's PUBLIC key. Never put the service-role key or any secret here.
+//   google: true once "Continue with Google" has been set up in Supabase (BACKEND.md, step 5). It shows the button.
+//   verifyUrl: an endpoint that reviews unknown answers (see api/verify.js).
+const BACKEND = { url: "", anonKey: "", google: false, verifyUrl: "" };
 const LAUNCH = [2026, 11, 24];     // Daily #1: year, month, day. Days change at each player's local midnight.
 const GUESSES = 3;                // per question
 const QUESTION_SECONDS = 45;        // thinking time per question, shared by its three guesses. It stops while an answer is revealed. 0 = no timer
@@ -23,7 +26,7 @@ const SPEED = PARAMS.has("fast") ? 4 : 1;
 // The automated tests run untimed unless they ask for a clock (?test&time=20).
 const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : QUESTION_SECONDS);
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
-if (PARAMS.has("test") && PARAMS.get("api")) { BACKEND.url = PARAMS.get("api"); BACKEND.anonKey = PARAMS.get("key") || ""; }   // tests point the game at a local stand-in
+if (PARAMS.has("test") && PARAMS.get("api")) { BACKEND.url = PARAMS.get("api"); BACKEND.anonKey = PARAMS.get("key") || ""; BACKEND.google = true; }   // tests point the game at a local stand-in
 if (PARAMS.has("test") && /^\d{4}-\d\d-\d\d$/.test(PARAMS.get("launch") || "")) { const d = PARAMS.get("launch").split("-").map(Number); LAUNCH[0] = d[0]; LAUNCH[1] = d[1]; LAUNCH[2] = d[2]; }
 const { depthOf, tierOfDepth } = window.Iceberg;
 const Brand = window.Brand || { name: "Iceberg", noun: "iceberg", slug: "iceberg" }; // brand.js: the game's name, in one place
@@ -872,7 +875,11 @@ async function boot() {
     openEnd: () => { const t = todayResult(); if (t && cameFrom === "end") renderEnd(t, false, false); else renderHome(); } };
   if (Account) {
     Account.onChange(() => { if (window.Hub) window.Hub.changed(); if (Account.signedIn) syncProgress(); else if (screen === "home") renderHome(); });
-    Account.init(PARAMS.has("demo") && window.DemoBackend && !live.on() ? { demo: window.DemoBackend } : BACKEND).then(() => { if (window.Hub) { window.Hub.changed(); window.Hub.start(); } });
+    // With no database, the social screens can be previewed with invented, labelled players (demo.js). That preview is
+    // only ever offered with ?demo in the address or inside a preview frame, never on the live game's own page.
+    const demoOk = !live.on() && !!window.DemoBackend && (PARAMS.has("demo") || /claude|anthropic/.test(location.hostname) || window.self !== window.top);
+    window.Game.demo = { offered: demoOk, on: demoOk && (PARAMS.has("demo") || store.get("demo-on", false)), set(v) { store.set("demo-on", !!v); location.hash = v ? "#friends" : ""; location.reload(); } };
+    Account.init(window.Game.demo.on ? { demo: window.DemoBackend } : BACKEND).then(() => { if (window.Hub) { window.Hub.changed(); window.Hub.start(); } });
   }
   // Pick up where you left off: a game in progress is never reset by a reload.
   const saved = [store.get("game:" + dayNumber(), null), store.get("game:practice", null)].find(g => g && !g.finished);

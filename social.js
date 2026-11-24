@@ -51,7 +51,8 @@
     const list = [tab("log", "Dive log")];
     if (st !== "off") list.push(tab("friends", "Friends", reqs), tab("ranks", "Rankings"), st === "in" ? tab("settings", "Settings") : tab("account", st === "new" ? "Finish signing up" : "Sign in"));
     const nav = $("#hub-tabs"); nav.textContent = ""; nav.append(...list);
-    $("#hub-demo").hidden = !(A && A.demo);
+    const flag = $("#hub-demo"); flag.hidden = !(A && A.demo);
+    if (!flag.hidden && !flag.querySelector("button")) flag.append(" ", h("button.link", { type: "button", onclick: () => G().demo.set(false) }, "Leave the demonstration"));
   }
   function render() {
     if (G().screen !== "hub") return;
@@ -117,8 +118,8 @@
       stat("Deepest discovery", m(s.best_depth || 0), s.best_depth_answer ? s.best_depth_answer : s.best_depth_day ? (own ? `Daily #${s.best_depth_day}` : "answer hidden for now") : ""));
     return h("div.stats", cells);
   }
-  function recent(days, open) {
-    if (!days.length) return h("p.note-line", "No dives yet. Finish today's and it will appear here.");
+  function recent(days, open, own) {
+    if (!days.length) return h("p.note-line", own === false ? "No dives yet." : "No dives yet. Finish today's and it will appear here.");
     return h("ul.rows", days.slice(-6).reverse().map(d => { const fn = open && open(d); return h("li", h("span.rank-n", "#" + d.day), h("div", h("div.name", dateText(d.day, false)), h("div.sub", d.deepest_answer ? `deepest: ${d.deepest_answer}` : `deepest ${m(d.max_depth)}`, d.rank && d.players ? ` · #${fmt(d.rank)} of ${fmt(d.players)}` : "")),
       h("div.val", m(d.total), fn ? h("button.link", { type: "button", onclick: fn }, "Open") : null)); }));
   }
@@ -140,9 +141,10 @@
       h("p.note-line", p ? `Diving since ${G().dateOf(1) && new Date(p.since).toLocaleDateString("en-US", { month: "long", year: "numeric" })}` : "Kept on this device only."))));
     if (!own) box.append(relationRow(p));
     box.append(statsGrid(stats, own));
-    if (days) box.append(h("div.section", h("h3", "Calendar"), calendar(days, { open: openDay })), h("div.section", h("h3", own ? "Recent dives" : "Their recent dives"), recent(days, openDay)));
+    if (days) box.append(h("div.section", h("h3", "Calendar"), calendar(days, { open: openDay })), h("div.section", h("h3", own ? "Recent dives" : "Their recent dives"), recent(days, openDay, own)));
     else box.append(h("p.note-line", p.relation === "friend" ? `${p.username} keeps their calendar private.` : "Friends can see each other's calendar and dives."));
     if (own && st === "in") box.append(h("div.row", h("button.btn.ghost.small", { type: "button", onclick: () => go("friends") }, plural(+p.friends || 0, "friend")), h("button.btn.ghost.small", { type: "button", onclick: () => go("ranks") }, "Today's rankings")));
+    if (own && st === "off" && G().demo && G().demo.offered) box.append(h("div.invite", h("p", h("b", "Friends, rankings and accounts "), "need the game's database, which isn't connected to this copy. You can still see how they look."), h("button.btn.small.ghost", { type: "button", onclick: () => G().demo.set(true) }, "Preview with demonstration data")));
     if (own && st === "out") box.append(h("div.invite", h("p", h("b", "Keep this log. "), "With a free account your streak and dives follow you to any device, and you can add friends and join the daily rankings."), h("button.btn.small", { type: "button", onclick: () => go("account") }, "Create an account")));
     if (!own && p.can_explore) { const today = game.today(), theirs = (days || []).find(d => d.day === today); if (theirs) box.append(h("div.row", h("button.btn.small", { type: "button", onclick: () => go("dive", p.username, today) }, "Explore today's dive"), h("button.btn.ghost.small", { type: "button", onclick: () => go("vs", p.username, today) }, "Compare with mine"))); }
   }
@@ -230,7 +232,7 @@
     box.append(h("div.lead", h("h2.title", mode === "in" ? "Sign in" : mode === "up" ? "Create an account" : "Reset your password"),
       h("p.note-line", mode === "up" ? "Free. Keeps your streak and dives on any device, and lets you add friends and join the daily rankings. Your email is only used to sign you in: other players never see it." : mode === "in" ? "Welcome back." : "Enter the email you signed up with.")),
       form,
-      mode === "forgot" ? null : h("div.or", h("span", "or")), mode === "forgot" ? null : h("button.btn.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.google(), () => {}) }, "Continue with Google"),
+      mode === "forgot" || !A.google ? null : h("div.or", h("span", "or")), mode === "forgot" || !A.google ? null : h("button.btn.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.google(), () => {}) }, "Continue with Google"),
       h("p.note-line", mode === "in" ? ["New here? ", h("button.link", { type: "button", onclick: () => { mode = "up"; render(); } }, "Create an account")] : ["Already have one? ", h("button.link", { type: "button", onclick: () => { mode = "in"; render(); } }, "Sign in")]),
       h("p.fine", "You can always play without an account. Anything you've already played on this device moves across when you sign in."));
   }
@@ -264,7 +266,7 @@
     const toggle = (key, label, sub) => { const input = h("input", { type: "checkbox", role: "switch", checked: !!s[key], onchange: () => act(null, () => A.rpc("update_settings", { p: { [key]: input.checked } }), () => {}) }); return h("label.toggle-row", h("span", label, h("small", sub)), input); };
     const pass = h("input", { type: "password", autocomplete: "new-password", minLength: 6, placeholder: "New password" }), pmsg = h("span.msg", { role: "status" });
     const confirmBox = h("input", { type: "text", autocomplete: "off", placeholder: `Type ${p.username} to confirm`, "aria-label": "Type your username to confirm" });
-    box.append(h("div.lead", h("h2.title", "Settings"), h("p.note-line", A.email ? `Signed in as ${A.email}. Other players never see your email.` : "")),
+    box.append(h("div.lead", h("h2.title", "Settings"), h("p.note-line", A.demo ? "A demonstration account. Changes here stay on this device." : A.email ? `Signed in as ${A.email}. Other players never see your email.` : "")),
       h("div.section", h("h3", "You"), h("form.form", { novalidate: true, onsubmit: e => { e.preventDefault(); const v = name.input.value.trim(); act(e.submitter, async () => { if (v !== p.username) await A.rpc("change_username", { p_username: v }); if (pic.value !== p.avatar) await A.rpc("update_settings", { p: { avatar: pic.value } }); }).then(() => {}); } }, name.el, pic.el,
         h("div.row", h("button.btn.small", { type: "submit" }, "Save"), h("span.fine", "A username can be changed once every two weeks.")))),
       h("div.section", h("h3", "Privacy"),
@@ -273,8 +275,8 @@
         toggle("share_dives", "Let friends explore my finished icebergs", "Only ever friends, and only once they have finished that day themselves."),
         toggle("share_answers", "…including the answers I gave", "Off: friends see how deep you went, not what you said."),
         toggle("share_calendar", "Let friends see my calendar", "Strangers never see it.")),
-      h("div.section", h("h3", "Password"), h("form.form", { novalidate: true, onsubmit: async e => { e.preventDefault(); try { await A.setPassword(pass.value); pass.value = ""; pmsg.className = "msg good"; pmsg.textContent = "Password changed."; } catch (err) { pmsg.className = "msg bad"; pmsg.textContent = err.message; } } }, h("label.field", "New password", pass, pmsg), h("div.row", h("button.btn.small.ghost", { type: "submit" }, "Change password")))),
-      h("div.section", h("h3", "Account"), h("div.row", h("button.btn.small.ghost", { type: "button", id: "sign-out", onclick: () => A.signOut().then(() => go("log")) }, "Sign out")),
+      A.demo ? null : h("div.section", h("h3", "Password"), h("form.form", { novalidate: true, onsubmit: async e => { e.preventDefault(); try { await A.setPassword(pass.value); pass.value = ""; pmsg.className = "msg good"; pmsg.textContent = "Password changed."; } catch (err) { pmsg.className = "msg bad"; pmsg.textContent = err.message; } } }, h("label.field", "New password", pass, pmsg), h("div.row", h("button.btn.small.ghost", { type: "submit" }, "Change password")))),
+      A.demo ? null : h("div.section", h("h3", "Account"), h("div.row", h("button.btn.small.ghost", { type: "button", id: "sign-out", onclick: () => A.signOut().then(() => go("log")) }, "Sign out")),
         h("details.danger", h("summary", "Delete my account"), h("p.note-line", "This removes your username, every dive, your streak and your friends, for good. It can't be undone."),
           h("div.row", confirmBox, h("button.btn.small.ghost", { type: "button", onclick: e => { if (confirmBox.value.trim().toLowerCase() !== p.username.toLowerCase()) { confirmBox.focus(); return; } act(e.currentTarget, () => A.remove(), () => go("log")); } }, "Delete for good")))));
   }

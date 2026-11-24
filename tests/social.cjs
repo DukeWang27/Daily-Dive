@@ -249,6 +249,19 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
   ok('if the project asks new players to confirm their email, the page says to check it (and does not sign in)', /Check your email/.test(await body(con)) && await con.evaluate(() => Account.state === 'out'));
   await con.context().close();
 
+  // ---------- Demonstration data (no database): invented players, labelled on every screen ----------
+  { const ctx = await b.newContext({ viewport: VPS.desk }), p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message));
+    await p.goto(SITE + '?test&fast&reset&demo'); await p.waitForSelector('#play'); await p.waitForFunction(() => Account.signedIn && Account.demo);
+    const seen = [];
+    for (const tab of ['friends', 'ranks', 'log', 'settings']) { await hub(p, tab); seen.push(await p.evaluate(() => !document.querySelector('#hub-demo').hidden && /Demonstration data/i.test(document.querySelector('#hub-demo').innerText) && /made up/.test(document.querySelector('#hub-demo').innerText))); }
+    await hub(p, 'friends'); const names = await p.evaluate(() => [...document.querySelectorAll('#hub-body .rows .name')].map(x => x.textContent));
+    ok('demonstration: every social screen carries a "Demonstration data, made up" label, and every invented player is named demo_…', seen.every(Boolean) && names.length >= 4 && names.every(n => /^demo_/.test(n)), names.join(','));
+    await hub(p, 'ranks'); ok('demonstration: follows the same rule, rankings closed until you have dived', /Finish today's dive to see today's rankings/.test(await body(p)));
+    await ctx.close();
+    const ctx2 = await b.newContext({ viewport: VPS.desk }), q = await ctx2.newPage(); await q.goto(SITE + '?test&fast&reset'); await q.waitForSelector('#play'); await q.click('#acct-btn'); await q.waitForSelector('[data-screen="hub"]:not([hidden])');
+    ok('demonstration: not offered on an ordinary copy of the game', !/demonstration/i.test(await q.evaluate(() => document.querySelector('[data-screen="hub"]').innerText)) && await q.evaluate(() => !Game.demo.offered));
+    await ctx2.close(); }
+
   ok('no errors in any browser page during the whole run', !errs.length, errs.slice(0, 3).join(' || '));
   console.log(R.join('\n')); console.log(`\n${R.length - fails} passed, ${fails} failed`);
   await b.close(); site.close(); gw.server.close(); await gw.pool.end(); process.exit(fails ? 1 : 0);

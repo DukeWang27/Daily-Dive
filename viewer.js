@@ -106,7 +106,8 @@
       if (mine) {
         const a = mine.qs[i].best, t = x.best, ad = a ? a.depth : 0, td = t ? t.depth : 0;
         main.append(el("div", "a", `${a ? a.name : "nothing"} · ${t ? t.name : "nothing"}`));
-        d.append(el("b", ad >= td ? "up" : "", m(ad)), el("small", td > ad ? "up" : "", `${dive.name} ${m(td)}`));
+        const them = el("small", td > ad ? "up" : ""); them.append(el("span", "nm", dive.name + " "), m(td));
+        d.append(el("b", ad >= td ? "up" : "", m(ad)), them);
         b.setAttribute("aria-label", `Question ${i + 1}, ${x.title}: you ${ad} metres, ${dive.name} ${td} metres`);
       } else {
         main.append(el("div", "a", x.best ? x.best.name : x.guesses.length ? "nothing counted" : "no guess"));

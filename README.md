@@ -2,7 +2,7 @@
 
 **Three guesses. How deep can you go?**
 
-A daily guessing game. Five questions a day, three guesses each. Every guess is revealed on the iceberg at once:
+A daily guessing game. Five questions a day, three guesses each, 45 seconds a question. Every guess is revealed on the iceberg at once:
 the fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts, and a
 later, shallower guess never takes it away. Your score is depth in metres, added up over the five questions.
 
@@ -19,6 +19,11 @@ appears at each player's local midnight, and after day 15 the calendar starts ag
 - **What uses a guess.** A recognised answer, or an unknown answer you choose to send for review.
 - **What doesn't.** Repeating an earlier answer (including by another name). Answers that don't count, for the first
   three per question; after that each one uses a guess, so the box can't be used to fish for hints.
+- **Time.** Each question has 45 seconds of thinking time, shared by its three guesses and shown as a melting
+  icicle beside the answer box. The clock only runs while you can type: it stops for every reveal and camera move.
+  It is measured against the real clock, so reloading or leaving the page never hands time back. When it runs out
+  the question ends and your deepest answer so far counts. Change `QUESTION_SECONDS` at the top of `game.js` to
+  try other lengths (0 turns the timer off).
 - **Finishing early.** After any guess you can finish the question with what you have. The button shows the depth
   you keep and how many guesses go unused.
 - **Shares.** A share is the fraction of players who gave that answer at least once in their three guesses, so the
@@ -26,15 +31,18 @@ appears at each player's local midnight, and after day 15 the calendar starts ag
 
 ## What works today, and what needs a server
 
-| Works now, with no server | Needs the free database (Supabase) | Needs the review function (`api/verify.js`) |
+| Works now, with no server | Needs the free database (Supabase, see `BACKEND.md`) | Needs the review function (`api/verify.js`) |
 |---|---|---|
-| The whole game: guessing, the per-guess dive, sound, results, streaks, share card and text | Real player shares in place of sample statistics | Unknown answers checked while you play |
-| Instant answer checking: about 20,000 answers and 12,000 other names across the 75 questions | A ranking ("deeper than X% of players today") | An approved answer getting its depth during the same question |
-| Unknown answers held as "pending" (they use a guess and have no depth), disputes saved on the device | A shared queue of unknown answers and disputes for you to review | A shared list of reviewed answers so every player gets the same verdict |
+| The whole game: guessing, the timer, the per-guess dive, wildlife, sound, results, share card and text | Accounts: sign-in, usernames, progress on any device | Unknown answers checked while you play |
+| Instant answer checking: about 20,000 answers and 12,000 other names across the 75 questions | Friends, daily rankings, exploring and comparing friends' icebergs | An approved answer getting its depth during the same question |
+| A dive log on the device: streak, records and a year calendar | Real player counts in place of sample statistics | A shared list of reviewed answers so every player gets the same verdict |
+| Reopening any earlier dive played on the device | A shared queue of unknown answers and disputes for you to review | |
 | A game in progress survives a reload | | |
 
 Until the database is connected, every share and player count is **sample data** and the game labels it that way,
-on the results screen and on the share card. No ranking is shown without real players.
+on the results screen and on the share card. No ranking, friend or other player is ever shown without real data.
+(Adding `?demo` to the address shows the social screens filled with invented players, each screen labelled
+"Demonstration data". It is for looking at the design and is never offered on the live game.)
 
 ## Files
 
@@ -46,6 +54,15 @@ on the results screen and on the share card. No ranking is shown without real pl
 | `brand.js` | **The game's name**, mark, tagline and search text, in one place (see "The name") |
 | `brand.html` | A review page showing the five candidate names in the game's style, with what was checked about each |
 | `iceberg.js` | The artwork, the depth scale, and the full-screen scene players explore (camera, markers, annotations, depth gauge) |
+| `icetimer.js` | The melting-icicle timer's artwork |
+| `account.js` | Sign-in and every question the game asks the database |
+| `social.js` | Dive log and calendar, friends, rankings, settings and sign-in screens |
+| `viewer.js` | Exploring a finished dive, replay, and comparing two dives |
+| `demo.js` | Invented, labelled players for previewing the social screens (`?demo`) |
+| `vendor/supabase.js` | Supabase's browser library (MIT), only loaded when a database is configured |
+| `BACKEND.md` | **How to switch on accounts, friends and rankings**, and what is and isn't protected |
+| `supabase/` | The database: `0001` play counts, `0002` accounts and all access rules, `0003` the rarity tables |
+| `tools/seed_answers.py` | Turns the day files into the `0003` rarity tables |
 | `wildlife.js` | The animals: one entry per species, how each is drawn and moves, and the rare encounters |
 | `tools/wildlife.html` | Every animal on one sheet, enlarged, for checking the artwork |
 | `share.js` | The share card image and the plain-text share |
@@ -57,7 +74,6 @@ on the results screen and on the share card. No ranking is shown without real pl
 | `tools/questions.py` | **The question bank and the calendar.** Every question, its rules and word lists, and which five appear on which day |
 | `tools/build_days.py` | Turns the question bank into the `days/` files |
 | `tools/build_categories.py` | Word lists for the first five questions, and helpers the builder shares |
-| `supabase.sql` | Database setup (optional) |
 | `api/verify.js`, `package.json` | The answer review function (optional) |
 | `tests/` | Automated play-through checks |
 | `screenshots/` | What each screen looks like |
@@ -89,38 +105,32 @@ ads or paid features, move to Vercel Pro or a host whose free plan allows commer
 Any other static host (Netlify, Cloudflare Pages, GitHub Pages) also works for the game itself. Only
 `api/verify.js` is written for Vercel's function format.
 
-## Real player data (Supabase, free)
+## Accounts, friends and rankings
 
-1. Create a free project at supabase.com.
-2. Open **SQL Editor → New query**, paste all of `supabase.sql` and click **Run**. Running it again later is safe,
-   and it upgrades a database made for the timed version.
-3. Open **Project Settings → API** and copy the **Project URL** and the **anon public** key.
-4. Paste both into the `BACKEND` line at the top of `game.js`:
-   ```js
-   const BACKEND = { url: "https://YOUR-PROJECT.supabase.co", anonKey: "YOUR-ANON-KEY", verifyUrl: "" };
-   ```
-5. Commit and push. Vercel redeploys on its own.
+Setting these up is covered step by step in **`BACKEND.md`**, along with what is protected and what still needs
+doing before a public launch. In short:
 
-The anon key is meant to be public. The database rules only let players add rows; they can't read or change
-anyone's. What is stored:
+- **Guests first.** Nobody has to sign in to play. After a guest's first dive the results screen offers, once and
+  quietly, to save it to an account. Days already played on the device move across, and a day is never counted twice.
+- **Accounts.** Email and password, optional Google, password reset, a unique username, one of the game's animals
+  as a picture, privacy switches, account deletion.
+- **Dive log.** Streak, longest streak, total expeditions, average, personal record, deepest discovery, and a
+  year calendar: one square a day, brighter for a deeper day, ringed in pale green for an answer in the Abyss.
+  Choosing a day shows its details and reopens that iceberg.
+- **Friends.** Find by username, request, accept or decline, remove, block. The list shows who has finished today
+  and, once you have too, who is ahead and by how much.
+- **Rankings.** Each day's ranking of everyone with an account, and of you and your friends. Ordered by total
+  depth; equal totals are split by the deepest single answer, then by who finished first.
+- **Exploring a friend's iceberg.** Their finished day on the real scene: the whole dive at once, then question by
+  question, guess by guess, with the original annotations; or a replay. **Compare** puts both players' deepest
+  answers on one iceberg, yours solid and theirs hollow.
+- **No spoilers.** Other players' answers, scores and icebergs for a day stay closed until you have handed in your
+  own dive for it. The database enforces this, not the page.
 
-- `round_plays`: one row per player per question, with up to three recognised answers, the deepest one and its depth.
-- `day_results`: one row per player per day, with their total and the five depths.
-- `flags`: unknown answers and disputes, for you to review (open the `review_queue` view).
-- `verified_answers`: reviewed answers, written only by the server.
-
-The game reads three summaries: how many players played a question, how many gave each answer (counted once per
-player), and how totals are spread for the ranking.
-
-How real counts are used:
-
-- An answer's share blends the early estimate with real counts. The estimate weighs as much as 200 players, so it
-  fades as people play.
-- Your depth is fixed from the numbers known when you make the guess, and stays that way.
-- A rare answer needs 5 real players before it is listed on the "rarest" board.
-- The ranking appears once 30 players have finished the day.
-
-Free Supabase projects pause after a week without activity.
+How scoring works with a database: every answer's share and depth come from that day's **rarity table**, which is
+fixed when the day is published and loaded into the database by the `0003_answers_*.sql` files. An answer is worth
+the same to everyone whenever they play, and a finished iceberg never shifts. The results panel shows today's real
+counts once 30 players have answered a question; until then it shows the sample figures, labelled.
 
 ## Answer review (optional)
 
@@ -309,15 +319,24 @@ depths and zones only, never answers or questions.
 
 ## Tests
 
-`tests/matrix.cjs` plays the game in a real browser and checks 217 things: three rarer answers in a row, the rarest
-first, three more common in a row, identical and near-identical rarity, duplicates, clear and unclear typos, invalid
-answers and the miss limit, pending answers, review verdicts, finishing early, all five questions, reloading at
-every stage, rapid Enter presses, sound on, off and unavailable, reveal length, layout at seven screen sizes, and
-the calendar (every day loads its own questions, none repeats, midnight rollover, looping after the last day).
-It also checks the scene: which animals are in view at the surface, at 100 m and in the Abyss; that the camera
-going back up finds the same animals; each encounter at its own depth and only once; the annotation's reading
-order, staged reveal and that it never covers the controls; two markers at the same depth; reduced motion; the
-Calmer water switch; frame times; and that a trial name changes every place the name appears.
+Three sets of checks, all run against the real code:
+
+- **`tests/matrix.cjs`** plays the game in a real browser: 255 checks. Three rarer answers in a row, the
+  rarest first, duplicates, typos, invalid and pending answers, review verdicts, finishing early, all five
+  questions, reloading at every stage, sound on, off and unavailable, seven screen sizes, the calendar of days,
+  wildlife by depth, encounters, annotations, reduced motion, frame times, trial names, and the timer (starting,
+  stopping for reveals, running out with two, one or no answers, reloads, slow checking, muted, reduced motion).
+- **`tests/db/run.cjs`** checks the database rules on a real PostgreSQL database: 89 checks. Usernames, direct
+  table access, server-side scoring, one dive a day, streaks, guest progress, friends, blocking, the spoiler rule,
+  privacy, rankings and ties, deleting an account. Needs PostgreSQL installed; `sh tests/db/setup.sh` builds a
+  throwaway database first.
+- **`tests/social.cjs`** runs the account and social screens in a real browser against that database: 83 checks.
+  Signing up, duplicate usernames, guest progress, signing in and out, password reset, friends, what is hidden
+  before diving (including requests made by hand with a real sign-in token), rankings, exploring and comparing
+  dives, privacy switches, streaks over several days, a second device, blocking, Google, deleting an account.
+  It talks to `tests/gateway.cjs`, a local stand-in for Supabase's web service: the database rules are real, the
+  sign-in service is imitated.
+
 Instructions are at the top of the file.
 
 ## Known limits of this test version
@@ -328,8 +347,11 @@ Instructions are at the top of the file.
 - The new questions' answer lists were built from a dictionary and hand-written lists and spot-checked, not played
   by real people yet. Expect some answers that should count but don't: they show as pending, and the review queue
   (or the dispute button) is how you find and fix them.
-- Players are anonymous random IDs, so someone could send fake plays or clear their browser data to replay. Add
-  server-side checks and rate limits before a public launch.
+- Guests are anonymous random IDs, so a guest could clear their browser data to replay. Players with accounts get
+  one dive a day, scored by the database. `BACKEND.md` lists what remains open (above all: the answer files are
+  public, and the timer is kept in the browser).
+- Accounts were tested against a local database and an imitation of Supabase's sign-in service, not a real
+  Supabase project.
 - A few questions are very wide ("Name an animal", "Name a part of the human body"): almost any unusual answer
   reaches the Abyss. Narrower questions make for better days.
 - Sound was checked by measurement, not by ear, and phone layouts in a desktop browser at phone sizes, not on real

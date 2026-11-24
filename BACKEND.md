@@ -1,5 +1,12 @@
 # Switching on accounts, friends and rankings
 
+> **Status (24 Nov 2026): done for the live game.** The Supabase project "Daily Dive" has the database loaded,
+> sign-in points at https://iceberg-eight-silk.vercel.app, and `game.js` holds its public key. Sign-up, guest
+> progress, friends, the spoiler rule and exploring a friend's dive were tested against that real project with two
+> test players, who were then deleted. **Confirm email is OFF** because Supabase's built-in sender allows only two
+> emails an hour; switch it back on after connecting an email service (section 4). Password-reset emails are subject
+> to the same two-an-hour limit until then. The steps below are kept for reference and for a fresh project.
+
 The game plays without any of this: everyone is a guest and progress stays on their device. This guide connects
 it to a free Supabase project so players can make accounts, keep streaks across devices, add friends, appear in
 daily rankings and explore each other's icebergs.

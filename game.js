@@ -11,7 +11,7 @@
 //                  The anon key is the project's PUBLIC key. Never put the service-role key or any secret here.
 //   google: true once "Continue with Google" has been set up in Supabase (BACKEND.md, step 5). It shows the button.
 //   verifyUrl: an endpoint that reviews unknown answers (see api/verify.js).
-const BACKEND = { url: "", anonKey: "", google: false, verifyUrl: "" };
+const BACKEND = { url: "https://lrubyctrjrkzbbshlois.supabase.co", anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxydWJ5Y3RyanJremJic2hsb2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NDAzODMsImV4cCI6MjExMTExNjM4M30.fHMwQT9ioTTmlrrC9PZku2brxuqffvGQ8kv7JohTinY", google: false, verifyUrl: "" };
 const LAUNCH = [2026, 11, 24];     // Daily #1: year, month, day. Days change at each player's local midnight.
 const GUESSES = 3;                // per question
 const QUESTION_SECONDS = 20;        // thinking time per question, shared by its three guesses. It stops while an answer is revealed. 0 = no timer

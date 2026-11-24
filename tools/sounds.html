@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap">
+<style>
+:root { --bg: #040917; --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e; --accent: #8fd0f5; --lumen: #7df0df; --line: rgba(143, 208, 245, .14); color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+main { max-width: 900px; margin: 0 auto; padding: 28px 16px 80px; }
+h1 { font-size: clamp(26px, 5vw, 34px); letter-spacing: -.02em; margin: 0 0 6px; }
+h2 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 34px 0 10px; }
+p { color: var(--muted); margin: 0 0 10px; max-width: 64ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+button { font: inherit; color: var(--text); text-align: left; padding: 11px 13px; border: 0; border-radius: 10px; background: rgba(143, 208, 245, .07); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; display: grid; gap: 2px; }
+button:hover { background: rgba(143, 208, 245, .13); } button:active { transform: translateY(1px); }
+button b { font-weight: 700; } button span { font-size: 12.5px; color: var(--faint); }
+button.on { box-shadow: inset 0 0 0 1.5px var(--lumen); }
+.row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 10px 0; }
+label { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+input[type=range] { width: min(320px, 70vw); accent-color: var(--accent); }
+output { font-variant-numeric: tabular-nums; color: var(--text); min-width: 4ch; }
+.note { border-left: 2px solid var(--line); padding-left: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sound board</h1>
+  <p>Every sound in the game, one button each, exactly as the game plays them. Use headphones or decent speakers: much of the depth is low.</p>
+  <p class="note">These sounds were designed and measured, but nobody has listened to them yet: I can't hear audio. Your ears are the test. Tell me which ones feel wrong, too loud, too long or too much like a beep.</p>
+  <div class="row"><label>Effects <input type="range" id="sfx" min="0" max="100" value="80"><output id="sfx-o">80%</output></label></div>
+
+  <h2>Guessing</h2><div class="grid" id="g-guess"></div>
+  <h2>How rare the answer is</h2><p>The reveal gets fuller with rarity. Play them in order to hear the steps.</p><div class="grid" id="g-reveal"></div>
+  <h2>The timer</h2><div class="grid" id="g-timer"></div>
+  <h2>Creatures</h2><div class="grid" id="g-creature"></div>
+  <h2>The race</h2><div class="grid" id="g-race"></div>
+  <h2>Screens</h2><div class="grid" id="g-screen"></div>
+
+  <h2>Ambience by depth</h2>
+  <p>The background bed. Start it, then drag the depth: the waves fade and darken, a low hum grows, and far-off pings and groans appear in the deep. Dragging back up reverses it smoothly.</p>
+  <div class="row"><button id="amb" type="button"><b>Start ambience</b><span>continuous</span></button>
+    <label>Depth <input type="range" id="depth" min="0" max="100" value="0"><output id="depth-o">surface</output></label>
+    <label>Level <input type="range" id="amb-l" min="0" max="100" value="70"><output id="amb-o">70%</output></label></div>
+</main>
+<script src="../audio.js"></script>
+<script>
+  const S = window.Sound, $ = id => document.getElementById(id);
+  S.set({ muted: false });
+  const groups = {
+    "g-guess": [["submit", "Guess 1", { step: 0 }], ["submit", "Guess 2", { step: 1 }], ["final", "Guess 3 (last)"], ["pending", "Not recognised yet"], ["duplicate", "Already tried"], ["invalid", "Doesn't count"], ["neutral", "Not deeper this time"]],
+    "g-reveal": [["reveal", "Common · 20 m", { m: 20 }], ["reveal", "Uncommon · 70 m", { m: 70 }], ["reveal", "Rare · 150 m", { m: 150 }], ["rare", "Exceptional · 250 m", { lead: 1.4 }], ["deeper", "New deepest · small", { m: 40 }], ["deeper", "New deepest · big", { m: 170 }], ["travel", "Camera dives", { dir: 1, seconds: 1.4 }], ["travel", "Camera rises", { dir: -1, seconds: 1.2 }]],
+    "g-timer": [["crack", "10 seconds left"], ["drip", "5 seconds left", { step: 0 }], ["drip", "1 second left", { step: 4 }], ["melt", "Time's up"]],
+    "g-creature": [["encounter", "Giant squid passes", { kind: "giant" }], ["encounter", "Bigfin squid", { kind: "bigfin" }], ["encounter", "Colossal squid", { kind: "colossal" }]],
+    "g-race": [["join", "Player joins"], ["leave", "Player leaves"], ["ready", "Player ready"], ["count", "Countdown"], ["count", "Countdown · last", { last: true }], ["go", "Engines on"], ["thrust", "Sub descends · small", { size: 0.15 }], ["thrust", "Sub descends · big", { size: 0.6 }], ["thrust", "Sub descends · exceptional", { size: 1 }], ["overtake", "You overtake"], ["overtake", "You're overtaken", { dir: -1 }], ["zone", "New depth zone", { level: 2 }], ["reveal_all", "Question closes"], ["standings", "Standings", { n: 5 }], ["win", "You win"], ["lose", "Race over"], ["rematch", "Rematch"]],
+    "g-screen": [["click", "Button"], ["hover", "Hover"], ["question", "New question"], ["start", "Start the day"], ["round", "Question done"], ["day", "Day done"], ["fill", "Calendar square fills"]],
+  };
+  for (const [id, list] of Object.entries(groups)) for (const [name, label, o] of list) {
+    const b = document.createElement("button"); b.type = "button";
+    b.innerHTML = `<b></b><span></span>`; b.firstChild.textContent = label; b.lastChild.textContent = name;
+    b.onclick = () => { S.unlock(); setTimeout(() => S.play(name, o || {}), 30); };
+    $(id).append(b);
+  }
+  $("sfx").oninput = e => { S.set({ sfx: e.target.value / 100 }); $("sfx-o").textContent = e.target.value + "%"; };
+  let on = false;
+  const zone = d => d < 0.15 ? "surface" : d < 0.35 ? "shallows" : d < 0.6 ? "midwater" : d < 0.85 ? "the deep" : "the abyss";
+  $("amb").onclick = () => { S.unlock(); on = !on; $("amb").classList.toggle("on", on); $("amb").firstChild.textContent = on ? "Stop ambience" : "Start ambience"; S.setAmbience(on ? "play" : "off", $("depth").value / 100); };
+  $("depth").oninput = e => { const d = e.target.value / 100; $("depth-o").textContent = zone(d); if (on) S.setAmbience("play", d); };
+  $("amb-l").oninput = e => { S.set({ amb: e.target.value / 100 }); $("amb-o").textContent = e.target.value + "%"; };
+  S.set({ amb: 0.7 });
+</script>
+</body>
+</html>

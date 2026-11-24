@@ -434,18 +434,18 @@ async function reveal(cat, r, g) {
     const at = berg.view.focus;
     setTimeout(() => {
       if (!state || cur() !== r || !at) return;
-      life.encounter(guest.key, at); berg.setSight(g.bi, guest.line); Sound.play("encounter");
+      life.encounter(guest.key, at); berg.setSight(g.bi, guest.line); Sound.play("encounter", { kind: guest.key });
     }, 1500 / SPEED);
   }
   // Landed: say what was found, and whether it beat your deepest.
   renderSlots(-1, index); tagBest(cat, r);
-  if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260) });
+  if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260), m: d });
   const left = GUESSES - r.guesses.length, more = left ? ` ${plural(left, "guess")} left.` : "";
   const counted = $("#hint").textContent.startsWith("Counted as") ? $("#hint").textContent + " " : "";
   setTimeout(() => {
     if (!state || cur() !== r || state.phase !== "play") return;
     if (!prevBest) setHint(counted + (d === 0 ? `On the tip: ${pctText(g.share)} of players said this. Can you go rarer?` : `${d} m down. Can you go deeper?`) + more, d >= 100 ? "good" : "");
-    else if (deeper) { if (!special) Sound.play("deeper", { depth: Math.min(1, d / 260) }); setHint(`${counted}New deepest: ${d} m, ${d - depthOf(prevBest.share)} m further down.${more}`, "good"); }
+    else if (deeper) { if (!special) Sound.play("deeper", { depth: Math.min(1, d / 260), m: d }); setHint(`${counted}New deepest: ${d} m, ${d - depthOf(prevBest.share)} m further down.${more}`, "good"); }
     else { Sound.play("neutral"); setHint(counted + (g.share === prevBest.share ? `Level with your deepest (${depthOf(prevBest.share)} m).` : `Not deeper. Your ${depthOf(prevBest.share)} m still counts.`) + more); }
   }, 260 / SPEED);
   afterGuess(special);

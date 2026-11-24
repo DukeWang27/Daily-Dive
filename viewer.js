@@ -50,7 +50,7 @@
     berg = I.create($("#ib2"), { speed: new URLSearchParams(location.search).has("fast") ? 4 : 1 });
     berg.onDepth(d => { if (G().screen === "dive") window.Sound.setAmbience("play", d); });
     berg.onTravel((it, dir, ms) => { if (replaying) window.Sound.play("travel", { dir, seconds: ms / 1000 }); if (life) life.calm(ms + 2000); });
-    berg.onLand((i, it) => { if (replaying) window.Sound.play("reveal", { depth: Math.min(1, it.depth / 260) }); });
+    berg.onLand((i, it) => { if (replaying) window.Sound.play("reveal", { depth: Math.min(1, it.depth / 260), m: it.depth }); });
     berg.onFocus(i => { document.querySelectorAll("#v-slots .slot").forEach(n => n.classList.toggle("active", +n.dataset.bi === i)); greet(i); });
     if (window.Wildlife) life = window.Wildlife.create(berg, { low: G().store.get("fx", "full") === "low" });
     watch = new ResizeObserver(() => frame(0)); [".dive .dock", ".dive .q", "#v-panel", ".dive"].forEach(s => watch.observe($(s)));

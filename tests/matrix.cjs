@@ -1,6 +1,6 @@
 // Full play-through checks for the three-guess game. Needs Node and Playwright.
 // Run from the project folder:  node tests/matrix.cjs            (everything, about 3 minutes)
-//                               node tests/matrix.cjs audio,sizes (parts: desk, phone, edge, reload, review, audio, timing, sizes, daily)
+//                               node tests/matrix.cjs audio,sizes (parts: desk, phone, edge, reload, review, audio, timing, sizes, daily, scene, perf, brand)
 const { chromium, serve, open, audit } = require('./lib.cjs');
 const R = []; let fails = 0;
 const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${name}${extra ? '  [' + extra + ']' : ''}`); if (!cond) fails++; };
@@ -16,10 +16,10 @@ const hint = p => p.textContent('#hint');
 const overlaps = p => p.evaluate(() => {
   const vis = n => { const cs = getComputedStyle(n); return !n.classList.contains('dim') && cs.display !== 'none' && +cs.opacity > 0.05; };
   const box = n => n.getBoundingClientRect(), hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
-  const ib = box(document.querySelector('#ib')), pills = [...document.querySelectorAll('.ib-pill')].filter(vis), card = document.querySelector('.ib-card'), marks = [...document.querySelectorAll('.ib-mark')].filter(vis), out = [];
+  const ib = box(document.querySelector('#ib')), pills = [...document.querySelectorAll('.ib-pill')].filter(vis), card = document.querySelector('.ib-note'), marks = [...document.querySelectorAll('.ib-mark')].filter(vis), out = [];
   pills.forEach((a, i) => pills.slice(i + 1).forEach(b => { if (hit(box(a), box(b))) out.push(`labels overlap: ${a.textContent} / ${b.textContent}`); }));
-  if (card) { const c = box(card); pills.forEach(a => { if (hit(box(a), c)) out.push('label under card: ' + a.textContent); }); marks.forEach(m => { if (!m.classList.contains('focus') && hit(box(m), c)) out.push('marker under card'); });
-    if (c.left < ib.left - 1 || c.right > ib.right + 1 || c.top < ib.top - 1 || c.bottom > ib.bottom + 1) out.push('card clipped by the frame'); const hud = document.querySelector('.ib-hud.on'); if (hud && getComputedStyle(hud).display !== 'none' && hit(box(hud), c)) out.push('card over depth gauge'); }
+  if (card) { const c = box(card); pills.forEach(a => { if (hit(box(a), c)) out.push('label under annotation: ' + a.textContent); }); marks.forEach(m => { if (!m.classList.contains('focus') && hit(box(m), c)) out.push('marker under annotation'); });
+    if (c.left < ib.left - 1 || c.right > ib.right + 1 || c.top < ib.top - 1 || c.bottom > ib.bottom + 1) out.push('annotation clipped by the window'); const hud = document.querySelector('.ib-read.on .ib-depth'); if (hud && hit(box(hud), c)) out.push('annotation over the depth reading'); }
   marks.forEach((a, i) => marks.slice(i + 1).forEach(b => { if (hit(box(a), box(b))) out.push('markers overlap'); }));
   return out; });
 const slots = p => p.$$eval('#slots .slot', els => els.map(e => ({ cls: e.className.replace('slot ', ''), text: e.innerText.replace(/\n/g, ' | ') })));
@@ -35,7 +35,7 @@ async function fullGame(b, vp) {
   let st = await slots(p);
   ok(T('q1: three slots, first one ready, none used'), st.length === 3 && /next/.test(st[0].cls) && /empty/.test(st[1].cls) && /empty/.test(st[2].cls), st.map(s => s.cls).join(','));
   ok(T('q1: no timer on screen'), await p.evaluate(() => !document.querySelector('#time-left, .timer, .clock')));
-  ok(T('q1: iceberg fills a large part of the screen'), await p.evaluate(() => { const r = document.querySelector('#ib').getBoundingClientRect(); return r.width * r.height / (innerWidth * innerHeight) > 0.3; }), await p.evaluate(() => { const r = document.querySelector('#ib').getBoundingClientRect(); return Math.round(100 * r.width * r.height / (innerWidth * innerHeight)) + '% of the window'; }));
+  ok(T('q1: the scene fills the whole window, controls floating over it'), await p.evaluate(() => { const r = document.querySelector('#ib').getBoundingClientRect(), a = document.querySelector('#answer').getBoundingClientRect(); return r.width * r.height / (innerWidth * innerHeight) > 0.99 && a.top > r.top && a.bottom < r.bottom; }), await p.evaluate(() => { const r = document.querySelector('#ib').getBoundingClientRect(); return Math.round(100 * r.width * r.height / (innerWidth * innerHeight)) + '% of the window'; }));
   ok(T('q1: play layout'), !(await audit(p)).length, (await audit(p)).join('; '));
 
   // Q1: three progressively rarer answers.
@@ -46,7 +46,7 @@ async function fullGame(b, vp) {
   ok(T('q1: feedback says first depth, then "New deepest" twice'), /m down\. Can you go deeper/.test(hints[0]) && /New deepest: \d+ m, \d+ m further down/.test(hints[1]) && /New deepest/.test(hints[2]), hints.join(' || '));
   ok(T('q1: input stayed in place and focused'), Math.abs((await p.locator('#answer').boundingBox()).y - inputY) < 1 && await p.evaluate(() => document.activeElement.id === 'answer'));
   st = await slots(p);
-  ok(T('q1: slots show name, share, zone and depth; the third is marked deepest'), st.every(s => /done/.test(s.cls) && /%/.test(s.text) && /\d+m/.test(s.text)) && /best/.test(st[2].cls) && !/best/.test(st[0].cls) && /Deepest/i.test(st[2].text) && /Midwater/.test(st[0].text), st.map(s => s.text).join(' || '));
+  ok(T('q1: slots show name, share, zone and depth; the third is marked deepest'), st.every(s => /done/.test(s.cls) && /%/.test(s.text) && /\d+m/.test(s.text)) && /best/.test(st[2].cls) && !/best/.test(st[0].cls) && /Deepest/i.test(st[2].text) && (vp !== 'desk' || /Midwater/.test(st[0].text)), st.map(s => s.text).join(' || '));
   ok(T('q1: all three markers stay on the iceberg'), await p.evaluate(() => document.querySelectorAll('.ib-mark').length === 3));
   await waitDone(p); await p.waitForTimeout(400);
   let d = await p.evaluate(() => ({ best: document.querySelector('#best-name').textContent, depth: document.querySelector('#best-depth').textContent, rows: document.querySelectorAll('#sum li').length, bars: [...document.querySelectorAll('#common li, #rare li')].map(l => l.innerText.replace(/\n/g, ' ')), players: document.querySelector('#players').textContent, sample: !document.querySelector('#sample-note').hidden, meta: document.querySelector('#top-meta').textContent }));
@@ -55,7 +55,7 @@ async function fullGame(b, vp) {
   ok(T('q1 results layout'), !(await audit(p)).length, (await audit(p)).join('; '));
   await p.screenshot({ path: `tests/shot-${vp}-done.png` });
   // Compare guesses without replaying.
-  await p.click('#sum li:nth-child(1) .sum-row'); await p.waitForFunction(() => document.querySelector('.ib-card.in .ib-name')?.textContent === 'kangaroo', null, { timeout: 6000 });
+  await p.click('#sum li:nth-child(1) .sum-row'); await p.waitForFunction(() => document.querySelector('.ib-note.in .ib-name')?.textContent === 'kangaroo', null, { timeout: 6000 });
   ok(T('q1 results: tapping a guess flies the camera to it'), true);
   ok(T('q1 results: still nothing overlapping'), !(await overlaps(p)).length, (await overlaps(p)).join('; '));
   await p.click('#next');
@@ -190,7 +190,7 @@ async function reload(b) {
   await p.goto(URL + '?test&day=0&fast'); await p.waitForTimeout(600);
   let s = await S(p), st = await slots(p);
   ok('reload mid-question: back in the same question with both guesses and one left', await p.evaluate(() => ICEBERG_TEST.screen === 'play') && s.n === 2 && s.names.join() === 'kangaroo,octopus' && /done/.test(st[0].cls) && /best/.test(st[1].cls) && /next/.test(st[2].cls), st.map(x => x.cls).join(' | '));
-  ok('reload: markers are back on the iceberg, camera at the deepest', await p.evaluate(() => document.querySelectorAll('.ib-mark').length === 2 && document.querySelector('.ib-card .ib-name')?.textContent === 'octopus'));
+  ok('reload: markers are back on the iceberg, camera at the deepest', await p.evaluate(() => document.querySelectorAll('.ib-mark').length === 2 && document.querySelector('.ib-note .ib-name')?.textContent === 'octopus'));
   ok('reload: layout and overlaps fine', !(await audit(p)).length && !(await overlaps(p)).length, [...await audit(p), ...await overlaps(p)].join('; '));
   await enter(p, 'kangaroo');
   ok('reload: an earlier guess still counts as a duplicate', (await S(p)).n === 2 && /already tried/.test(await hint(p)));
@@ -353,10 +353,154 @@ async function sizes(b) {
   }
 }
 
+// The living scene: wildlife by depth, encounters, the annotation, reduced motion, the calmer setting.
+async function scene(b) {
+  const fs = require('fs'), path = require('path'), root = path.join(__dirname, '..');
+  const band = k => p.evaluate(key => Wildlife.species().find(s => s.key === key).band, k);
+  let p = await fresh(b, 'desk'); await start(p);
+  const life = () => p.evaluate(() => ICEBERG_TEST.life.stats());
+  const cast = await p.evaluate(() => Wildlife.species());
+  ok('wildlife: every animal names a real species, its real range and a depth band', cast.length >= 18 && cast.every(s => s.name && /^[A-Z][a-z]+( [a-z]+)?$/.test(s.latin) && s.real.length > 20 && (s.rare ? s.min >= 200 : s.zone[1] > s.zone[0])), cast.length + ' animals');
+  ok('wildlife: bands cover the surface, midwater, the deep and the abyss', ['surface', 'mid', 'deep', 'abyss'].every(k => cast.filter(s => s.band === k).length >= 3), ['surface', 'mid', 'deep', 'abyss'].map(k => k + ' ' + cast.filter(s => s.band === k).length).join(', '));
+  await p.waitForTimeout(900);
+  const top = await life();
+  ok('wildlife: the water is populated, drawn on its own layers behind and in front of the iceberg', top.animals >= 15 && await p.evaluate(() => ['back', 'front', 'lume'].every(k => { const c = document.querySelector('.ib-life-' + k); return c && c.width > 50 && getComputedStyle(c).imageRendering === 'pixelated'; })), top.animals + ' animals');
+  ok('wildlife: layer order is sea, animals, ice, animals, darkness, living light, text', await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ').startsWith('ib-sea ib-life-back ib-ice ib-life-front ib-snow ib-shade ib-life-lume ib-glow ib-bestline ib-lines ib-layer')), await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ')));
+  ok('wildlife: same pixel size as the iceberg artwork', await p.evaluate(() => { const v = ICEBERG_TEST.berg.view, c = document.querySelector('.ib-life-back'); return Math.abs(c.getBoundingClientRect().width / c.width - v.u) < 0.01; }));
+  const surfaceView = top.inView;
+  ok('at the surface: only surface animals are in view', surfaceView.length > 0 && surfaceView.every(k => cast.find(s => s.key === k).band === 'surface'), surfaceView.join(', '));
+  // A common answer: no encounter. Then down through the bands.
+  await guess(p, 'dog'); await p.waitForTimeout(700);
+  ok('common answer (0 m): no great animal, no sighting line', (await life()).guests === 0 && !(await p.$('.ib-sight')));
+  await guess(p, 'koala'); await p.waitForTimeout(900);
+  const mid = (await life()).inView;
+  ok('at 100 m: midwater and deep animals have replaced the surface ones', mid.some(k => ['mid', 'deep'].includes(cast.find(s => s.key === k).band)) && !mid.includes('seal') && !mid.includes('auk'), mid.join(', '));
+  ok('uncommon/deep answer (100 m): still no great animal', (await life()).guests === 0);
+  const made0 = (await life()).made;
+  await guess(p, 'numbat'); await p.waitForTimeout(900);
+  const deep = (await life()).inView;
+  ok('at 317 m: abyss animals in view, none from the surface', deep.some(k => cast.find(s => s.key === k).band === 'abyss') && deep.every(k => cast.find(s => s.key === k).band !== 'surface'), deep.join(', '));
+  await p.waitForTimeout(600);
+  ok('abyss answer (317 m): the colossal squid comes, and the annotation says so', (await p.evaluate(() => ICEBERG_TEST.life.guests)).includes('colossal') && /colossal squid/i.test(await p.textContent('.ib-sight')), await p.evaluate(() => ICEBERG_TEST.life.guests.join(',')));
+  ok('encounter plays its own quiet sound', (await p.evaluate(() => window.__snd)).includes('encounter'));
+  await waitDone(p); await p.waitForTimeout(500);
+  // Back up to the first guess and down again: the same water, not a fresh one.
+  await p.click('#sum li:nth-child(1) .sum-row'); await p.waitForFunction(() => document.querySelector('.ib-note.in .ib-name')?.textContent === 'dog', null, { timeout: 6000 }); await p.waitForTimeout(500);
+  const up = await life();
+  ok('camera back up: surface animals again, same population (nothing was regenerated)', up.inView.some(k => cast.find(s => s.key === k).band === 'surface') && up.made === made0, up.inView.join(', '));
+  await p.click('#sum li:nth-child(3) .sum-row'); await p.waitForFunction(() => document.querySelector('.ib-note.in .ib-name')?.textContent === 'numbat', null, { timeout: 6000 }); await p.waitForTimeout(400);
+  ok('camera down again: the squid is still there, and is not triggered twice', JSON.stringify(await p.evaluate(() => ICEBERG_TEST.life.guests)) === '["colossal"]');
+  ok('results note what was seen, the rare animal first', /Seen on this dive: colossal squid/.test(await p.textContent('#seen')), await p.textContent('#seen'));
+  ok('sightings are kept for later (a future collection)', await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('iceberg:sightings') || '{}'); return s.colossal && s.colossal.n === 1 && Object.keys(s).length >= 5; }));
+  ok('scene: no errors', !p.errs.length, p.errs.join('; '));
+  await p.context().close();
+
+  // Thresholds: each great squid has its own depth, and a deeper one never brings the shallower one with it.
+  for (const [word, want] of [['rattlesnake', 'giant'], ['axolotl', 'bigfin'], ['monkey', '']]) {
+    p = await fresh(b, 'desk'); await start(p); await guess(p, word); await p.waitForTimeout(900);
+    const got = await p.evaluate(() => ICEBERG_TEST.life.guests.join(','));
+    ok(`threshold: ${word} (${await p.evaluate(() => ICEBERG_TEST.berg.depth)} m) brings ${want || 'nothing'}`, got === want, got || 'nothing');
+    if (word === 'rattlesnake') { await guess(p, 'great white shark'); await p.waitForTimeout(900); ok('a second answer in the same band does not repeat the encounter', (await p.evaluate(() => ICEBERG_TEST.life.guests.join(','))) === 'giant' && !(await p.$('.ib-sight'))); }
+    await p.context().close();
+  }
+
+  // The annotation.
+  for (const vp of ['desk', 'phone']) {
+    p = await fresh(b, vp); await start(p);
+    await enter(p, 'great white shark'); await p.waitForFunction(() => document.querySelector('.ib-note.in'), null, { timeout: 8000 });
+    const early = await p.evaluate(() => ({ first: +getComputedStyle(document.querySelector('.ib-name')).opacity, last: +getComputedStyle(document.querySelector('.ib-meta')).opacity, line: getComputedStyle(document.querySelector('.ib-leader')).strokeDashoffset }));
+    await p.waitForTimeout(1500);
+    const a = await p.evaluate(() => {
+      const n = document.querySelector('.ib-note'), cs = getComputedStyle(n), r = n.getBoundingClientRect(), m = document.querySelector('.ib-mark.focus').getBoundingClientRect();
+      const hit = sel => { const e = document.querySelector(sel); if (!e || e.closest('[hidden]')) return false; const q = e.getBoundingClientRect(); return q.width && r.left < q.right && q.left < r.right && r.top < q.bottom && q.top < r.bottom; };
+      return { order: [...n.children].map(c => c.className).join(' '), text: n.innerText.replace(/\n/g, ' | '), bg: cs.backgroundColor, border: cs.borderTopWidth, radius: cs.borderTopLeftRadius, shadow: cs.boxShadow,
+        d: document.querySelector('.ib-leader').getAttribute('d'), last: +getComputedStyle(n.querySelector('.ib-meta')).opacity, inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight,
+        overControls: ['.q', '#play-panel', '.top'].filter(hit).join(','), overMark: r.left < m.right && m.left < r.right && r.top < m.bottom && m.top < r.bottom, sizes: [...n.children].map(c => parseFloat(getComputedStyle(c).fontSize)) };
+    });
+    ok(`${vp} annotation: reads answer, share of players, depth, rarity, then guess and count`, /^ib-name ib-share ib-below ib-rank ib-meta/.test(a.order) && /great white shark \| 0\.\d+% of players \| 203 m below the surface/.test(a.text) && /Rarer than \d+% of answers given \| Guess 1 · [\d,]+ of 50,000 players/.test(a.text), a.text);
+    ok(`${vp} annotation: the answer is the largest line, the small print the smallest`, a.sizes[0] > a.sizes[1] && a.sizes[1] >= a.sizes[2] && a.sizes[2] > a.sizes[4], a.sizes.join(' > '));
+    ok(`${vp} annotation: open, not a card (no fill, border, rounded box or drop shadow)`, /rgba\(0, 0, 0, 0\)|transparent/.test(a.bg) && a.border === '0px' && a.radius === '0px' && a.shadow === 'none', `${a.bg} ${a.border} ${a.radius} ${a.shadow}`);
+    ok(`${vp} annotation: joined to its marker by a line, and clear of the marker, the controls and the window edge`, /^M[\d.-]+ [\d.-]+[HV]/.test(a.d) && a.inside && !a.overControls && !a.overMark, `${a.d} ${a.overControls}`);
+    ok(`${vp} annotation: revealed in stages (the answer first, the small print last)`, early.first >= early.last && early.last < 0.5 && a.last === 1, `at landing: answer ${early.first.toFixed(2)}, small print ${early.last.toFixed(2)}`);
+    ok(`${vp} annotation: the box is ready for the next guess while it draws`, await p.evaluate(() => !ICEBERG_TEST.busy && document.activeElement.id === 'answer'));
+    // Two answers at the same depth, then a short one on the tip: markers and labels never collide.
+    await guess(p, 'zebra'); await guess(p, 'bear'); await p.waitForTimeout(400);
+    ok(`${vp}: two answers at the same depth (zebra, bear at 20 m) keep separate markers and labels`, !(await overlaps(p)).length, (await overlaps(p)).join('; '));
+    await waitDone(p); await p.waitForTimeout(700);
+    const fr = await p.evaluate(() => { const v = ICEBERG_TEST.berg.view, d = document.querySelector('#done-panel').getBoundingClientRect(), n = document.querySelector('.ib-note').getBoundingClientRect(); return { axis: v.axis, dl: d.left, dt: d.top, nr: n.right, nb: n.bottom, w: innerWidth }; });
+    ok(`${vp} results: the iceberg moves aside for the panel and the annotation stays clear of it`, vp === 'desk' ? fr.axis < fr.dl && fr.nr <= fr.dl + 1 : fr.nb <= fr.dt + 1, JSON.stringify(fr));
+    await p.context().close();
+  }
+
+  // Reduced motion: everything still works, nothing animates, the squid is simply there.
+  p = await open(b, 'desk', URL + '?test&day=0&fast&reset', { ctx: { reducedMotion: 'reduce' } }); await start(p);
+  await guess(p, 'numbat'); await p.waitForTimeout(700);
+  const rm = await p.evaluate(() => ({ s: ICEBERG_TEST.life.stats(), guests: ICEBERG_TEST.life.guests, note: +getComputedStyle(document.querySelector('.ib-meta')).opacity, depth: ICEBERG_TEST.berg.depth }));
+  const px = () => p.evaluate(() => { const c = document.querySelector('.ib-life-back'); return c.toDataURL().length + ':' + c.style.transform; });
+  const f1 = await px(); await p.waitForTimeout(600); const f2 = await px();
+  ok('reduced motion: the answer still lands and is fully annotated at once', rm.depth === 317 && rm.note === 1);
+  ok('reduced motion: animals are drawn but hold still', rm.s.reduce && rm.s.animals > 10 && f1 === f2);
+  ok('reduced motion: the encounter still happens, without movement', rm.guests.includes('colossal'));
+  ok('reduced motion: no errors', !p.errs.length, p.errs.join('; '));
+  await p.context().close();
+
+  // The "Calmer water" setting.
+  p = await fresh(b, 'desk'); await start(p); await p.waitForTimeout(300);
+  const full = await p.evaluate(() => ICEBERG_TEST.life.stats());
+  await p.click('#sound-btn'); await p.check('#fx-low'); await p.waitForTimeout(300);
+  const calm = await p.evaluate(() => ICEBERG_TEST.life.stats());
+  ok('calmer water: fewer animals at once, and the choice is remembered', calm.low && calm.animals < full.animals && await p.evaluate(() => localStorage.getItem('iceberg:fx') === '"low"'), `${full.animals} -> ${calm.animals}`);
+  await p.reload(); await p.waitForSelector('#play'); await p.click('#play'); await p.waitForTimeout(600);
+  ok('calmer water: still on after a reload', await p.evaluate(() => ICEBERG_TEST.life.low && document.querySelector('#fx-low').checked));
+  await p.context().close();
+
+  // Colour: no gold or purple left anywhere in the game's own files.
+  const src = ['index.html', 'iceberg.js', 'wildlife.js', 'share.js', 'brand.js', 'game.js'].map(f => fs.readFileSync(path.join(root, f), 'utf8')).join('\n');
+  ok('palette: no gold or purple anywhere in the game', !/ffcf5a|255, ?207, ?90|#b693ff|#c9a6ff|#9091f7|var\(--gold\)|var\(--amber\)/i.test(src));
+}
+
+// Smoothness, measured in this test browser (software rendering, so real devices should do better).
+async function perf(b) {
+  for (const vp of ['desk', 'phone']) {
+    const p = await open(b, vp, URL + '?test&day=0&reset'); await start(p); await p.waitForTimeout(1800);
+    const measure = () => p.evaluate(() => new Promise(res => { const d = []; let last = performance.now(), n = 0; const f = t => { d.push(t - last); last = t; if (++n < 150) requestAnimationFrame(f); else { d.sort((a, b) => a - b); res({ median: d[75], p95: d[142], cost: ICEBERG_TEST.life.stats().cost }); } }; requestAnimationFrame(f); }));
+    const idle = await measure();
+    await p.fill('#answer', 'axolotl'); await p.keyboard.press('Enter'); const travel = await measure();
+    ok(`${vp} smoothness: frames while idle and while the camera travels with wildlife on screen`, idle.median < 34 && travel.median < 34, `idle median ${idle.median.toFixed(1)} ms (95th ${idle.p95.toFixed(1)}), travelling median ${travel.median.toFixed(1)} ms (95th ${travel.p95.toFixed(1)}); wildlife drawing ${travel.cost.toFixed(2)} ms a frame`);
+    ok(`${vp} smoothness: drawing the animals takes a small share of a frame`, travel.cost < 4, travel.cost.toFixed(2) + ' ms');
+    await p.context().close();
+  }
+}
+
+// The name lives in one place and can be previewed without changing the game.
+async function brand(b) {
+  let p = await fresh(b, 'desk');
+  ok('name: the game is still called Iceberg by default', (await p.title()) === 'Iceberg' && (await p.textContent('#brand')).trim() === 'Iceberg' && (await p.textContent('.wordmark')) === 'Iceberg');
+  ok('name: the tab has an icon', await p.evaluate(() => /^data:image\/svg\+xml/.test(document.querySelector('link[rel=icon]').href)));
+  await p.context().close();
+  p = await fresh(b, 'desk', '&brand=oddfish');
+  const o = await p.evaluate(() => ({ title: document.title, head: document.querySelector('#brand').textContent.trim(), word: document.querySelector('.wordmark').textContent, tag: document.querySelector('.tagline').textContent, desc: document.querySelector('meta[name=description]').content, share: IcebergShare.text({ day: 3, total: 420, rounds: [null, null, null, null, null], streak: 0 }), label: document.querySelector('#brand').getAttribute('aria-label'), body: document.body.innerText }));
+  ok('preview (?brand=oddfish): header, home page, tab, search text and share message all change together', o.title === 'Oddfish' && o.head === 'Oddfish' && o.word === 'Oddfish' && /The rarer, the deeper/.test(o.tag) && /sink to the bottom/.test(o.desc) && /^Oddfish #3 · 420 m/.test(o.share) && /The rarer, the deeper/.test(o.share) && o.label === 'Oddfish home', o.share.split('\n')[0]);
+  ok('preview: the old name appears nowhere a player would read it', !/Iceberg/.test(o.body.replace(/today's iceberg/gi, '')));
+  await p.context().close();
+  p = await fresh(b, 'desk', '&brand=nonsense');
+  ok('an unknown name falls back to the default', (await p.title()) === 'Iceberg');
+  await p.context().close();
+  for (const vp of ['desk', 'phone', 'small']) {
+    const { VPS } = require('./lib.cjs'), ctx = await b.newContext({ viewport: VPS[vp] }), q = await ctx.newPage(), errs = [];
+    q.on('pageerror', e => errs.push(e.message));
+    await q.goto(URL + 'brand.html'); await q.waitForTimeout(700);
+    const r = await q.evaluate(() => ({ boards: document.querySelectorAll('.board').length, names: [...document.querySelectorAll('.board-head h2')].map(n => n.textContent).join(', '), over: document.documentElement.scrollWidth - innerWidth, icons: document.querySelectorAll('.icons svg').length, small: [...document.querySelectorAll('.icons figure:first-child svg')].every(s => s.getBoundingClientRect().width === 16), links: [...document.querySelectorAll('.board-head a')].map(a => a.getAttribute('href')).join(' ') }));
+    ok(`name previews (${vp}): five names shown at tab, header, phone-icon and headline size, with no sideways scroll`, r.boards === 5 && r.over <= 0 && r.icons === 20 && r.small && !errs.length && /brand=oddfish/.test(r.links), `${r.names}; ${errs.join('; ')}`);
+    if (vp !== 'small') await q.screenshot({ path: `tests/shot-brand-${vp}.png` });
+    await ctx.close();
+  }
+}
+
 (async () => {
   const srv = serve(8782), b = await chromium.launch({ args: ['--autoplay-policy=document-user-activation-required'] });
   const only = process.argv[2];
-  const jobs = { desk: () => fullGame(b, 'desk'), phone: () => fullGame(b, 'phone'), edge: () => edge(b), reload: () => reload(b), review: () => review(b), audio: () => audio(b), timing: () => timing(b), sizes: () => sizes(b), daily: () => daily(b) };
+  const jobs = { desk: () => fullGame(b, 'desk'), phone: () => fullGame(b, 'phone'), edge: () => edge(b), reload: () => reload(b), review: () => review(b), audio: () => audio(b), timing: () => timing(b), sizes: () => sizes(b), daily: () => daily(b), scene: () => scene(b), perf: () => perf(b), brand: () => brand(b) };
   for (const [k, f] of Object.entries(jobs)) if (!only || only.split(',').includes(k)) { try { await f(); } catch (e) { ok(`${k}: test run completed`, false, e.message.split('\n')[0]); } }
   console.log(R.join('\n')); console.log(`\n${R.length - fails} passed, ${fails} failed`);
   await b.close(); srv.close();

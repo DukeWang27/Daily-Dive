@@ -4,7 +4,8 @@
 (function () {
   "use strict";
   const I = window.Iceberg, { WW, WH, W, CX } = I.WORLD;
-  const ZONE = { tip: "#eaf6ff", shallows: "#8fd0f5", mid: "#57abe6", deep: "#9091f7", abyss: "#c9a6ff" };
+  const B = window.Brand; // the name, mark and tagline (brand.js)
+  const ZONE = { tip: "#eaf6ff", shallows: "#a8d8f5", mid: "#6cb8ec", deep: "#4f9fe6", abyss: "#7df0df" };
   const UI = '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', PIXEL = '"Pixelify Sans", ui-monospace, monospace';
   let art = null;
 
@@ -23,7 +24,7 @@
     const g = canvas.getContext("2d"), CW = canvas.width, CH = canvas.height;
     if (!art) { art = document.createElement("canvas"); art.width = WW; art.height = WH; I.paint(art); }
     // Left: the iceberg, top to bottom, at exactly 2× so pixels stay square.
-    const S = 2, SX = 65, SY = 15, AW = 540;
+    const S = 2, SX = CX - 135, SY = 15, AW = 540;
     g.imageSmoothingEnabled = false;
     g.fillStyle = "#040917"; g.fillRect(0, 0, CW, CH);
     g.drawImage(art, SX, SY, AW / S, CH / S, 0, 0, AW, CH);
@@ -48,9 +49,9 @@
     });
     for (const m of marks) {
       const w = m.w, h = 46, lx = m.side > 0 ? m.x + 40 : m.x - 40 - w, ly = m.ly - h / 2;
-      g.strokeStyle = "rgba(255,207,90,.55)"; g.lineWidth = 2; g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(m.side > 0 ? lx : lx + w, m.ly); g.stroke();
-      diamond(g, m.x, m.y, 9, ZONE[m.r.tier], "#ffcf5a");
-      pill(g, lx, ly, w, h, "rgba(5,11,27,.9)", "rgba(255,207,90,.55)");
+      g.strokeStyle = "rgba(190,225,250,.5)"; g.lineWidth = 2; g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(m.side > 0 ? lx : lx + w, m.ly); g.stroke();
+      diamond(g, m.x, m.y, 9, ZONE[m.r.tier], "#eaf6ff");
+      pill(g, lx, ly, w, h, "rgba(5,11,27,.9)", "rgba(190,225,250,.5)");
       g.fillStyle = "#93a9cc"; g.font = `700 22px ${UI}`; g.textAlign = "left"; g.fillText(String(m.i + 1), lx + 18, m.ly + 1);
       g.fillStyle = "#eaf3ff"; g.font = `800 30px ${UI}`; g.fillText(m.label, lx + 44, m.ly + 1);
     }
@@ -60,14 +61,12 @@
     g.fillStyle = panel; g.fillRect(AW, 0, CW - AW, CH);
     g.fillStyle = "rgba(143,208,245,.14)"; g.fillRect(AW, 0, 2, CH);
     g.textAlign = "left"; g.textBaseline = "alphabetic";
-    g.fillStyle = "#eaf6ff"; g.fillRect(X, 96, 0, 0);
-    g.beginPath(); g.moveTo(X + 18, 78); g.lineTo(X + 36, 110); g.lineTo(X, 110); g.closePath(); g.fillStyle = "#eaf6ff"; g.fill();
-    g.fillStyle = "#8fd0f5"; g.fillRect(X + 5, 102, 26, 8);
-    g.font = `600 52px ${PIXEL}`; g.fillStyle = "#eaf3ff"; g.fillText("Iceberg", X + 52, 112);
+    B.drawMark(g, X, 72, 40);
+    g.font = `600 52px ${PIXEL}`; g.fillStyle = "#eaf3ff"; g.fillText(B.name, X + 54, 112);
     g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.textAlign = "right"; g.fillText(`#${data.day}`, X + RW, 110); g.textAlign = "left";
     g.font = `700 24px ${UI}`; g.fillStyle = "#93a9cc"; g.letterSpacing = "4px"; g.fillText("TOTAL DEPTH", X, 250); g.letterSpacing = "0px";
     const total = data.total.toLocaleString("en-US");
-    g.font = `800 ${total.length > 4 ? 160 : 190}px ${UI}`; g.fillStyle = "#ffcf5a"; g.fillText(total, X - 8, 420);
+    g.font = `800 ${total.length > 4 ? 160 : 190}px ${UI}`; g.fillStyle = "#eaf6ff"; g.fillText(total, X - 8, 420);
     const tw = g.measureText(total).width; g.font = `800 64px ${UI}`; g.fillText("m", X + tw + 2, 420);
     // One row per question: number, zone, depth. No answers, no questions.
     let y = 540;
@@ -81,10 +80,10 @@
     });
     g.fillStyle = "rgba(143,208,245,.14)"; g.fillRect(X, y - 62, RW, 2);
     y += 10;
-    if (data.deepest) { g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.fillText("Deepest find", X, y); g.textAlign = "right"; g.fillStyle = "#ffcf5a"; g.font = `800 34px ${UI}`; g.fillText(`${data.deepest.depth} m · ${data.deepest.tierName}`, X + RW, y); g.textAlign = "left"; y += 56; }
+    if (data.deepest) { g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.fillText("Deepest find", X, y); g.textAlign = "right"; g.fillStyle = "#7df0df"; g.font = `800 34px ${UI}`; g.fillText(`${data.deepest.depth} m · ${data.deepest.tierName}`, X + RW, y); g.textAlign = "left"; y += 56; }
     if (data.streak > 1) { g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.fillText("Streak", X, y); g.textAlign = "right"; g.fillStyle = "#eaf3ff"; g.font = `800 34px ${UI}`; g.fillText(`${data.streak} days`, X + RW, y); g.textAlign = "left"; }
-    g.font = `800 38px ${UI}`; g.fillStyle = "#eaf3ff"; g.fillText("Three guesses.", X, CH - 124);
-    g.fillStyle = "#8fd0f5"; g.fillText("How deep can you go?", X, CH - 74);
+    g.font = `800 38px ${UI}`; g.fillStyle = "#eaf3ff"; g.fillText(B.tagline[0], X, CH - 124);
+    g.fillStyle = "#8fd0f5"; g.fillText(B.tagline[1], X, CH - 74);
     if (data.sample) { g.font = `600 20px ${UI}`; g.fillStyle = "#62799e"; g.fillText("Depths from sample data (test version)", X, CH - 34); }
   }
   const blob = canvas => new Promise(resolve => canvas.toBlob(resolve, "image/png"));
@@ -94,7 +93,7 @@
     const bar = d => { const n = Math.max(0, Math.min(10, Math.round(d / 30))); return "▓".repeat(n) + "░".repeat(10 - n); };
     const lines = data.rounds.map((r, i) => `${i + 1} ${bar(r ? r.depth : 0)} ${r ? r.depth + " m" : "–"}`);
     const last = [data.deepest ? `Deepest: ${data.deepest.depth} m (${data.deepest.tierName})` : "", data.streak > 1 ? `streak ${data.streak}` : ""].filter(Boolean).join(" · ");
-    return [`Iceberg #${data.day} · ${data.total.toLocaleString("en-US")} m`, ...lines, last, "Three guesses. How deep can you go?", data.link || ""].filter(Boolean).join("\n");
+    return [`${B.name} #${data.day} · ${data.total.toLocaleString("en-US")} m`, ...lines, last, B.tagline.join(" "), data.link || ""].filter(Boolean).join("\n");
   }
   window.IcebergShare = { draw, blob, text };
 })();

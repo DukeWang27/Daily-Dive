@@ -6,7 +6,7 @@
   "use strict";
 
   // ---------- World geometry (art pixels) ----------
-  const WW = 400, WH = 780, CX = 200, W = 178, PEAK = 42, BOTTOM = 742;
+  const WW = 960, WH = 780, CX = 480, W = 178, PEAK = 42, BOTTOM = 742;
 
   // ---------- Depth: the game's one scale ----------
   // An answer 1 in 10 players give sits at the surface. Every 10 times rarer is 100 m deeper:
@@ -69,19 +69,19 @@
     return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
 
   // ---------- The artwork ----------
-  function paint(canvas) {
-    const g = canvas.getContext("2d");
-    // Sky: stepped gradient, a faint horizon glow, a few stars, the moon.
+  // The world is painted in two layers so that wildlife can swim between them: the sea and sky, then the iceberg.
+  function paintSea(g) {
+    // Sky: stepped gradient, stars, the moon.
     const skyBands = 11;
     for (let i = 0; i < skyBands; i++) {
       const y0 = Math.round(i * W / skyBands), y1 = Math.round((i + 1) * W / skyBands);
       g.fillStyle = mix("#060c22", "#1c3566", i / (skyBands - 1)); g.fillRect(0, y0, WW, y1 - y0);
     }
-    const stars = [[14, 18], [37, 44], [61, 12], [88, 30], [104, 58], [150, 20], [171, 49], [222, 66], [12, 77], [46, 96], [196, 104], [229, 22], [78, 70], [133, 8], [212, 136], [28, 128]].map(([x, y]) => [x + 80, y])
-      .concat([[10, 30], [34, 90], [58, 52], [366, 40], [388, 98], [344, 120], [376, 14], [22, 140]]);
-    stars.forEach(([x, y], i) => { g.fillStyle = i % 4 === 0 ? "#ffffff" : "#8ea8d6"; g.fillRect(x, y, 1, 1); });
-    disc(g, 276, 36, 15, "#1a2f60"); disc(g, 276, 36, 11, "#213a70"); disc(g, 276, 36, 8, "#f2edd2");
-    g.fillStyle = "#ddd5ab"; g.fillRect(273, 33, 3, 2); g.fillRect(279, 38, 2, 2); g.fillRect(274, 40, 1, 1);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 140; i++) { const x = Math.floor(rnd() * WW), y = Math.floor(rnd() * (W - 28)); g.fillStyle = i % 4 === 0 ? "#ffffff" : "#8ea8d6"; g.fillRect(x, y, 1, 1); }
+    const mx = CX + 76;
+    disc(g, mx, 36, 15, "#1a2f60"); disc(g, mx, 36, 11, "#213a70"); disc(g, mx, 36, 8, "#f2edd2");
+    g.fillStyle = "#ddd5ab"; g.fillRect(mx - 3, 33, 3, 2); g.fillRect(mx + 3, 38, 2, 2); g.fillRect(mx - 2, 40, 1, 1);
 
     // Sea: smooth stepped bands that fall to near-black.
     const seaTop = "#1f6597", seaMid = "#0d3a62", seaLow = "#03091a";
@@ -98,7 +98,7 @@
       for (let x = 0; x < WW; x += 4) g.fillRect(x + ((y / 6) % 2) * 2, y - 2, 1, 1);
     }
     // Distant icebergs on the horizon, lit from the moon's side, with faint reflections.
-    [[34, 30, 15], [358, 40, 20], [392, 18, 8]].forEach(([bx, bw, bh]) => {
+    [[CX - 166, 30, 15], [CX + 158, 40, 20], [CX + 192, 18, 8], [CX - 262, 22, 10], [CX + 286, 26, 12], [CX - 396, 34, 16], [CX + 410, 30, 13], [CX - 452, 14, 6]].forEach(([bx, bw, bh]) => {
       for (let y = 0; y < bh; y++) {
         const k = y / bh, half = bw / 2 * (0.12 + 0.88 * k), cx = bx - bw * 0.1 + bw * 0.1 * k;
         const l = Math.round(cx - half), r = Math.round(cx + half);
@@ -108,19 +108,21 @@
       }
     });
     // Surface glints and the moon's reflection.
-    [[8, 3], [30, 5], [58, 2], [96, 4], [300, 3], [330, 2], [366, 4], [44, 7], [388, 6]].forEach(([x, d]) => { g.fillStyle = "#3d82b6"; g.fillRect(x, W + d, 6, 1); });
-    for (let i = 0; i < 7; i++) { g.fillStyle = "#e9e3c4"; g.globalAlpha = 0.55 - i * 0.07; g.fillRect(286 + ((i * 5) % 9) - 4, W + 3 + i * 3, 10 - i, 1); }
+    for (let i = 0; i < 26; i++) { const x = Math.floor(rnd() * WW); if (Math.abs(x - CX) < 76) continue; g.fillStyle = "#3d82b6"; g.fillRect(x, W + 2 + Math.floor(rnd() * 6), 6, 1); }
+    for (let i = 0; i < 7; i++) { g.fillStyle = "#e9e3c4"; g.globalAlpha = 0.55 - i * 0.07; g.fillRect(CX + 86 + ((i * 5) % 9) - 4, W + 3 + i * 3, 10 - i, 1); }
     g.globalAlpha = 1;
     // Faint light shafts from the surface.
-    [[CX - 90, 26], [CX - 30, 18], [CX + 60, 22]].forEach(([x, w]) => fillPoly(g, [[x, W], [x + w, W], [x + w - 40, W + 260], [x - 40, W + 260]], "#8fd0f5", 0.05));
+    [[CX - 360, 26], [CX - 210, 22], [CX - 90, 26], [CX - 30, 18], [CX + 60, 22], [CX + 190, 26], [CX + 340, 22]].forEach(([x, w]) => fillPoly(g, [[x, W], [x + w, W], [x + w - 40, W + 260], [x - 40, W + 260]], "#8fd0f5", 0.05));
 
     // Distant ocean liner, small and quiet.
-    const sx0 = 64;
+    const sx0 = CX - 136;
     g.fillStyle = "#0e1220"; g.fillRect(sx0, W - 4, 26, 3); g.fillRect(sx0 + 2, W - 1, 22, 1);
     g.fillStyle = "#d9d3c3"; g.fillRect(sx0 + 3, W - 7, 19, 3);
     g.fillStyle = "#c79437"; [7, 12, 17].forEach(x => g.fillRect(sx0 + x, W - 11, 2, 4));
     g.fillStyle = "#ffe3a0"; for (let i = 0; i < 6; i++) g.fillRect(sx0 + 4 + i * 3, W - 3, 1, 1);
+  }
 
+  function paintIce(g) {
     // ---- Underwater mass ----
     const u = [[CX - 68, W], [CX - 86, W + 44], [CX - 94, W + 118], [CX - 84, W + 214], [CX - 64, W + 312], [CX - 42, W + 410], [CX - 18, W + 492],
       [CX + 2, BOTTOM], [CX + 24, W + 486], [CX + 48, W + 392], [CX + 68, W + 290], [CX + 84, W + 186], [CX + 92, W + 100], [CX + 82, W + 38], [CX + 70, W]];
@@ -156,7 +158,7 @@
     [[u[14], u[13]], [u[13], u[12]], [u[12], u[11]], [u[11], u[10]]].forEach(([p, q], i) => line(g, [p[0] - 1, p[1]], [q[0] - 1, q[1]], "#a9dcf7", 0.42 - i * 0.1));
     // Far down, a few faint living lights on the ice.
     [[CX - 22, W + 432], [CX + 14, W + 410], [CX - 4, W + 470], [CX + 26, W + 372], [CX - 34, W + 360], [CX + 2, W + 520], [CX - 12, W + 395]].forEach(([x, y], i) => {
-      g.fillStyle = i % 3 ? "#5fb4ff" : "#b693ff"; g.globalAlpha = 0.55; g.fillRect(x, y, 1, 1); g.globalAlpha = 0.18; g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3);
+      g.fillStyle = i % 3 ? "#5fb4ff" : "#7df0df"; g.globalAlpha = 0.55; g.fillRect(x, y, 1, 1); g.globalAlpha = 0.18; g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3);
     });
     g.globalAlpha = 1;
 
@@ -179,6 +181,16 @@
     line(g, [CX - 70, W], [CX + 72, W], "#d7eefb", 1);
     [-62, -48, -30, -8, 14, 34, 52, 64].forEach(dx => { g.fillStyle = "#eaf6ff"; g.fillRect(CX + dx, W + 1, 3, 1); });
   }
+  // One canvas with everything (home picture, share card), or the two layers separately (the game scene).
+  function paint(canvas) { const g = canvas.getContext("2d"); paintSea(g); paintIce(g); }
+  function paintLayers(sea, ice) { paintSea(sea.getContext("2d")); ice.getContext("2d").clearRect(0, 0, WW, WH); paintIce(ice.getContext("2d")); }
+  // The iceberg's outline at a given world row: [left, right], or null where there is no ice. Wildlife steers by it.
+  const ICE_U = [[CX - 68, W], [CX - 86, W + 44], [CX - 94, W + 118], [CX - 84, W + 214], [CX - 64, W + 312], [CX - 42, W + 410], [CX - 18, W + 492],
+    [CX + 2, BOTTOM], [CX + 24, W + 486], [CX + 48, W + 392], [CX + 68, W + 290], [CX + 84, W + 186], [CX + 92, W + 100], [CX + 82, W + 38], [CX + 70, W]];
+  const ICE_A = [[CX - 66, W], [CX - 56, W - 24], [CX - 42, W - 50], [CX - 24, W - 96], [CX - 12, W - 78], [CX + 12, PEAK], [CX + 28, W - 96], [CX + 40, W - 64], [CX + 54, W - 34], [CX + 68, W]];
+  // The same for any row, above the water or below it (annotations start just past the ice).
+  function iceEdge(y) { if (y >= W) return iceSpan(y); const sp = spans(ICE_A, Math.round(y)); return sp.length ? [sp[0][0], sp[sp.length - 1][1]] : null; }
+  function iceSpan(y) { if (y < W || y > BOTTOM) return null; const sp = spans(ICE_U, Math.round(y)); return sp.length ? [sp[0][0], sp[sp.length - 1][1]] : null; }
 
   // The filled x-ranges of a polygon on one pixel row.
   function spans(pts, y) {
@@ -216,101 +228,158 @@
   };
 
   // ---------- The explorable iceberg ----------
-  // One iceberg per question. Each guess is added with add(): the camera travels from wherever it is to that answer's
-  // real depth, a marker lands and a card shows what the game found. Nothing restarts from the surface between guesses.
+  // One iceberg per question, filling the whole window. Each guess is added with add(): the camera travels from
+  // wherever it is to that answer's real depth, a marker lands and an annotation is drawn out from it. Nothing
+  // restarts from the surface between guesses. The page tells the scene which part of the window is free of
+  // controls (setFrame), and the camera composes the iceberg inside that part.
   function create(host, opts = {}) {
     const speed = opts.speed || 1;
     host.classList.add("ib");
     host.innerHTML = `
-      <div class="ib-world"><canvas width="${WW}" height="${WH}"></canvas></div>
+      <div class="ib-world ib-sea"><canvas width="${WW}" height="${WH}"></canvas></div>
+      <canvas class="ib-life ib-life-back"></canvas>
+      <div class="ib-world ib-ice"><canvas width="${WW}" height="${WH}"></canvas></div>
+      <canvas class="ib-life ib-life-front"></canvas>
       <canvas class="ib-snow"></canvas>
       <div class="ib-shade"></div>
+      <canvas class="ib-life ib-life-lume"></canvas>
       <div class="ib-glow"></div>
       <div class="ib-bestline" hidden></div>
+      <svg class="ib-lines" aria-hidden="true"><path class="ib-leader" pathLength="1" fill="none"/></svg>
       <div class="ib-layer"></div>
-      <div class="ib-hud"><span class="ib-depth">0 m</span></div>
+      <div class="ib-gauge" aria-hidden="true"><div class="ib-rail"><div class="ib-scale"></div></div><div class="ib-read"><span class="ib-depth">0 m</span></div></div>
       <div class="ib-nav" hidden><button type="button" class="ib-prev" aria-label="Shallower guess">${SVG.up}</button><button type="button" class="ib-next" aria-label="Deeper guess">${SVG.down}</button></div>`;
     const $ = sel => host.querySelector(sel);
-    const world = $(".ib-world"), canvas = $(".ib-world canvas"), layer = $(".ib-layer"), snow = $(".ib-snow"), sg = snow.getContext("2d");
-    const shade = $(".ib-shade"), glow = $(".ib-glow"), depthEl = $(".ib-depth"), hud = $(".ib-hud"), nav = $(".ib-nav"), bestLine = $(".ib-bestline");
-    paint(canvas);
+    const seaW = $(".ib-sea"), iceW = $(".ib-ice"), seaC = $(".ib-sea canvas"), iceC = $(".ib-ice canvas"), layer = $(".ib-layer"), snow = $(".ib-snow"), sg = snow.getContext("2d");
+    const shade = $(".ib-shade"), glow = $(".ib-glow"), depthEl = $(".ib-depth"), gauge = $(".ib-gauge"), scale = $(".ib-scale"), read = $(".ib-read"), nav = $(".ib-nav"), bestLine = $(".ib-bestline"), leader = $(".ib-leader");
+    const life = { back: $(".ib-life-back"), front: $(".ib-life-front"), lume: $(".ib-life-lume") };
+    paintLayers(seaC, iceC);
 
-    const TIP_VIEW = (PEAK + W) / 2 + 8;
-    let compact = false, U = 2, Z = 2, camW = 0, camH = 0, camY = TIP_VIEW, aim = 0, focusIdx = -1, bestIdx = -1, items = [], raf = 0, snowRaf = 0, busy = false;
+    const TIP_Y = (PEAK + W) / 2 + 8;
+    let compact = false, stack = false, U = 2, Z = 2, camW = 0, camH = 0, camY = TIP_Y, aim = 0, axis = 0, focusIdx = -1, bestIdx = -1, items = [], raf = 0, snowRaf = 0, busy = false;
+    let frame = { l: 0, r: 0, t: 0, b: 0 }, frameRun = null, gaugeW = 84, noteBox = null;
     let run = { cancelled: true };
-    const handlers = { focus: () => {}, depth: () => {}, travel: () => {}, land: () => {} };
+    const handlers = { focus: () => {}, depth: () => {}, travel: () => {}, land: () => {}, render: () => {}, resize: () => {} };
     let seed = 20261123; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; // fixed seed: same drift every visit
-    const flakes = Array.from({ length: 130 }, () => ({ x: rnd() * WW, y: W + rnd() * (WH - W), s: 0.3 + rnd() * 0.7, ph: rnd() * 6.28 }));
+    const flakes = Array.from({ length: 300 }, () => ({ x: rnd() * WW, y: W + rnd() * (WH - W), s: 0.3 + rnd() * 0.7, ph: rnd() * 6.28 }));
     const XSLOT = [18, -18, 0]; // markers sit left, right and centre of the ice so equal depths never stack
 
+    // Where the iceberg's centre line sits on screen: in the middle of the free area, nudged aside on wide windows
+    // so an annotation has open water to sit in.
+    const axisFor = f => { const w = camW - f.l - f.r; return f.l + w * Math.max(0.4, Math.min(0.5, 0.5 - (w - 520) / 1600)); };
     function measure() {
       camW = host.clientWidth; camH = host.clientHeight;
-      U = Math.max(2, Math.min(6, Math.floor(Math.min(camW * 0.78 / 190, camH * 0.86 / (W - PEAK + 30)))));
-      U = Math.max(U, Math.ceil(camW / WW));
-      canvas.style.width = WW * U + "px"; canvas.style.height = WH * U + "px";
+      const fw = camW - frame.l - frame.r, fh = camH - frame.t - frame.b;
+      stack = fw < 620;                 // narrow: the annotation sits under its marker instead of beside the ice
+      compact = fh < 330;               // very little room (a phone keyboard is open): a shorter annotation
+      gaugeW = stack ? 40 : 84;
+      U = Math.max(2, Math.min(4, Math.floor(Math.min(fw * 0.68 / 190, fh * 0.9 / (W - PEAK + 30)))));
+      const ax = axisFor(frame);
+      U = Math.min(6, Math.max(U, Math.ceil(Math.max(ax, camW - ax) / CX))); // the sea always reaches both edges
+      if (!frameRun) axis = ax;
+      for (const c of [seaC, iceC]) { c.style.width = WW * U + "px"; c.style.height = WH * U + "px"; }
       snow.width = Math.max(1, Math.ceil(camW / 3)); snow.height = Math.max(1, Math.ceil(camH / 3));
-      compact = camH < 330; host.classList.toggle("ib-compact", compact); // little room (a phone keyboard is open): a shorter card
+      // Wildlife is drawn at the artwork's own pixel size, one canvas pixel per art pixel.
+      for (const c of Object.values(life)) { c.width = Math.ceil(camW / U) + 2; c.height = Math.ceil(camH / U) + 2; c.style.width = c.width * U + "px"; c.style.height = c.height * U + "px"; }
+      host.classList.toggle("ib-compact", compact); host.classList.toggle("ib-stack", stack);
+      // The depth scale: a tick every 10 m, a figure every 50 m, the zone names where they begin.
+      scale.textContent = "";
+      for (let m = 0; m <= MAX_M; m += 10) {
+        const t = document.createElement("i"); t.style.top = Math.round(yOfDepth(m) * U) + "px";
+        if (m % 50 === 0) { t.className = "major"; t.dataset.m = m; }
+        scale.append(t);
+      }
+      TIERS.slice(1).forEach(z => { const s = document.createElement("span"); s.className = "tier-" + z.key; s.textContent = z.name; s.style.top = Math.round(yOfDepth(z.from < 2 ? 0 : z.from) * U) + "px"; scale.append(s); });
+      handlers.resize();
     }
-    const wideZ = () => Math.min(U, Math.max(camW / WW, camH / (BOTTOM - PEAK + 50)));
+    const wideZ = () => Math.min(U, Math.max(Math.max(axis, camW - axis) / CX, (camH - frame.t - frame.b) / (BOTTOM - PEAK + 50)));
     const viewHalf = (z = Z) => camH / (2 * z);
-    const clampCam = (y, z = Z) => { const h = viewHalf(z); return h * 2 >= WH ? WH / 2 : Math.max(h - 4, Math.min(WH - h, y)); };
-    const tx = () => Math.round(camW / 2 - CX * Z), ty = () => Math.round(camH / 2 - camY * Z);
+    // The camera may run a little past the top and bottom of the artwork, by as much as the controls cover, so the
+    // tip and the very deepest answers can still be framed in the free part of the window.
+    const clampCam = (y, z = Z) => { const h = viewHalf(z), lo = h - frame.t / z, hi = WH - h + frame.b / z; return lo >= hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, y)); };
+    const tx = () => Math.round(axis - CX * Z), ty = () => Math.round(camH / 2 - camY * Z);
     const depthNow = () => Math.min(1, Math.max(0, (camY - W - viewHalf(U) * 0.3) / (BOTTOM - W - viewHalf(U) * 0.9)));
-    // Where a focused answer sits in the frame: a little above centre, or lower when the frame is short, so its
-    // card always fits above it without touching the depth gauge.
-    const focusFrac = () => Math.min(0.72, Math.max(0.43, ((compact ? 84 : 182) + 72) / Math.max(1, camH)));
-    const focusY = it => it.y - (focusFrac() - 0.5) * camH / U;
+    // Where a focused answer sits on screen: near the middle of the free area, or high in it when the annotation
+    // has to go underneath.
+    const focusLine = () => frame.t + (camH - frame.t - frame.b) * (stack ? (compact ? 0.22 : 0.3) : 0.46);
+    const focusY = it => it.y - (focusLine() - camH / 2) / U;
+    const tipY = () => TIP_Y - (frame.t + (camH - frame.t - frame.b) / 2 - camH / 2) / U;
 
     function render() {
       const X0 = tx(), Y0 = ty();
-      world.style.transform = Z === U ? `translate3d(${X0}px, ${Y0}px, 0)` : `translate3d(${X0}px, ${Y0}px, 0) scale(${Z / U})`;
+      seaW.style.transform = iceW.style.transform = Z === U ? `translate3d(${X0}px, ${Y0}px, 0)` : `translate3d(${X0}px, ${Y0}px, 0) scale(${Z / U})`;
       const depth = depthNow();
       // The light narrows with depth: a wide soft vignette near the surface, a small pool around the answer in the abyss.
       const it = focusIdx >= 0 ? items[focusIdx] : null;
-      const fx = it ? X0 + it.x * Z : camW / 2, fy = it ? Y0 + it.y * Z : camH / 2;
-      const r = Math.round((1 - Math.pow(depth, 0.7)) * Math.max(camW, camH) * 0.75 + 110);
+      const fx = it ? X0 + it.x * Z : axis, fy = it ? Y0 + it.y * Z : focusLine();
+      const r = Math.round((1 - Math.pow(depth, 0.7)) * Math.max(camW, camH) * 0.75 + 130);
       shade.style.setProperty("--x", fx + "px"); shade.style.setProperty("--y", fy + "px"); shade.style.setProperty("--r", r + "px");
       shade.style.opacity = Math.min(1, depth * 1.25).toFixed(3);
-      const gauge = metres(aim);
-      depthEl.textContent = gauge + " m";
-      hud.classList.toggle("on", gauge > 0 && Z === U);
-      // Your deepest so far: a quiet line across the ice.
+      // Depth gauge: the scale slides with the water, the reading rides at the depth the camera is aimed at.
+      const settled = Z === U, m = it && !busy && aim === it.y ? it.depth : metres(aim); // on an answer, its exact depth (the artwork stops at 300 m)
+      depthEl.textContent = m + " m";
+      gauge.classList.toggle("on", settled); gauge.style.right = frame.r + "px";
+      scale.style.transform = `translateY(${Y0}px)`;
+      read.classList.toggle("on", m > 0 && settled);
+      nav.style.left = frame.l + 14 + "px"; nav.style.bottom = frame.b + 14 + "px";
+      read.style.transform = `translateY(${Math.round(Math.max(frame.t + 14, Math.min(camH - frame.b - 14, Y0 + aim * Z)))}px)`;
+      // Your deepest so far: a quiet line across the water.
       const best = bestIdx >= 0 ? items[bestIdx] : null;
-      if (best && best.depth > 0 && best.shown) { bestLine.hidden = false; bestLine.style.transform = `translateY(${Math.round(Y0 + best.y * Z)}px)`; } else bestLine.hidden = true;
-      // Markers and small labels, placed in screen space so text is never scaled.
-      const placed = [];
-      for (const m of items) {
-        const sx = X0 + m.x * Z, sy = Y0 + m.y * Z;
-        m.mark.style.transform = `translate(${sx}px, ${sy}px)`;
-        if (!m.pill) continue;
-        const w = m.pill.offsetWidth, h = m.pill.offsetHeight;
-        let px = Math.round(Math.max(8, Math.min(camW - w - 8, m.side < 0 ? sx - 16 - w : sx + 16))), py = Math.round(sy - h / 2);
+      if (best && best.depth > 0 && best.shown && settled) { bestLine.hidden = false; bestLine.style.transform = `translateY(${Math.round(Y0 + best.y * Z)}px)`; } else bestLine.hidden = true;
+      // Markers and their small labels, placed in screen space so text is never scaled.
+      const placed = [], right = camW - frame.r - gaugeW - 6;
+      for (const k of items) {
+        const sx = X0 + k.x * Z, sy = Y0 + k.y * Z;
+        k.mark.style.transform = `translate(${sx}px, ${sy}px)`;
+        if (!k.pill) continue;
+        const w = k.pill.offsetWidth, h = k.pill.offsetHeight;
+        let px = Math.round(Math.max(frame.l + 8, Math.min(right - w, k.side < 0 ? sx - 14 - w : sx + 14))), py = Math.round(sy - h / 2);
         for (const q of placed) if (px < q.r + 4 && q.l - 4 < px + w && py < q.b + 3 && q.t - 3 < py + h) py = q.b + 4; // two answers at one depth: stack the labels
-        m.pill.style.transform = `translate(${px}px, ${py}px)`;
-        m.rect = { l: px, t: py, r: px + w, b: py + h };
-        if (m.shown) placed.push(m.rect);
-        m.under = py < 44 && px < 110 || py + h > camH - 8 || py < 4;
+        k.pill.style.transform = `translate(${px}px, ${py}px)`;
+        k.rect = { l: px, t: py, r: px + w, b: py + h };
+        if (k.shown) placed.push(k.rect);
+        k.under = py < frame.t + 4 || py + h > camH - frame.b - 4;
       }
-      const card = layer.querySelector(".ib-card");
-      let cr = null;
-      if (it && card) {
-        const sx = X0 + it.x * Z, sy = Y0 + it.y * Z, cw = card.offsetWidth, ch = card.offsetHeight;
-        const left = Math.max(10, Math.min(camW - cw - 10, sx - cw / 2));
-        const above = sy - 22 - ch >= (compact ? 6 : 46);
-        const top = above ? sy - 22 - ch : Math.min(camH - ch - 8, sy + 22);
-        card.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
-        cr = { l: left, t: top, r: left + cw, b: top + ch };
+      // The annotation: drawn out from the marker into open water, joined to it by one thin line.
+      const note = layer.querySelector(".ib-note");
+      let nr = null;
+      if (it && note) {
+        const sx = X0 + it.x * Z, sy = Y0 + it.y * Z, nw = note.offsetWidth, nh = note.offsetHeight;
+        const top0 = frame.t + 8, bot0 = camH - frame.b - 8;
+        let left, top, path, flip = false;
+        if (stack) {
+          left = Math.round(Math.max(frame.l + 14, Math.min(right - nw, sx)));
+          const below = sy + 28 + nh <= bot0 || sy - 28 - nh < top0;
+          top = Math.round(below ? Math.min(bot0 - nh, sy + 28) : sy - 28 - nh);
+          const jy = below ? top - 10 : top + nh + 10, ey = below ? top : top + nh;
+          path = left === Math.round(sx) ? `M${sx} ${sy + (below ? 10 : -10)}V${ey}` : `M${sx} ${sy + (below ? 10 : -10)}V${jy}H${left}V${ey}`;
+        } else {
+          const edge = iceEdge(it.y), iceR = edge ? X0 + edge[1] * Z : sx, iceL = edge ? X0 + edge[0] * Z : sx;
+          const roomR = right - (iceR + 24), roomL = iceL - 24 - (frame.l + 12);
+          flip = roomR < Math.min(nw, 190) && roomL > roomR;
+          left = Math.round(flip ? Math.max(frame.l + 12, Math.min(sx - 40 - nw, iceL - 24 - nw)) : Math.max(sx + 40, Math.min(iceR + 24, right - nw)));
+          const anchor = note.firstElementChild ? note.firstElementChild.offsetTop + note.firstElementChild.offsetHeight / 2 : 16;
+          top = Math.round(Math.max(top0, Math.min(bot0 - nh, sy - anchor)));
+          const ex = flip ? left + nw : left, ly = Math.max(top, Math.min(top + nh, sy));
+          path = `M${sx + (flip ? -10 : 10)} ${sy}H${ex}` + (ly !== sy ? `V${ly}` : "");
+        }
+        note.classList.toggle("flip", flip);
+        note.style.transform = `translate(${left}px, ${top}px)`;
+        leader.setAttribute("d", path);
+        nr = { l: left, t: top, r: left + nw, b: top + nh };
         glow.style.transform = `translate(${sx}px, ${sy}px)`;
         glow.style.opacity = (0.3 + depth * 0.6).toFixed(3);
-      } else glow.style.opacity = 0;
-      // Nothing overlaps: hide any small label or other marker the card would cover.
-      items.forEach((m, j) => {
-        const mx = X0 + m.x * Z, my = Y0 + m.y * Z;
-        const hitPill = cr && m.rect && m.rect.l < cr.r + 6 && cr.l - 6 < m.rect.r && m.rect.t < cr.b + 6 && cr.t - 6 < m.rect.b;
-        if (m.pill) m.pill.classList.toggle("dim", !m.shown || j === focusIdx || m.under || !!hitPill);
-        m.mark.classList.toggle("dim", !m.shown || (!!cr && j !== focusIdx && mx > cr.l - 10 && mx < cr.r + 10 && my > cr.t - 10 && my < cr.b + 10));
+      } else { glow.style.opacity = 0; leader.setAttribute("d", ""); }
+      noteBox = nr;
+      // Nothing overlaps: hide any small label or other marker the annotation would cover.
+      items.forEach((k, j) => {
+        const mx = X0 + k.x * Z, my = Y0 + k.y * Z;
+        const hitPill = nr && k.rect && k.rect.l < nr.r + 6 && nr.l - 6 < k.rect.r && k.rect.t < nr.b + 6 && nr.t - 6 < k.rect.b;
+        if (k.pill) k.pill.classList.toggle("dim", !k.shown || j === focusIdx || k.under || !!hitPill || !settled);
+        k.mark.classList.toggle("dim", !k.shown || (!!nr && j !== focusIdx && mx > nr.l - 10 && mx < nr.r + 10 && my > nr.t - 10 && my < nr.b + 10));
       });
       handlers.depth(depth);
+      handlers.render();
     }
 
     // Marine snow in screen space at a coarse pixel size: it drifts on its own and slides past as the camera moves.
@@ -342,36 +411,40 @@
     }
     const stop = () => { run.cancelled = true; cancelAnimationFrame(raf); };
 
-    function cardFor(it) {
-      const c = document.createElement("div"); c.className = "ib-card tier-" + it.tier.key + (it.best ? " deepest" : "");
-      const top = document.createElement("div"); top.className = "ib-top";
-      const eyebrow = document.createElement("div"); eyebrow.className = "ib-eyebrow"; eyebrow.textContent = it.tier.name;
-      const n = document.createElement("div"); n.className = "ib-n"; n.textContent = "Guess " + it.n;
-      top.append(eyebrow, n);
-      const name = document.createElement("div"); name.className = "ib-name"; name.textContent = it.name;
-      const dep = document.createElement("div"); dep.className = "ib-pts"; dep.textContent = it.depth > 0 ? it.depth + " m" : "0 m";
-      const stat = document.createElement("div"); stat.className = "ib-stat"; stat.textContent = it.shareText + " of players";
-      if (it.countText) { const sp = document.createElement("span"); sp.textContent = " · " + it.countText; stat.append(sp); }
-      const rank = document.createElement("div"); rank.className = "ib-rank"; rank.textContent = it.rankText || "";
-      c.append(top, name, dep, stat, rank);
-      if (it.blurb && it.depth >= 100) { const b = document.createElement("div"); b.className = "ib-blurb"; b.textContent = it.blurb; c.append(b); }
-      if (it.tag) { const tag = document.createElement("div"); tag.className = "ib-tag"; tag.textContent = it.tag; c.append(tag); }
+    // What the game found, in reading order: the answer, how many players gave it, how deep that puts it, how rare
+    // that is, then the small print. No box around it: a hairline, the text, and the water behind.
+    function noteFor(it) {
+      const c = document.createElement("div"); c.className = "ib-note tier-" + it.tier.key + (it.best ? " deepest" : "");
+      const add = (cls, ...parts) => { const d = document.createElement("div"); d.className = cls; d.append(...parts); c.append(d); return d; };
+      const b = text => { const e = document.createElement("b"); e.textContent = text; return e; };
+      add("ib-name", it.name);
+      add("ib-share", b(it.shareText), " of players");
+      const zone = document.createElement("span"); zone.className = "ib-zone"; zone.textContent = it.tier.name;
+      if (it.depth > 0) add("ib-below", b(it.depth + " m"), " below the surface ", zone); else add("ib-below", b("0 m"), " · above the waterline ", zone);
+      if (it.rankText) add("ib-rank", it.rankText);
+      add("ib-meta", "Guess " + it.n + (it.countText ? " · " + it.countText + " players" : ""));
+      if (it.blurb && it.depth >= 100) add("ib-blurb", it.blurb);
+      if (it.tag) add("ib-tag", it.tag);
+      if (it.sight) add("ib-sight", it.sight);
       return c;
     }
-    function showCard(i, silent) {
-      layer.querySelectorAll(".ib-card").forEach(n => n.remove());
+    // fresh: the answer has just landed, so the annotation is drawn out in stages. Otherwise it simply appears.
+    function showNote(i, silent, fresh) {
+      layer.querySelectorAll(".ib-note").forEach(n => n.remove());
       focusIdx = i;
-      items.forEach((m, j) => m.mark.classList.toggle("focus", j === i));
+      items.forEach((k, j) => k.mark.classList.toggle("focus", j === i));
       glow.classList.toggle("rare", i >= 0 && items[i].depth >= 200);
+      host.classList.remove("ib-drawn");
       if (i < 0) { render(); return; }
-      const card = cardFor(items[i]); layer.append(card); render();
-      requestAnimationFrame(() => card.classList.add("in"));
+      const note = noteFor(items[i]); if (!fresh) note.classList.add("quick"); layer.append(note); render();
+      void note.offsetWidth; // start the staged reveal from its first frame
+      note.classList.add("in"); host.classList.add("ib-drawn"); host.classList.toggle("ib-quick", !fresh);
       handlers.focus(i, !!silent);
     }
     function build(a) {
       // a: { n, name, share, shareText, countText, rankText, blurb }
       const i = items.length, depth = depthOf(a.share);
-      const it = { ...a, depth, tier: tierOfDepth(depth), y: depthY(a.share), x: CX + XSLOT[i % 3], side: i % 2 === 0 ? 1 : -1, shown: false, best: false, tag: "" };
+      const it = { ...a, depth, tier: tierOfDepth(depth), y: depthY(a.share), x: CX + XSLOT[i % 3], side: i % 2 === 0 ? 1 : -1, shown: false, best: false, tag: "", sight: "" };
       const m = document.createElement("button"); m.type = "button"; m.className = "ib-mark dim tier-" + it.tier.key; m.setAttribute("aria-label", `Guess ${it.n}: ${it.name}, ${depth} metres`);
       m.onclick = () => focus(i); layer.append(m); it.mark = m;
       const p = document.createElement("button"); p.type = "button"; p.className = "ib-pill dim tier-" + it.tier.key; p.title = it.name;
@@ -383,37 +456,39 @@
     function markBest() {
       // The deepest answer wins; equal depths keep the earlier guess.
       bestIdx = -1;
-      items.forEach((m, j) => { if (m.shown && (bestIdx < 0 || m.share < items[bestIdx].share)) bestIdx = j; });
-      items.forEach((m, j) => { m.best = j === bestIdx; m.mark.classList.toggle("best", m.best); m.pill.classList.toggle("best", m.best); });
-      nav.hidden = items.filter(m => m.shown).length < 2;
+      items.forEach((k, j) => { if (k.shown && (bestIdx < 0 || k.share < items[bestIdx].share)) bestIdx = j; });
+      items.forEach((k, j) => { k.best = j === bestIdx; k.mark.classList.toggle("best", k.best); k.pill.classList.toggle("best", k.best); });
+      nav.hidden = items.filter(k => k.shown).length < 2;
     }
 
-    // Start of a question: a clean iceberg, the whole tip in view, then a short push in.
+    // Start of a question: a clean iceberg, all of it in view, then a short push in to the tip.
     async function enter(animated = true) {
       stop(); const r = run = { cancelled: false };
-      layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; nav.hidden = true; busy = false;
+      layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; nav.hidden = true; busy = false; host.classList.remove("ib-drawn");
       measure();
-      if (!animated) { Z = U; camY = clampCam(TIP_VIEW); aim = 0; render(); return; }
-      Z = wideZ(); camY = Math.min(viewHalf(Z), WH / 2); aim = 0; render();
+      if (!animated) { Z = U; camY = clampCam(tipY()); aim = 0; render(); return; }
+      Z = wideZ(); camY = clampCam(WH / 2); aim = 0; render();
       const z0 = Z, y0 = camY;
       await wait(250 / speed, r);
-      await animate(1100 / speed, r, k => { const e = easeInOut(k); Z = z0 + (U - z0) * e; camY = Math.max(viewHalf(Z), y0 + (TIP_VIEW - y0) * e); render(); });
-      if (!r.cancelled) { Z = U; camY = clampCam(TIP_VIEW); render(); }
+      await animate(1100 / speed, r, k => { const e = easeInOut(k); Z = z0 + (U - z0) * e; camY = clampCam(y0 + (tipY() - y0) * e); render(); });
+      if (!r.cancelled) { Z = U; camY = clampCam(tipY()); render(); }
     }
-    // One guess: a beat of anticipation, the journey, the landing. Resolves when the answer is revealed.
+    // One guess: a beat of anticipation, the journey, the landing. Resolves when the marker lands and the annotation
+    // starts to draw; the box is ready for the next guess from that moment.
     async function add(a, o = {}) {
       stop(); const r = run = { cancelled: false }; busy = true; Z = U;
       const it = build(a), i = items.length - 1;
-      showCard(-1);
+      showNote(-1);
       await wait((o.special ? 420 : 280) / speed, r);
       const target = focusY(it), dist = Math.abs(clampCam(target) - camY);
       const ms = o.special ? Math.min(2300, Math.max(1500, 900 + dist * U * 1.3)) : Math.min(1500, Math.max(650, 450 + dist * U * 0.9));
       handlers.travel(it, clampCam(target) > camY ? 1 : -1, ms / speed);
       await moveTo(target, ms / speed, r, o.special ? easeInOutSlow : easeInOut, it.y);
       it.shown = true; const prevBest = bestIdx; markBest();
-      it.tag = o.tag || "";
+      it.tag = o.tag || ""; it.sight = o.sight || "";
       camY = clampCam(target); aim = it.y; busy = false;
-      showCard(i, true);
+      it.mark.classList.add("landed");
+      showNote(i, true, true);
       handlers.land(i, it, { best: bestIdx === i, firstBest: prevBest < 0 });
       return it;
     }
@@ -422,27 +497,51 @@
       stop(); run = { cancelled: true };
       layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; busy = false;
       measure(); Z = U;
-      list.forEach(a => { const it = build(a); it.shown = true; it.tag = a.tag || ""; });
+      list.forEach(a => { const it = build(a); it.shown = true; it.tag = a.tag || ""; it.sight = a.sight || ""; });
       markBest();
       const at = o.focus != null ? o.focus : bestIdx;
-      if (at >= 0) { camY = clampCam(focusY(items[at])); aim = items[at].y; showCard(at, true); } else { camY = clampCam(TIP_VIEW); aim = 0; render(); }
+      if (at >= 0) { camY = clampCam(focusY(items[at])); aim = items[at].y; showNote(at, true); } else { camY = clampCam(tipY()); aim = 0; render(); }
     }
     async function focus(i) {
       if (!items[i] || !items[i].shown || busy) return;
       stop(); const r = run = { cancelled: false };
-      showCard(-1);
+      showNote(-1);
       const target = focusY(items[i]);
       await moveTo(target, Math.min(1100, Math.max(450, 350 + Math.abs(clampCam(target) - camY) * U * 0.7)) / speed, r, easeInOut, items[i].y);
-      if (!r.cancelled) { aim = items[i].y; showCard(i); }
+      if (!r.cancelled) { aim = items[i].y; showNote(i); }
     }
-    function setTag(i, text) { if (items[i]) { items[i].tag = text; if (focusIdx === i) showCard(i, true); } }
+    function setTag(i, text) { if (items[i] && items[i].tag !== text) { items[i].tag = text; if (focusIdx === i) refreshNote(); } }
+    function setSight(i, text) { if (items[i] && items[i].sight !== text) { items[i].sight = text; if (focusIdx === i) refreshNote(text); } }
+    // Swap the open annotation's small print without replaying its reveal (a late line fades in by itself).
+    function refreshNote(late) {
+      const old = layer.querySelector(".ib-note"); if (!old || focusIdx < 0) return;
+      const note = noteFor(items[focusIdx]); note.classList.add("quick", "in"); old.replaceWith(note);
+      if (late) { const s = note.querySelector(".ib-sight"); if (s) s.classList.add("late"); }
+      render();
+    }
     // Step through guesses in depth order (for comparing them).
     function step(d) {
-      const order = items.map((m, j) => j).filter(j => items[j].shown).sort((p, q) => items[q].share - items[p].share);
+      const order = items.map((k, j) => j).filter(j => items[j].shown).sort((p, q) => items[q].share - items[p].share);
       if (order.length < 2) return;
       const at = Math.max(0, order.indexOf(focusIdx < 0 ? bestIdx : focusIdx));
       const next = order[Math.max(0, Math.min(order.length - 1, at + d))];
       if (next !== focusIdx) focus(next);
+    }
+    // The part of the window not covered by controls, as insets in pixels. The camera recomposes to suit, gliding
+    // there when asked (the results panel sliding in, for example).
+    function setFrame(f, ms = 0) {
+      const next = { l: f.l || 0, r: f.r || 0, t: f.t || 0, b: f.b || 0 };
+      if (next.l === frame.l && next.r === frame.r && next.t === frame.t && next.b === frame.b) return;
+      if (frameRun) frameRun.cancelled = true; frameRun = null;
+      const from = { ...frame }, axis0 = axis, cam0 = camY, u0 = U;
+      frame = next; measure();
+      const settle = () => busy ? camY : focusIdx >= 0 ? clampCam(focusY(items[focusIdx])) : items.length ? clampCam(camY) : clampCam(tipY());
+      const intro = !run.cancelled && Z !== U; // the opening push-in is still running: it reads the new frame by itself
+      if (ms <= 0 || U !== u0 || busy || intro) { axis = axisFor(frame); if (!busy && !intro) { Z = U; camY = settle(); } render(); return; }
+      const axis1 = axisFor(frame), cam1 = settle(), fr = frameRun = { cancelled: false };
+      const mixF = k => ({ l: from.l + (next.l - from.l) * k, r: from.r + (next.r - from.r) * k, t: from.t + (next.t - from.t) * k, b: from.b + (next.b - from.b) * k });
+      animate(ms / speed, fr, k => { const e = easeInOut(k); frame = mixF(e); axis = axis0 + (axis1 - axis0) * e; if (!busy) camY = cam0 + (cam1 - cam0) * e; render(); })
+        .then(() => { if (fr.cancelled) return; frameRun = null; frame = next; axis = axis1; if (!busy) camY = settle(); render(); });
     }
 
     $(".ib-prev").onclick = () => step(-1);
@@ -450,18 +549,21 @@
     const ro = new ResizeObserver(() => {
       if (!host.clientWidth || !host.clientHeight) return;
       const keep = camY; measure(); if (run.cancelled || !busy) Z = U;
-      camY = focusIdx >= 0 && !busy ? clampCam(focusY(items[focusIdx])) : clampCam(keep); render();
+      camY = focusIdx >= 0 && !busy ? clampCam(focusY(items[focusIdx])) : items.length ? clampCam(keep) : clampCam(tipY()); render();
     });
     ro.observe(host);
     measure(); render(); snowRaf = requestAnimationFrame(drawSnow);
     return {
-      enter, add, restore, focus, step, setTag,
+      enter, add, restore, focus, step, setTag, setSight, setFrame, life,
       get busy() { return busy; }, get focused() { return focusIdx; }, get best() { return bestIdx; }, get count() { return items.length; },
-      get depth() { return metres(aim); },
+      get depth() { const it = focusIdx >= 0 ? items[focusIdx] : null; return it && !busy && aim === it.y ? it.depth : metres(aim); },
+      // For anything that draws into the scene (wildlife): where the artwork is on screen right now.
+      get view() { return { x0: tx(), y0: ty(), u: U, z: Z, w: camW, h: camH, camY, axis, frame, depth: depthNow(), settled: Z === U, busy, note: noteBox, focus: focusIdx >= 0 ? { x: items[focusIdx].x, y: items[focusIdx].y } : null }; },
       onFocus: f => { handlers.focus = f; }, onDepth: f => { handlers.depth = f; }, onTravel: f => { handlers.travel = f; }, onLand: f => { handlers.land = f; },
+      onRender: f => { handlers.render = f; }, onResize: f => { handlers.resize = f; },
       destroy: () => { stop(); cancelAnimationFrame(snowRaf); ro.disconnect(); },
     };
   }
 
-  window.Iceberg = { create, paint, TIERS, tierFor, tierOfDepth, depthOf, depthY, yOfDepth, metres, SURFACE_SHARE, MAX_M, WORLD: { WW, WH, W, PEAK, CX, BOTTOM } };
+  window.Iceberg = { create, paint, TIERS, tierFor, tierOfDepth, depthOf, depthY, yOfDepth, metres, iceSpan, iceEdge, SURFACE_SHARE, MAX_M, WORLD: { WW, WH, W, PEAK, CX, BOTTOM, TOP_Y, PXM } };
 })();

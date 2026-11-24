@@ -5,25 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Iceberg</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Iceberg: a daily guessing game. Three guesses per question. The rarer your answer, the deeper it sits. How deep can you go?">
+<meta name="description" content="Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sits. How deep can you go?">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Iceberg: the daily game where rare answers go deeper">
+<meta property="og:description" content="Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sits. How deep can you go?">
 <meta name="theme-color" content="#040917">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600&family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
-/* Iceberg. One world: a night sea that the whole game sits in, with the iceberg as the stage.
-   Three guesses per question: the question, the box and three guess slots sit beside the iceberg.
+/* One world: a night sea that the whole game sits in. While you play, the scene fills the window and the question,
+   the box and your three guesses float over it.
    Pixel art and the pixel font are reserved for the scenery and the wordmark; everything you read or tap uses Inter.
    Containers are rare on purpose: space, alignment and a few hairlines do the organising. */
 :root {
   --bg: #040917; --sea-1: #0a1a3a; --panel: rgba(8, 17, 38, .72); --panel-solid: #0a1530;
   --line: rgba(143, 208, 245, .12); --line-2: rgba(143, 208, 245, .22);
   --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e;
-  --ice: #eaf6ff; --accent: #8fd0f5; --gold: #ffcf5a; --amber: #f2b45a; --coral: #ff8f8f;
-  --t-tip: #eaf6ff; --t-shallows: #8fd0f5; --t-mid: #57abe6; --t-deep: #9091f7; --t-abyss: #c9a6ff;
+  --ice: #eaf6ff; --accent: #8fd0f5; --lumen: #7df0df; --warn: #e6c58f;
+  --t-tip: #eaf6ff; --t-shallows: #a8d8f5; --t-mid: #6cb8ec; --t-deep: #4f9fe6; --t-abyss: #7df0df;
   --pixel: "Pixelify Sans", ui-monospace, monospace;
   --ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --vvh: 100dvh; --top-h: 64px; --gutter: max(16px, env(safe-area-inset-left, 0px));
+  --vvh: 100dvh; --top-h: 64px; --gutter: max(16px, env(safe-area-inset-left, 0px)); --edge: max(24px, 3vw);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -45,9 +48,9 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .app { position: relative; z-index: 1; min-height: var(--vvh); display: flex; flex-direction: column; }
 
 /* Header */
-.top { height: var(--top-h); display: flex; justify-content: space-between; align-items: center; gap: 12px; position: relative; width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); flex: none; }
+.top { z-index: 5; height: var(--top-h); display: flex; justify-content: space-between; align-items: center; gap: 12px; position: relative; width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); flex: none; }
 .brand { font-family: var(--pixel); font-weight: 600; font-size: 22px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 10px; background: none; border: 0; padding: 4px 0; justify-self: start; }
-.brand-mark { width: 16px; height: 13px; background: var(--ice); clip-path: polygon(50% 0, 100% 100%, 0 100%); box-shadow: inset 0 -5px 0 var(--accent); }
+.brand-mark { width: 18px; height: 18px; display: grid; } .brand-mark svg { width: 100%; height: 100%; display: block; }
 .steps { display: flex; gap: 10px; align-items: center; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .steps i { width: 9px; height: 9px; transform: rotate(45deg); border: 1.5px solid var(--line-2); transition: background .3s, border-color .3s, transform .3s; }
 .steps i.done { background: var(--accent); border-color: var(--accent); }
@@ -58,6 +61,8 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .icon-btn:hover { background: rgba(143, 208, 245, .1); color: var(--text); }
 .icon-btn svg { width: 22px; height: 22px; }
 .sound-panel { position: absolute; top: 48px; right: 0; width: 260px; padding: 16px; border-radius: 14px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: 0 16px 40px rgba(0,0,0,.5); display: grid; gap: 14px; z-index: 20; }
+.sound-panel hr { border: 0; border-top: 1px solid var(--line); margin: 0; width: 100%; }
+.sound-panel .note { font-size: 12.5px; font-weight: 400; color: var(--faint); margin: -8px 0 0; line-height: 1.4; }
 .sound-panel label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
 .sound-panel .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .sound-panel output { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 500; }
@@ -90,23 +95,31 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .depths b { font-weight: 600; } .depths span { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; text-align: right; }
 .home-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .home-foot { margin-top: 18px; display: grid; gap: 8px; font-size: 14px; color: var(--muted); min-height: 22px; }
-.streak { color: var(--gold); font-weight: 700; }
+.streak { color: var(--accent); font-weight: 700; }
 .scene { position: relative; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 5; background: #060c22; box-shadow: 0 30px 80px rgba(0,0,0,.45), 0 0 0 1px var(--line); }
 .scene canvas { position: absolute; left: 50%; image-rendering: pixelated; }
 .next-in { font-variant-numeric: tabular-nums; }
 
-/* Play: the iceberg is the stage; the question, the box and three guess slots sit beside it (below it on phones). */
-.play { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(330px, 1fr); gap: 28px; align-items: start; }
-.stage { position: sticky; top: 10px; min-width: 0; }
-#ib { height: min(calc(var(--vvh) - var(--top-h) - 36px), 800px); min-height: 380px; border-radius: 18px; box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(0,0,0,.5); }
-.side { min-width: 0; display: grid; gap: 16px; align-content: start; padding-top: 6px; }
-.q .eyebrow { margin-bottom: 8px; display: flex; justify-content: space-between; gap: 12px; }
+/* Play: the scene fills the window. The question, the box and the three guesses float over the water (to the left on
+   wide screens; question above and box below on phones). Nothing sits in a card: soft shade behind the text only. */
+html.in-play, html.in-play body { overflow: hidden; height: 100%; }
+html.in-play #sea { opacity: 0; }
+html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with the controls at the window's edge */
+.play { position: fixed; left: 0; top: 0; width: 100%; height: var(--vvh); overflow: hidden; z-index: 0; }
+#ib { position: absolute; inset: 0; }
+.veil { position: absolute; inset: 0; pointer-events: none; transition: opacity .5s;
+  background: linear-gradient(90deg, rgba(3, 8, 20, .78) 0, rgba(3, 8, 20, .55) 300px, rgba(3, 8, 20, 0) 540px), linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
+.play.done .veil { background: linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
+.dock { position: absolute; left: var(--edge); top: calc(var(--top-h) + 22px); width: min(372px, 34vw); display: grid; gap: 18px; align-content: start; transition: opacity .35s, transform .45s; }
+.play.done .dock { opacity: 0; transform: translateX(-24px); pointer-events: none; }
+.q .eyebrow { margin-bottom: 10px; }
 .q-title { display: flex; gap: 14px; align-items: center; min-width: 0; }
 .q-icon { font-size: 38px; line-height: 1; flex: none; }
-.q-title h2 { font-size: clamp(24px, 2.8vw, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
-.q-hint { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.q-title h2 { font-size: clamp(26px, 2.6vw, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; text-shadow: 0 2px 18px rgba(2, 6, 16, .7); }
+.q-hint { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+#play-panel { display: grid; gap: 14px; }
 .entry { position: relative; display: flex; }
-#answer { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; padding: 16px 62px 16px 18px; border-radius: 14px; border: 0; background: rgba(4, 10, 26, .78); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-2); transition: box-shadow .15s; }
+#answer { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; padding: 16px 62px 16px 18px; border-radius: 14px; border: 0; background: rgba(3, 8, 20, .7); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-2); transition: box-shadow .15s; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 #answer:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 4px rgba(143, 208, 245, .12); }
 #answer::placeholder { color: var(--faint); font-weight: 500; }
 .entry.shake #answer { animation: shake .28s; }
@@ -114,56 +127,58 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 #add { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 10px; border: 0; background: var(--accent); color: #06112a; display: grid; place-items: center; }
 #add svg { width: 22px; height: 22px; }
 #add:active { transform: translateY(-50%) scale(.94); }
-.hint { min-height: 21px; margin: -8px 2px -4px; font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
-.hint.warn { color: var(--amber); } .hint.good { color: var(--accent); }
-.hint svg { width: 15px; height: 15px; flex: none; }
-/* The three guesses. Empty, waiting, revealed, deepest: each state reads at a glance. */
-.slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.slot { position: relative; width: 100%; min-height: 68px; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 14px; align-items: center; text-align: left; padding: 10px 16px 10px 14px; border-radius: 14px; border: 0; background: rgba(8, 17, 38, .5); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); transition: box-shadow .25s, background .25s; }
-.slot-n { width: 26px; height: 26px; display: grid; place-items: center; position: relative; font-size: 13px; font-weight: 800; color: var(--faint); }
+.hint { min-height: 21px; margin: -6px 2px -4px; font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.hint.warn { color: var(--warn); } .hint.good { color: var(--accent); }
+/* The three guesses: quiet rows divided by hairlines. Empty, waiting, revealed, deepest: each reads at a glance. */
+.slots { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid var(--line); }
+.slot { position: relative; width: 100%; min-height: 58px; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 12px; align-items: center; text-align: left; padding: 8px 6px 8px 2px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); transition: background .25s; }
+.slot-n { width: 24px; height: 24px; display: grid; place-items: center; position: relative; font-size: 12px; font-weight: 800; color: var(--faint); }
 .slot-n::before { content: ""; position: absolute; inset: 3px; transform: rotate(45deg); box-shadow: inset 0 0 0 1.5px var(--line-2); transition: background .3s, box-shadow .3s; }
 .slot-n span { position: relative; }
 .slot-n svg { position: relative; width: 12px; height: 12px; }
 .slot-main { min-width: 0; display: grid; gap: 1px; }
-.slot-name { font-size: 17px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-name { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot-sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .slot-sub b { color: var(--tier); font-weight: 600; }
-.slot-depth { font-size: 24px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.slot-depth { font-size: 22px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .slot-depth small { font-size: 13px; font-weight: 600; color: var(--muted); margin-left: 3px; letter-spacing: 0; }
-.slot-tag { position: absolute; top: -8px; right: 12px; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #2a1e00; background: var(--gold); border-radius: 5px; padding: 2px 7px; }
+.slot-tag { position: absolute; bottom: 5px; right: 6px; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--lumen); }
+.slot.best .slot-depth { transform: translateY(-5px); }
 .slot.empty { cursor: default; }
 .slot.empty .slot-name { color: var(--faint); font-weight: 500; font-size: 15px; }
-.slot.empty .slot-depth { color: var(--faint); font-weight: 600; font-size: 18px; }
-.slot.next { box-shadow: inset 0 0 0 1.5px var(--line-2); background: rgba(10, 22, 48, .7); }
+.slot.empty .slot-depth, .slot.next .slot-depth { color: var(--faint); font-weight: 600; font-size: 16px; }
 .slot.next .slot-n { color: var(--ice); } .slot.next .slot-n::before { box-shadow: inset 0 0 0 1.5px var(--ice); }
-.slot.next .slot-name { color: var(--muted); }
-.slot.revealing { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.slot.next .slot-name { color: var(--muted); font-weight: 600; font-size: 15px; }
 .slot.revealing .slot-n::before { background: var(--accent); box-shadow: none; animation: pulse 0.9s ease-in-out infinite; }
 .slot.revealing .slot-n { color: #06112a; }
 .slot.revealing .slot-depth { color: var(--muted); }
 @keyframes pulse { 50% { opacity: .35; } }
 .slot.done { cursor: pointer; }
 .slot.done .slot-n { color: #06112a; } .slot.done .slot-n::before { background: var(--tier); box-shadow: none; }
-.slot.done:hover, .slot.done.active { background: rgba(143, 208, 245, .08); }
+.slot.done:hover, .slot.done.active { background: rgba(143, 208, 245, .07); }
 .slot.done.land { animation: land .7s ease-out; }
-@keyframes land { 0% { background: rgba(143, 208, 245, .22); } 100% { background: rgba(8, 17, 38, .5); } }
-.slot.best { box-shadow: inset 0 0 0 1.5px rgba(255, 207, 90, .75), 0 0 30px rgba(255, 207, 90, .08); }
-.slot.best .slot-depth { color: var(--gold); }
-.slot.pending .slot-n { color: var(--amber); } .slot.pending .slot-n::before { box-shadow: inset 0 0 0 1.5px var(--amber); }
+@keyframes land { 0% { background: rgba(143, 208, 245, .2); } 100% { background: transparent; } }
+.slot.best .slot-depth { color: var(--lumen); }
+.slot.best .slot-n::before { box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .9), 0 0 0 2.5px var(--lumen); }
+.slot.pending .slot-n { color: var(--warn); } .slot.pending .slot-n::before { box-shadow: inset 0 0 0 1.5px var(--warn); }
 .slot.pending .slot-name { color: var(--muted); }
 .slot.miss .slot-n { color: var(--faint); } .slot.miss .slot-name { color: var(--faint); text-decoration: line-through; text-decoration-color: rgba(98, 121, 158, .6); }
-.slot.pending .slot-depth, .slot.miss .slot-depth { font-size: 14px; font-weight: 600; color: var(--faint); letter-spacing: 0; }
-.finish-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 46px; }
-.finish-row .btn { padding: 12px 18px; font-size: 15px; }
+.slot.pending .slot-depth, .slot.miss .slot-depth { font-size: 13px; font-weight: 600; color: var(--faint); letter-spacing: 0; }
+.finish-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 44px; }
+.finish-row .btn { padding: 11px 18px; font-size: 15px; }
 .finish-note { font-size: 14px; color: var(--muted); }
 
-/* After the question: your dive, then everyone's answers. */
-.done-panel { display: grid; gap: 24px; }
+/* After the question: a panel slides in over the water (from the right; from below on phones) and the iceberg
+   moves aside for it. Your dive first, then everyone's answers. */
+.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(430px, 42vw); padding: calc(var(--top-h) + 14px) 28px 0; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 24px; align-content: start;
+  background: rgba(4, 9, 23, .84); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: -1px 0 0 var(--line); animation: drawer-in .5s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes drawer-in { from { transform: translateX(40px); opacity: 0; } }
+.done-q { font-size: 13px; line-height: 1.4; color: var(--muted); font-weight: 600; margin: 0 0 -12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 18px; }
 .best-line { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 4px 0 14px; border-bottom: 1px solid var(--line); }
 .best-line .lbl { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .best-line .name { font-size: 22px; font-weight: 800; letter-spacing: -.01em; overflow-wrap: anywhere; line-height: 1.15; margin-top: 4px; }
-.best-line .depth { font-size: clamp(38px, 5vw, 52px); font-weight: 800; color: var(--gold); line-height: .9; letter-spacing: -.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.best-line .depth small { font-size: 18px; margin-left: 4px; letter-spacing: 0; }
+.best-line .depth { font-size: clamp(38px, 4.4vw, 50px); font-weight: 800; color: var(--ice); line-height: .9; letter-spacing: -.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.best-line .depth small { font-size: 18px; margin-left: 4px; letter-spacing: 0; color: var(--muted); }
 .section h3 { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .section h3 .aside { letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--faint); font-size: 13px; }
 #sum { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -176,24 +191,26 @@ button.sum-row:hover, #sum li.active .sum-row { background: rgba(143, 208, 245, 
 .sum-depth { grid-area: depth; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sum-sub { grid-area: sub; font-size: 13px; color: var(--faint); display: flex; gap: 10px; flex-wrap: wrap; }
 .sum-sub .zone { color: var(--tier); font-weight: 600; }
-#sum li.best .sum-depth { color: var(--gold); }
-#sum li.best .sum-name::after { content: "Deepest"; margin-left: 10px; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #2a1e00; background: var(--gold); border-radius: 5px; padding: 2px 7px; vertical-align: 2px; }
+#sum li.best .sum-depth { color: var(--lumen); }
+#sum li.best .sum-name::after { content: "Deepest"; margin-left: 10px; font-size: 9.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--lumen); vertical-align: 2px; }
 #sum li.off .sum-name { color: var(--muted); } #sum li.off .sum-depth { color: var(--faint); font-weight: 600; font-size: 13px; }
 #sum li.off .sum-n { color: var(--muted); } #sum li.off .sum-n::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); }
-#sum li.off.wait .sum-n { color: var(--amber); } #sum li.off.wait .sum-n::before { box-shadow: inset 0 0 0 1.5px var(--amber); }
+#sum li.off.wait .sum-n { color: var(--warn); } #sum li.off.wait .sum-n::before { box-shadow: inset 0 0 0 1.5px var(--warn); }
 .sum-row .dispute { grid-area: depth; border: 0; background: rgba(143, 208, 245, .1); color: var(--text); font-size: 13px; font-weight: 600; padding: 7px 11px; border-radius: 8px; white-space: nowrap; }
 .sum-row .dispute:disabled { background: transparent; color: var(--faint); cursor: default; }
 .forgot { margin: 12px 0 0; color: var(--muted); font-size: 14px; }
 .forgot b { color: var(--text); }
 .review-note { font-size: 13px; color: var(--faint); margin: 10px 0 0; }
+.seen { margin: 12px 0 0; font-size: 13px; color: var(--faint); line-height: 1.5; }
+.seen b { color: var(--muted); font-weight: 600; } .seen i { font-style: normal; color: var(--lumen); }
 .bars { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 9px; }
 .bars li { display: grid; grid-template-columns: minmax(80px, 34%) minmax(0, 1fr) auto; gap: 12px; align-items: center; font-size: 14px; }
 .bar-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bars li.me .bar-name { color: var(--gold); }
-.bars li.me .bar-name::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 7px 2px 0; transform: rotate(45deg); background: var(--gold); }
+.bars li.me .bar-name { color: var(--lumen); }
+.bars li.me .bar-name::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 7px 2px 0; transform: rotate(45deg); background: var(--lumen); }
 .track { height: 8px; position: relative; }
 .track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 2px; opacity: .85; }
-.bars li.me .track i { background: var(--gold); opacity: 1; }
+.bars li.me .track i { background: var(--lumen); opacity: 1; }
 .track::before { content: ""; position: absolute; inset: 3px 0; background: rgba(143, 208, 245, .08); }
 .bar-val { color: var(--muted); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 13px; }
 .bar-val b { color: var(--text); font-weight: 600; }
@@ -205,71 +222,115 @@ button.sum-row:hover, #sum li.active .sum-row { background: rgba(143, 208, 245, 
 .axis .ticks span.last { transform: translateX(-100%); } .axis .ticks span.last::before { left: 100%; }
 .axis .pad { visibility: hidden; font-size: 13px; }
 .sublabel { font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
-.sample-badge { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); box-shadow: inset 0 0 0 1px rgba(255,207,90,.5); border-radius: 5px; padding: 2px 6px; margin-right: 6px; vertical-align: 1px; }
+.sample-badge { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); box-shadow: inset 0 0 0 1px rgba(143, 208, 245, .45); border-radius: 5px; padding: 2px 6px; margin-right: 6px; vertical-align: 1px; }
 .fine { font-size: 12.5px; color: var(--faint); margin: 6px 0 0; line-height: 1.45; }
 .rules-list { margin: 6px 0 0; padding-left: 18px; color: var(--faint); font-size: 13px; }
 details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; }
-.next-row { position: sticky; bottom: 0; margin-top: -8px; padding: 28px 0 calc(14px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(rgba(4, 9, 23, 0), rgba(4, 9, 23, .97) 42%); pointer-events: none; }
+.next-row { position: sticky; bottom: 0; margin: -8px -28px 0; padding: 28px 28px calc(16px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(rgba(4, 9, 23, 0), rgba(4, 9, 23, .97) 42%); pointer-events: none; }
 .next-row .btn { pointer-events: auto; }
 
-/* Iceberg component (iceberg.js) */
-.ib { position: relative; overflow: hidden; background: #050b20; isolation: isolate; user-select: none; }
+/* The scene (iceberg.js, wildlife.js). Artwork layers are pixel canvases; everything you read is ordinary text on top. */
+.ib { position: relative; overflow: hidden; background: linear-gradient(#060c22 0 50%, #03091a 50%); isolation: isolate; user-select: none; }
 .ib-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 .ib-world canvas { display: block; image-rendering: pixelated; }
+.ib-life { position: absolute; left: 0; top: 0; image-rendering: pixelated; pointer-events: none; transition: opacity .7s; }
+.ib-life-lume { mix-blend-mode: screen; }
 .ib-snow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; }
 .ib-shade { position: absolute; inset: 0; pointer-events: none; opacity: 0;
-  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(1, 3, 10, 0) 0, rgba(1, 3, 10, 0) var(--r, 200px), rgba(1, 3, 10, .97) calc(var(--r, 200px) * 2.4)); }
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(1, 3, 10, 0) 0, rgba(1, 3, 10, 0) var(--r, 200px), rgba(1, 3, 10, .96) calc(var(--r, 200px) * 2.4)); }
 .ib-glow { position: absolute; left: 0; top: 0; width: 420px; height: 420px; margin: -210px 0 0 -210px; pointer-events: none; opacity: 0;
-  background: radial-gradient(circle, rgba(170, 220, 255, .32) 0%, rgba(150, 205, 250, .1) 32%, rgba(150, 205, 250, 0) 62%); mix-blend-mode: screen; transition: opacity .8s; }
-.ib-glow.rare { background: radial-gradient(circle, rgba(210, 180, 255, .45) 0%, rgba(190, 160, 255, .14) 30%, rgba(190, 160, 255, 0) 62%); }
+  background: radial-gradient(circle, rgba(170, 220, 255, .3) 0%, rgba(150, 205, 250, .1) 32%, rgba(150, 205, 250, 0) 62%); mix-blend-mode: screen; transition: opacity .8s; }
+.ib-glow.rare { background: radial-gradient(circle, rgba(125, 240, 223, .34) 0%, rgba(125, 240, 223, .1) 30%, rgba(125, 240, 223, 0) 62%); }
 .ib-layer { position: absolute; inset: 0; pointer-events: none; }
-.ib-bestline { position: absolute; left: 0; right: 0; top: 0; height: 0; border-top: 1px dashed rgba(255, 207, 90, .4); pointer-events: none; transition: transform .2s; }
-.ib-mark { position: absolute; left: 0; top: 0; width: 12px; height: 12px; margin: -6px 0 0 -6px; padding: 0; border: 0; background: none; pointer-events: auto; cursor: pointer; }
-.ib-mark::before { content: ""; position: absolute; inset: 0; transform: rotate(45deg); background: var(--tier); box-shadow: 0 0 0 2px #050b20, 0 0 0 3.5px rgba(234, 246, 255, .75); transition: transform .4s, box-shadow .4s; }
-.ib-mark.best::before { box-shadow: 0 0 0 2px #050b20, 0 0 0 3.5px var(--gold), 0 0 16px rgba(255,207,90,.45); }
-.ib-mark { transition: opacity .3s; } .ib-mark.dim { opacity: 0; pointer-events: none; }
-.ib-mark.focus::before { transform: rotate(45deg) scale(1.4); }
-.ib-mark.focus::after { content: ""; position: absolute; inset: -12px; border: 1.5px solid rgba(255,207,90,.6); border-radius: 50%; animation: ring 1.8s ease-out 1; opacity: 0; }
-@keyframes ring { from { transform: scale(.5); opacity: .9; } to { transform: scale(1.9); opacity: 0; } }
-.ib-card { position: absolute; left: 0; top: 0; width: min(300px, calc(100% - 24px)); padding: 14px 16px 14px; border-radius: 14px;
-  background: rgba(5, 11, 27, .9); box-shadow: 0 0 0 1px var(--line-2), 0 12px 34px rgba(0,0,0,.45); opacity: 0; transition: opacity .35s ease; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-.ib-card.in { opacity: 1; }
-.ib-card.deepest { box-shadow: 0 0 0 1px rgba(255,207,90,.65), 0 14px 40px rgba(0,0,0,.5), 0 0 48px rgba(255,207,90,.12); }
-.ib-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.ib-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--tier); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ib-n { font-size: 12px; color: var(--faint); font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
-.ib-name { font-size: 25px; font-weight: 800; letter-spacing: -.015em; line-height: 1.15; overflow-wrap: anywhere; margin: 3px 0 6px; padding-right: 76px; }
-.ib-stat { font-size: 15px; font-weight: 600; }
-.ib-stat span { color: var(--muted); font-weight: 500; }
-.ib-rank { font-size: 13px; color: var(--muted); }
-.ib-blurb { font-size: 13px; color: var(--faint); margin-top: 6px; font-style: italic; }
-.ib-pts { position: absolute; top: 34px; right: 16px; font-size: 22px; font-weight: 800; color: var(--ice); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-.ib-card.deepest .ib-pts { color: var(--gold); }
-.ib-tag { margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255,207,90,.25); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--gold); }
-.ib-compact .ib-rank, .ib-compact .ib-blurb, .ib-compact .ib-tag, .ib-compact .ib-hud, .ib-compact .ib-nav { display: none; }
-.ib-compact .ib-card { padding: 9px 12px 10px; }
-.ib-compact .ib-name { font-size: 19px; margin: 1px 0 2px; }
-.ib-compact .ib-pts { top: 25px; right: 12px; font-size: 18px; }
-.ib-pill { position: absolute; left: 0; top: 0; display: inline-flex; align-items: baseline; gap: 8px; padding: 4px 10px; border: 0; border-radius: 999px; white-space: nowrap; max-width: 46%;
-  background: rgba(5, 11, 27, .82); box-shadow: 0 0 0 1px var(--line-2); font-size: 13px; font-weight: 700; color: var(--text); transition: opacity .3s; pointer-events: auto; cursor: pointer; }
-.ib-pill.best { box-shadow: 0 0 0 1px rgba(255,207,90,.5); color: var(--gold); }
+.ib-bestline { position: absolute; left: 0; right: 0; top: 0; height: 0; border-top: 1px dashed rgba(125, 240, 223, .26); pointer-events: none; }
+.ib-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.ib-leader { stroke: rgba(214, 236, 252, .75); stroke-width: 1; shape-rendering: crispEdges; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.ib-drawn .ib-leader { stroke-dashoffset: 0; transition: stroke-dashoffset .3s ease-out .08s; }
+.ib-drawn.ib-quick .ib-leader { transition: stroke-dashoffset .16s ease-out; }
+/* A marker: a small diamond on the ice at the answer's exact depth. */
+.ib-mark { position: absolute; left: 0; top: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px; padding: 0; border: 0; background: none; pointer-events: auto; cursor: pointer; transition: opacity .3s; }
+.ib-mark::before { content: ""; position: absolute; inset: 2.5px; transform: rotate(45deg); background: var(--tier); box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .92), 0 0 0 2.5px rgba(234, 246, 255, .72); transition: transform .4s, box-shadow .4s; }
+.ib-mark.best::before { box-shadow: 0 0 0 1.5px rgba(3, 8, 20, .92), 0 0 0 2.5px var(--lumen), 0 0 14px rgba(125, 240, 223, .5); }
+.ib-mark.dim { opacity: 0; pointer-events: none; }
+.ib-mark.focus::before { transform: rotate(45deg) scale(1.3); }
+.ib-mark.landed::before { animation: mark-in .5s cubic-bezier(.2, 1.5, .4, 1) backwards; }
+@keyframes mark-in { from { transform: rotate(45deg) scale(0); } }
+.ib-mark.focus::after { content: ""; position: absolute; inset: -11px; border: 1px solid rgba(234, 246, 255, .55); border-radius: 50%; animation: ring 1.6s ease-out 1; opacity: 0; }
+@keyframes ring { from { transform: scale(.4); opacity: .9; } to { transform: scale(1.8); opacity: 0; } }
+/* The annotation: no box. A hairline, the answer and what it means, with a soft shade so it reads over ice or open
+   water. Each line arrives in turn after the marker lands. */
+.ib-note { position: absolute; left: 0; top: 0; width: max-content; max-width: min(290px, calc(100% - 40px)); padding: 1px 0 3px 14px; pointer-events: none; }
+.ib-note::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: linear-gradient(rgba(214, 236, 252, .8), rgba(214, 236, 252, .12)); transform: scaleY(0); transform-origin: 50% 12px; transition: transform .4s ease-out .22s; }
+.ib-note::after { content: ""; position: absolute; inset: -44px -70px -48px -40px; z-index: -1; opacity: 0; transition: opacity .5s .1s;
+  background: radial-gradient(closest-side, rgba(4, 16, 36, .56) 0, rgba(4, 16, 36, .4) 45%, rgba(4, 16, 36, .14) 76%, rgba(4, 16, 36, 0) 100%); }
+.ib-note > div { text-shadow: 0 1px 2px rgba(2, 8, 20, .85), 0 0 10px rgba(2, 8, 20, .7); }
+.ib-note.tier-tip, .ib-note.tier-shallows, .ib-note.tier-mid { --muted: #c6d8ee; --faint: #a3b9d6; }
+.ib-note.in::before { transform: scaleY(1); } .ib-note.in::after { opacity: 1; }
+.ib-note.flip { padding: 1px 14px 3px 0; text-align: right; } .ib-note.flip::before { left: auto; right: 0; }
+.ib-note > div { opacity: 0; transform: translateY(5px); transition: opacity .4s ease, transform .4s ease; }
+.ib-note.in > div { opacity: 1; transform: none; }
+.ib-note.in > div:nth-child(1) { transition-delay: .26s; } .ib-note.in > div:nth-child(2) { transition-delay: .44s; }
+.ib-note.in > div:nth-child(3) { transition-delay: .56s; } .ib-note.in > div:nth-child(4) { transition-delay: .7s; }
+.ib-note.in > div:nth-child(n+5) { transition-delay: .82s; }
+.ib-note.quick > div, .ib-note.quick::before, .ib-note.quick::after { transition-delay: 0s !important; transition-duration: .22s; }
+.ib-note > .late { animation: late-in .8s ease both; } @keyframes late-in { from { opacity: 0; transform: translateY(5px); } }
+.ib-name { font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1.08; overflow-wrap: anywhere; color: var(--ice); }
+.ib-share { margin-top: 6px; font-size: 15px; color: var(--muted); }
+.ib-share b { font-size: 19px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.ib-below { font-size: 14.5px; color: var(--muted); }
+.ib-below b { font-weight: 700; color: var(--tier); font-variant-numeric: tabular-nums; }
+.ib-zone { font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: var(--tier); white-space: nowrap; margin-left: 3px; opacity: .9; }
+.ib-rank { margin-top: 3px; font-size: 13px; color: var(--muted); }
+.ib-meta { margin-top: 7px; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.ib-blurb { margin-top: 4px; font-size: 12.5px; color: var(--faint); font-style: italic; max-width: 32ch; }
+.ib-note.flip .ib-blurb { margin-left: auto; }
+.ib-tag { margin-top: 9px; font-size: 10.5px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: var(--lumen); }
+.ib-tag::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 8px 1px 1px; transform: rotate(45deg); background: var(--lumen); box-shadow: 0 0 8px rgba(125, 240, 223, .7); }
+.ib-sight { margin-top: 6px; font-size: 12.5px; color: var(--lumen); }
+/* The accent follows the water: clear and bright near the surface, living light in the abyss. */
+.ib-note.tier-tip::before, .ib-note.tier-shallows::before { background: linear-gradient(rgba(240, 249, 255, .95), rgba(240, 249, 255, .14)); }
+.ib-note.tier-deep::before { background: linear-gradient(rgba(108, 184, 236, .9), rgba(108, 184, 236, .1)); }
+.ib-note.tier-abyss::before { background: linear-gradient(rgba(125, 240, 223, .95), rgba(125, 240, 223, .1)); box-shadow: 0 0 10px rgba(125, 240, 223, .55); }
+.ib-note.tier-abyss > .ib-name { text-shadow: 0 0 22px rgba(125, 240, 223, .3), 0 1px 2px rgba(2, 8, 20, .85); }
+.ib-stack .ib-note { max-width: min(250px, calc(100% - 64px)); }
+.ib-stack .ib-name { font-size: 23px; } .ib-stack .ib-share b { font-size: 17px; }
+.ib-compact .ib-rank, .ib-compact .ib-meta, .ib-compact .ib-blurb, .ib-compact .ib-tag, .ib-compact .ib-sight, .ib-compact .ib-zone, .ib-compact .ib-nav { display: none; }
+.ib-compact .ib-name { font-size: 19px; } .ib-compact .ib-share { margin-top: 2px; font-size: 13.5px; } .ib-compact .ib-share b { font-size: 15px; } .ib-compact .ib-below { font-size: 13.5px; }
+/* Earlier guesses keep a small label beside their marker. */
+.ib-pill { position: absolute; left: 0; top: 0; display: inline-flex; align-items: baseline; gap: 7px; padding: 2px 7px; border: 0; border-radius: 4px; white-space: nowrap; max-width: 44%;
+  background: rgba(3, 8, 20, .55); font-size: 12.5px; font-weight: 600; color: var(--text); transition: opacity .3s; pointer-events: auto; cursor: pointer; }
+.ib-pill.best span { color: var(--lumen); }
 .ib-pill span { overflow: hidden; text-overflow: ellipsis; }
 .ib-pill b { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ib-pill.dim { opacity: 0; pointer-events: none; }
-.ib-hud { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; align-items: center; opacity: 0; transition: opacity .5s; }
-.ib-hud.on { opacity: 1; }
-.ib-depth { font-size: 13px; font-weight: 700; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: #bcd8f2; background: rgba(5,11,27,.7); padding: 4px 10px; border-radius: 8px; }
-.ib-nav { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 6px; }
-.ib-nav button { width: 38px; height: 38px; border: 0; border-radius: 10px; background: rgba(5, 11, 27, .82); box-shadow: 0 0 0 1px var(--line-2); color: var(--text); display: grid; place-items: center; }
+/* Depth gauge: a scale fixed to the water down the right-hand edge, and a reading at the depth in view. */
+.ib-gauge { position: absolute; top: 0; bottom: 0; right: 0; width: 84px; pointer-events: none; opacity: 0; transition: opacity .5s; }
+.ib-gauge.on { opacity: 1; }
+.ib-rail { position: absolute; inset: 0; overflow: hidden; -webkit-mask-image: linear-gradient(transparent 56px, #000 120px, #000 calc(100% - 60px), transparent); mask-image: linear-gradient(transparent 56px, #000 120px, #000 calc(100% - 60px), transparent); }
+.ib-scale { position: absolute; right: 0; top: 0; width: 100%; }
+.ib-scale i { position: absolute; right: 0; width: 6px; height: 1px; background: rgba(160, 205, 240, .34); }
+.ib-scale i.major { width: 14px; background: rgba(200, 230, 250, .7); }
+.ib-scale i.major::after { content: attr(data-m); position: absolute; right: 20px; top: -7px; font: 600 11px/14px var(--ui); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ib-scale span { position: absolute; right: 20px; margin-top: 9px; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--tier); opacity: .75; white-space: nowrap; }
+.ib-read { position: absolute; right: 0; top: 0; height: 22px; margin-top: -11px; display: flex; align-items: center; opacity: 0; transition: opacity .3s; }
+.ib-read.on { opacity: 1; }
+.ib-read::after { content: ""; position: absolute; right: 0; top: 50%; width: 16px; height: 1px; background: var(--ice); }
+.ib-depth { margin-right: 19px; font-size: 13px; font-weight: 700; letter-spacing: .01em; font-variant-numeric: tabular-nums; color: var(--ice); background: rgba(3, 8, 20, .92); padding: 2px 8px; border-radius: 4px; box-shadow: 0 0 0 1px var(--line-2); white-space: nowrap; }
+.ib-stack .ib-gauge { width: 40px; } .ib-stack .ib-scale span { display: none; }
+.ib-stack .ib-scale i.major::after { right: 17px; font-size: 10px; }
+.ib-stack .ib-depth { font-size: 12px; padding: 1px 6px; }
+.ib-nav { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 6px; }
+.ib-nav button { width: 38px; height: 38px; border: 0; border-radius: 10px; background: rgba(3, 8, 20, .7); box-shadow: 0 0 0 1px var(--line-2); color: var(--text); display: grid; place-items: center; pointer-events: auto; }
 .ib-nav svg { width: 16px; height: 16px; }
+.play.playing .ib-nav, .ib-stack .ib-nav { display: none; } /* while guessing, and on phones, the guess rows do this job */
 
 /* End of day: your iceberg, as a card you can keep. */
 .end { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: clamp(24px, 4vw, 56px); align-items: start; max-width: 1000px; margin: 0 auto; padding-top: 8px; }
 .card-wrap { position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 0 1px var(--line); background: #050b20; aspect-ratio: 4 / 5; }
 .card-wrap canvas { display: block; width: 100%; height: 100%; }
 .end-side { display: grid; gap: 22px; min-width: 0; }
-.total { margin-top: 8px; font-size: clamp(64px, 9vw, 96px); font-weight: 800; line-height: .9; color: var(--gold); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
-.total small { font-size: .32em; letter-spacing: 0; margin-left: 6px; }
+.total { margin-top: 8px; font-size: clamp(64px, 9vw, 96px); font-weight: 800; line-height: .9; color: var(--ice); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.total small { font-size: .32em; letter-spacing: 0; margin-left: 6px; color: var(--muted); }
 .end-facts { display: grid; gap: 4px; color: var(--muted); font-size: 15px; }
 .end-facts b { color: var(--text); }
 #e-rounds { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -289,33 +350,37 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
 @media (max-width: 920px) {
   .home { grid-template-columns: 1fr; gap: 26px; min-height: 0; padding-top: 4px; }
   .scene { aspect-ratio: 16 / 10; order: -1; }
-  /* Playing: one window tall. The iceberg takes whatever height is left above the question and slots. */
-  .play { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
-  main.fill { padding-bottom: 0; } /* guessing on a phone: exactly one window tall, nothing to scroll */
-  .play.playing { height: calc(var(--vvh) - var(--top-h) - 8px); }
-  .stage { position: relative; top: 0; flex: 1; min-height: 130px; display: flex; }
-  .play.playing #ib { height: auto; min-height: 0; flex: 1; }
-  .play:not(.playing) #ib { height: min(52vh, 520px); min-height: 320px; width: 100%; }
-  .side { gap: 10px; padding-top: 0; flex: none; }
-  .play.playing .q-hint, .play.playing .q .eyebrow { display: none; }
+  /* Playing: the question sits at the top of the water, the box and the three guesses at the bottom, by your thumbs. */
+  .veil { background: linear-gradient(180deg, rgba(3, 8, 20, .82) 0, rgba(3, 8, 20, .6) calc(var(--q-bottom, 120px) - 16px), rgba(3, 8, 20, 0) calc(var(--q-bottom, 120px) + 34px)), linear-gradient(0deg, rgba(3, 8, 20, .95) 0, rgba(3, 8, 20, .86) calc(var(--p-height, 200px) - 10px), rgba(3, 8, 20, 0) calc(var(--p-height, 200px) + 46px)); }
+  .play.done .veil { background: linear-gradient(180deg, rgba(3, 8, 20, .6), rgba(3, 8, 20, 0) 90px); }
+  html.in-play .top { padding: 0 var(--gutter); }
+  .dock { left: 0; right: 0; top: var(--top-h); bottom: 0; width: auto; display: flex; flex-direction: column; justify-content: space-between; gap: 0; pointer-events: none; }
+  .dock > * { pointer-events: auto; }
+  .play.done .dock { transform: none; }
+  .q { padding: 2px var(--gutter) 0; } .q .eyebrow, .q-hint { display: none; }
   .q-icon { font-size: 26px; } .q-title { gap: 10px; }
   .q-title h2 { font-size: 20px; }
-  #answer { font-size: 18px; padding: 14px 58px 14px 16px; }
+  #play-panel { gap: 8px; padding: 0 var(--gutter) calc(8px + env(safe-area-inset-bottom, 0px)); }
+  #answer { font-size: 18px; padding: 13px 58px 13px 16px; }
   #add { width: 42px; height: 42px; }
-  .hint { margin: -4px 2px 0; font-size: 13px; line-height: 1.35; height: 36px; min-height: 0; align-items: flex-start; overflow: hidden; } /* always two lines tall: the slots never shift */
-  .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .slot { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 2px; padding: 9px 10px 8px; align-content: center; border-radius: 12px; }
-  .slot-n { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; font-size: 11px; }
-  .slot-main { order: 2; } .slot-depth { order: 1; font-size: 20px; }
-  .slot-name { font-size: 14px; padding-right: 0; } .slot-sub { font-size: 11.5px; }
-  .slot-sub { white-space: normal; line-height: 1.3; }
-  .slot-sub .wide { display: none; } .slot-sub b { display: block; }
-  .slot { height: 88px; }
-  .slot.empty .slot-depth { font-size: 16px; } .slot.pending .slot-depth, .slot.miss .slot-depth { font-size: 12px; }
-  .slot-tag { top: -8px; right: auto; left: 9px; font-size: 9px; padding: 1px 6px; }
-  .finish-row { height: 46px; min-height: 0; gap: 10px; padding-bottom: 8px; flex-wrap: nowrap; }
+  .hint { margin: -2px 2px 0; font-size: 13px; line-height: 1.35; height: 36px; min-height: 0; align-items: flex-start; overflow: hidden; } /* always two lines tall: nothing below it shifts */
+  .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; }
+  .slot { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 1px; height: 70px; min-height: 0; padding: 6px 10px 6px 12px; align-content: center; border-bottom: 0; border-left: 1px solid var(--line); }
+  li:first-child > .slot { border-left: 0; padding-left: 2px; }
+  .slot-n { position: absolute; top: 5px; right: 6px; width: 18px; height: 18px; font-size: 10px; }
+  .slot-main { order: 2; } .slot-depth { order: 1; font-size: 19px; }
+  .slot-name { font-size: 13.5px; } .slot-sub { font-size: 11.5px; }
+  .slot-sub .wide { display: none; } .slot-sub b { display: none; }
+  .slot-tag { bottom: 6px; right: 8px; font-size: 8.5px; } .slot.best .slot-depth { transform: none; }
+  .slot.empty .slot-depth, .slot.next .slot-depth { font-size: 15px; } .slot.pending .slot-depth, .slot.miss .slot-depth { font-size: 12px; }
+  .slot.empty .slot-name, .slot.next .slot-name { font-size: 13px; }
+  .finish-row { height: 42px; min-height: 0; gap: 10px; flex-wrap: nowrap; }
   .finish-row .btn { padding: 9px 14px; font-size: 14px; }
   .finish-note { font-size: 13px; }
+  /* Results: a sheet that rises over the lower part of the scene and scrolls on its own. */
+  .drawer { top: 42%; left: 0; width: auto; padding: 18px var(--gutter) 0; border-radius: 18px 18px 0 0; box-shadow: 0 -1px 0 var(--line-2); gap: 20px; animation-name: sheet-in; }
+  @keyframes sheet-in { from { transform: translateY(60px); opacity: 0; } }
+  .next-row { margin: -8px calc(var(--gutter) * -1) 0; padding: 24px var(--gutter) calc(14px + env(safe-area-inset-bottom, 0px)); }
   .end { grid-template-columns: 1fr; max-width: 480px; }
 }
 @media (max-width: 520px) {
@@ -325,16 +390,13 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
   main { padding-bottom: 28px; }
   .bars li, .axis { grid-template-columns: minmax(74px, 38%) minmax(30px, 1fr) auto; gap: 8px; }
   .axis .ticks span:nth-last-child(even) { color: transparent; } /* narrow: label every other mark, always keeping the last */
-  .ib-card { padding: 12px 14px; width: min(270px, calc(100% - 20px)); }
-  .ib-name { font-size: 21px; }
-  .ib-pts { font-size: 20px; top: 31px; right: 14px; }
 }
 @media (max-width: 920px) and (max-height: 520px) { /* a phone with its keyboard open */
   .play.playing .finish-row { display: none; }
-  .play.playing { gap: 8px; } .play.playing .side { gap: 8px; padding-bottom: 6px; }
-  .stage { min-height: 96px; }
-  .slot { height: 74px; padding-top: 6px; padding-bottom: 6px; }
-  #answer { padding-top: 11px; padding-bottom: 11px; }
+  .q-title h2 { font-size: 17px; } .q-icon { font-size: 22px; }
+  #play-panel { gap: 6px; padding-bottom: 6px; }
+  .slot { height: 58px; padding-top: 4px; padding-bottom: 4px; }
+  #answer { padding-top: 10px; padding-bottom: 10px; }
   .hint { height: 34px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
@@ -344,17 +406,20 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
 <canvas id="sea" aria-hidden="true"></canvas>
 <div class="app">
 <header class="top">
-  <button class="brand" id="brand" type="button" aria-label="Iceberg home"><span class="brand-mark" aria-hidden="true"></span>Iceberg</button>
+  <button class="brand" id="brand" type="button" aria-label="Iceberg home" data-brand-label="{name} home"><span class="brand-mark" data-brand="mark" aria-hidden="true"></span><span data-brand="name">Iceberg</span></button>
   <div class="steps" id="steps" aria-hidden="true" hidden><i></i><i></i><i></i><i></i><i></i></div>
   <div class="top-right">
     <span class="top-meta" id="top-meta">Daily #1</span>
-    <button class="icon-btn" id="sound-btn" type="button" aria-label="Sound settings" aria-expanded="false" aria-controls="sound-panel">
+    <button class="icon-btn" id="sound-btn" type="button" aria-label="Sound and display settings" aria-expanded="false" aria-controls="sound-panel">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path class="wave" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave" d="M18.5 5.5a9 9 0 0 1 0 13"/><path class="cross" d="m16 9 6 6m0-6-6 6" hidden/></svg>
     </button>
-    <div class="sound-panel" id="sound-panel" role="dialog" aria-label="Sound settings" hidden>
+    <div class="sound-panel" id="sound-panel" role="dialog" aria-label="Sound and display settings" hidden>
       <label class="switch">Sound <input type="checkbox" id="snd-on" role="switch" checked></label>
       <label><span class="row">Effects <output id="snd-sfx-out">80%</output></span><input type="range" id="snd-sfx" min="0" max="100" step="5" value="80"></label>
       <label><span class="row">Ambience <output id="snd-amb-out">55%</output></span><input type="range" id="snd-amb" min="0" max="100" step="5" value="55"></label>
+      <hr>
+      <label class="switch">Calmer water <input type="checkbox" id="fx-low" role="switch"></label>
+      <p class="note">Fewer animals and lights. Easier on older laptops.</p>
     </div>
   </div>
 </header>
@@ -362,8 +427,8 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
   <!-- Home -->
   <section data-screen="home" class="home">
     <div>
-      <h1 class="wordmark">Ice<span>berg</span></h1>
-      <p class="tagline">Three guesses. <span>How deep can you go?</span></p>
+      <h1 class="wordmark" data-brand="wordmark">Ice<span>berg</span></h1>
+      <p class="tagline" data-brand="tagline">Three guesses. <span>How deep can you go?</span></p>
       <p class="rules">Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts.</p>
       <ul class="depths" aria-label="Depth zones">
         <li class="tier-tip"><i></i><b>The Tip</b><span>above water · 1 in 10 players or more</span></li>
@@ -384,17 +449,17 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
     <div class="scene" id="scene" aria-hidden="true"><canvas id="scene-art"></canvas></div>
   </section>
 
-  <!-- A question: the iceberg stays put through guessing and results -->
+  <!-- A question: one scene for guessing and results. The controls float over it. -->
   <section data-screen="play" class="play" hidden>
-    <div class="stage"><div id="ib" aria-label="Today's iceberg with your guesses"></div></div>
-    <div class="side">
+    <div id="ib" aria-label="The iceberg, with your guesses marked at their depths"></div>
+    <div class="veil" aria-hidden="true"></div>
+    <div class="dock">
       <div class="q">
         <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
         <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
         <p class="q-hint" id="q-hint"></p>
       </div>
-
-      <div id="play-panel" style="display:grid;gap:inherit">
+      <div id="play-panel">
         <form class="entry" id="entry" autocomplete="off" novalidate>
           <label class="sr" for="answer">Your guess</label>
           <input id="answer" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" maxlength="60" placeholder="Type a guess">
@@ -404,28 +469,30 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
         <ol class="slots" id="slots" aria-label="Your three guesses"></ol>
         <div class="finish-row"><button class="btn ghost" id="finish" type="button" hidden>Finish</button><span class="finish-note" id="finish-note"></span></div>
       </div>
+    </div>
 
-      <div id="done-panel" class="done-panel" hidden>
-        <div class="best-line"><div><div class="lbl" id="best-lbl">Your deepest</div><div class="name" id="best-name"></div></div><div class="depth" id="best-depth"></div></div>
-        <div class="section">
-          <h3>Your guesses <span class="aside" id="sum-aside"></span></h3>
-          <ol id="sum"></ol>
-          <p class="forgot" id="forgot"></p>
-          <p class="review-note" id="review-note"></p>
-        </div>
-        <div class="section">
-          <h3>Everyone's answers <span class="aside" id="players"></span></h3>
-          <p class="sublabel">Most common</p>
-          <ul class="bars" id="common"></ul>
-          <p class="sublabel">Rarest valid answers</p>
-          <ul class="bars" id="rare"></ul>
-          <div class="axis" aria-hidden="true"><span></span><span class="ticks" id="axis"></span><span class="pad">0.00% · 99,999</span></div>
-          <p class="fine">Each figure is the share of players who gave that answer at least once in their three guesses, so the shares add up to more than 100%. Bar length uses a log scale: each mark is 10× rarer.</p>
-          <p class="fine" id="sample-note"><span class="sample-badge">Sample</span><span id="sample-text"></span></p>
-          <details class="rules-box fine"><summary>How answers are judged</summary><ul class="rules-list" id="rules"></ul></details>
-        </div>
-        <div class="next-row"><button class="btn wide" id="next" type="button">Next question</button></div>
+    <div id="done-panel" class="done-panel drawer" hidden>
+      <p class="done-q" id="done-q"></p>
+      <div class="best-line"><div><div class="lbl" id="best-lbl">Your deepest</div><div class="name" id="best-name"></div></div><div class="depth" id="best-depth"></div></div>
+      <div class="section">
+        <h3>Your guesses <span class="aside" id="sum-aside"></span></h3>
+        <ol id="sum"></ol>
+        <p class="forgot" id="forgot"></p>
+        <p class="review-note" id="review-note"></p>
+        <p class="seen" id="seen" hidden></p>
       </div>
+      <div class="section">
+        <h3>Everyone's answers <span class="aside" id="players"></span></h3>
+        <p class="sublabel">Most common</p>
+        <ul class="bars" id="common"></ul>
+        <p class="sublabel">Rarest valid answers</p>
+        <ul class="bars" id="rare"></ul>
+        <div class="axis" aria-hidden="true"><span></span><span class="ticks" id="axis"></span><span class="pad">0.00% · 99,999</span></div>
+        <p class="fine">Each figure is the share of players who gave that answer at least once in their three guesses, so the shares add up to more than 100%. Bar length uses a log scale: each mark is 10× rarer.</p>
+        <p class="fine" id="sample-note"><span class="sample-badge">Sample</span><span id="sample-text"></span></p>
+        <details class="rules-box fine"><summary>How answers are judged</summary><ul class="rules-list" id="rules"></ul></details>
+      </div>
+      <div class="next-row"><button class="btn wide" id="next" type="button">Next question</button></div>
     </div>
   </section>
 
@@ -434,7 +501,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
     <div class="card-wrap"><canvas id="share-canvas" width="1200" height="1500" role="img" aria-label="Your iceberg: the depth you reached on each question"></canvas></div>
     <div class="end-side">
       <div><p class="eyebrow">Today's total depth</p><div class="total"><span id="e-total">0</span><small>m</small></div></div>
-      <div class="end-facts"><span id="e-deepest"></span><span id="e-rank"></span><span class="streak" id="e-streak"></span></div>
+      <div class="end-facts"><span id="e-deepest"></span><span id="e-rank"></span><span class="streak" id="e-streak"></span><span id="e-seen"></span></div>
       <ul id="e-rounds"></ul>
       <div>
         <p class="eyebrow" style="margin-bottom:10px">Share without spoilers</p>
@@ -446,11 +513,14 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
   </section>
 </main>
 </div>
+<script src="brand.js"></script>
+<script>Brand.apply();</script>
 <script src="icons.js"></script>
 <script src="audio.js"></script>
 <script src="validate.js"></script>
 <script src="sea.js"></script>
 <script src="iceberg.js"></script>
+<script src="wildlife.js"></script>
 <script src="share.js"></script>
 <script>
 // Home illustration: the same artwork as the reveal, cropped to the tip and the shallows.

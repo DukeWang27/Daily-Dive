@@ -160,6 +160,12 @@
       tone(g, { f: 36.7, t, gain: 0.16, attack: lead * 0.85, decay: 2.4, wet: 0.3 });
       [57, 64, 69, 71, 76, 83].forEach((n, i) => bell(g, { f: note(n), t: t + lead + i * 0.045, gain: 0.075, decay: 3.2, wet: 0.75, bright: 0.55, pan: (i % 2 ? 0.25 : -0.25) }));
     },
+    // Something very large is passing: two slow, falling calls from far off. Quiet on purpose.
+    encounter(g, t) {
+      tone(g, { f0: 116, f: 82, glide: 1.4, t, gain: 0.075, attack: 0.5, decay: 2.6, wet: 0.85, lp: 500 });
+      tone(g, { f0: 98, f: 73.4, glide: 1.6, t: t + 1.9, gain: 0.06, attack: 0.6, decay: 3, wet: 0.9, lp: 440 });
+      bell(g, { f: note(88), t: t + 0.9, gain: 0.02, decay: 2.4, wet: 0.9, bright: 0.4, pan: 0.3 });
+    },
     round(g, t) { bell(g, { f: note(79), t, gain: 0.08, decay: 1.2, wet: 0.4, bright: 0.7 }); bell(g, { f: note(84), t: t + 0.14, gain: 0.08, decay: 1.6, wet: 0.45, bright: 0.7 }); },
     day(g, t) {
       [72, 76, 79, 84, 86, 91].forEach((n, i) => bell(g, { f: note(n), t: t + i * 0.12, gain: 0.07, decay: 2.2, wet: 0.55, bright: 0.65 }));

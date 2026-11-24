@@ -20,7 +20,8 @@ const PARAMS = new URLSearchParams(location.search);
 const SPEED = PARAMS.has("fast") ? 4 : 1;
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
 const { depthOf, tierOfDepth } = window.Iceberg;
-const V = window.IcebergValidate, Sound = window.Sound, Sea = window.Sea || { mood() {} }, Icons = window.IcebergIcons, Share = window.IcebergShare;
+const Brand = window.Brand || { name: "Iceberg", noun: "iceberg", slug: "iceberg" }; // brand.js: the game's name, in one place
+const V = window.IcebergValidate, Sound = window.Sound, Sea = window.Sea || { mood() {} }, Icons = window.IcebergIcons, Share = window.IcebergShare, Wildlife = window.Wildlife;
 let SAMPLE_PLAYERS = 50000;       // shown with sample statistics, clearly labelled as simulated (set from categories.json)
 
 // ---------- Small helpers ----------
@@ -108,7 +109,7 @@ function shareOf(row, stats) {
 }
 
 // ---------- State (saved after every change, so a reload never resets a question) ----------
-let CATS = [], state = null, berg = null, screen = "home", busy = false, unknownKey = "", autoFinish = 0;
+let CATS = [], state = null, berg = null, life = null, screen = "home", busy = false, unknownKey = "", autoFinish = 0;
 const prepared = new Map();
 const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
@@ -130,6 +131,7 @@ function show(id) {
   screen = id;
   for (const s of document.querySelectorAll("[data-screen]")) s.hidden = s.dataset.screen !== id;
   Sea.mood(id); Sound.setAmbience(id, 0);
+  document.documentElement.classList.toggle("in-play", id === "play"); // the scene takes the whole window: nothing scrolls behind it
   const playing = !!state && id === "play";
   $("#steps").hidden = !playing;
   updateHeader();
@@ -147,28 +149,53 @@ function renderHome() {
   const streak = store.get("streak", { count: 0, last: 0, freezes: 0 });
   const today = todayResult();
   $("#home-streak").textContent = streak.count ? `${streak.count}-day streak${streak.freezes ? ` · ${streak.freezes} freeze${streak.freezes > 1 ? "s" : ""} saved` : ""}` : "";
-  $("#play").textContent = today ? "See today's results" : "Play today's iceberg";
+  $("#play").textContent = today ? "See today's results" : `Play today's ${Brand.noun}`;
   $("#practice").hidden = !today;
   const tick = () => {
     if (!today) { $("#home-next").textContent = ""; return; }
     const left = Math.max(0, localMidnight().getTime() + 86400000 - Date.now()), h = Math.floor(left / 3600000), m = Math.floor(left % 3600000 / 60000);
-    $("#home-next").textContent = `Next iceberg in ${h}h ${String(m).padStart(2, "0")}m`;
+    $("#home-next").textContent = `Next ${Brand.noun} in ${h}h ${String(m).padStart(2, "0")}m`;
   };
   clearInterval(nextTimer); tick(); nextTimer = setInterval(tick, 30000);
-  state = null; $("main").classList.remove("fill"); show("home");
+  state = null; show("home");
 }
 
 // ---------- A question ----------
 function bergItem(cat, r, g, n) {
   const row = g.name ? cat.answers.find(a => a.a === g.name) : null, players = r.players || SAMPLE_PLAYERS;
   return { n, name: guessName(cat, g), share: g.share, shareText: pctText(g.share), blurb: row && row.b || "",
-    countText: row ? `${fmt(Math.max(1, Math.round(g.share * players)))} of ${fmt(players)}` : "", rankText: g.rank || "" };
+    countText: row ? `${fmt(Math.max(1, Math.round(g.share * players)))} of ${fmt(players)}` : "", rankText: g.rank || "", sight: sightLine(g.sight) };
 }
+const sightLine = key => { const e = key && Wildlife && Wildlife.ENCOUNTERS.find(x => x.key === key); return e ? e.line : ""; };
 function ensureBerg() {
   if (berg) return;
   berg = window.Iceberg.create($("#ib"), { speed: SPEED });
   berg.onDepth(d => { if (screen === "play") Sound.setAmbience("play", d); });
   berg.onFocus(i => { document.querySelectorAll("#slots .slot, #sum li").forEach(n => n.classList.toggle("active", +n.dataset.bi === i)); });
+  // The animals that live in the water (wildlife.js). The game runs the same without them.
+  if (Wildlife) {
+    life = Wildlife.create(berg, { low: store.get("fx", "full") === "low" });
+    life.onSight(sp => { if (state && screen === "play") logSighting(cur(), sp.key); });
+  }
+  // Keep the camera composed in whatever part of the window the controls leave free.
+  const watch = new ResizeObserver(() => syncFrame(0));
+  [".dock", ".q", "#play-panel", "#done-panel", '[data-screen="play"]'].forEach(sel => watch.observe($(sel)));
+}
+// Which part of the window is free of controls right now, as insets for the scene.
+function sceneFrame() {
+  const play = $('[data-screen="play"]'), top = Math.round($(".top").getBoundingClientRect().bottom), wide = !matchMedia("(max-width: 920px)").matches;
+  if (state && state.phase === "done") { const d = $("#done-panel"); return wide ? { l: 0, r: d.offsetWidth, t: top, b: 0 } : { l: 0, r: 0, t: top, b: Math.max(0, play.clientHeight - d.offsetTop) }; }
+  if (wide) { const k = $(".dock"); return { l: k.offsetLeft + k.offsetWidth + 20, r: 0, t: top, b: 0 }; }
+  const q = $(".q").getBoundingClientRect(), p = $("#play-panel").getBoundingClientRect(), box = play.getBoundingClientRect();
+  play.style.setProperty("--q-bottom", Math.round(q.bottom - box.top) + "px"); play.style.setProperty("--p-height", Math.round(box.bottom - p.top) + "px");
+  return { l: 0, r: 0, t: Math.round(q.bottom - box.top) + 4, b: Math.round(box.bottom - p.top) + 4 };
+}
+function syncFrame(ms) { if (berg && screen === "play" && state) berg.setFrame(sceneFrame(), ms); }
+// A light record of what has been seen: per question (for the results) and for good (for a collection, one day).
+function logSighting(r, key) {
+  r.seen = r.seen || []; if (r.seen.includes(key)) return;
+  r.seen.push(key); save();
+  const all = store.get("sightings", {}); all[key] = all[key] || { n: 0, first: state.day }; all[key].n++; store.set("sightings", all);
 }
 function setHint(text, kind) { const h = $("#hint"); h.className = "hint" + (kind ? " " + kind : ""); h.textContent = text || ""; }
 
@@ -182,17 +209,18 @@ async function startQuestion(animated) {
   $("#q-hint").textContent = cat.hint || "";
   setHint("");
   const done = state.phase === "done";
-  $('[data-screen="play"]').classList.toggle("playing", !done);
-  $("main").classList.toggle("fill", !done);
-  $("#play-panel").style.display = done ? "none" : "grid"; $("#done-panel").hidden = !done;
+  $('[data-screen="play"]').classList.toggle("playing", !done); $('[data-screen="play"]').classList.toggle("done", done);
+  $("#done-panel").hidden = !done;
   show("play");
+  syncFrame(0);
+  if (life) life.reset(state.day * 10 + state.round + 1);
   // Real counts for this question, if a database is connected. Depths are fixed from what's known when you guess.
   r.stats = null; live.counts(state.day, state.round + 1).then(s => { if (state && cur() === r) { r.stats = s; if (s && s.players) r.players = s.players; } });
   const shown = okGuesses(r);
   if (shown.length || done) { shown.forEach((g, i) => { g.bi = i; }); berg.restore(shown.map(g => bergItem(cat, r, g, r.guesses.indexOf(g) + 1))); tagBest(cat, r); }
   else berg.enter(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches);
-  if (done) { renderDone(cat, r); return; }
-  renderSlots();
+  if (done) { renderDone(cat, r); syncFrame(0); return; }
+  renderSlots(); syncFrame(0);
   const input = $("#answer"); input.value = "";
   if (animated) Sound.play("question");
   input.focus({ preventScroll: true });
@@ -321,10 +349,20 @@ async function reveal(cat, r, g) {
   const d = depthOf(g.share), deeper = !prevBest || g.share < prevBest.share, special = d >= 200 && deeper;
   g.bi = berg.count;
   renderSlots(index);
-  berg.onTravel((it, dir, ms) => { Sound.play("travel", { dir, seconds: ms / 1000 }); if (special) Sound.play("rare", { lead: ms / 1000 }); });
+  berg.onTravel((it, dir, ms) => { Sound.play("travel", { dir, seconds: ms / 1000 }); if (special) Sound.play("rare", { lead: ms / 1000 }); if (life) life.calm(ms + 2600); });
   await berg.add(bergItem(cat, r, g, index + 1), { special });
   if (!state || cur() !== r) return;
   busy = false;
+  // An answer this deep does not go unnoticed. Each of the great squid comes once per question, at its own depth.
+  const guest = life && life.encounterFor(d, r.guests || []);
+  if (guest) {
+    r.guests = (r.guests || []).concat(guest.key); g.sight = guest.key; logSighting(r, guest.key);
+    const at = berg.view.focus;
+    setTimeout(() => {
+      if (!state || cur() !== r || !at) return;
+      life.encounter(guest.key, at); berg.setSight(g.bi, guest.line); Sound.play("encounter");
+    }, 1500 / SPEED);
+  }
   // Landed: say what was found, and whether it beat your deepest.
   renderSlots(-1, index); tagBest(cat, r);
   if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260) });
@@ -392,12 +430,12 @@ function finishQuestion() {
   r.done = true; state.phase = "done"; save();
   const best = bestOf(r);
   if (!state.practice) live.record(state.day, state.round + 1, okGuesses(r).map(g => g.name).filter(Boolean), best ? best.name : null, scoreOf(r));
-  $('[data-screen="play"]').classList.remove("playing"); $("main").classList.remove("fill");
-  $("#play-panel").style.display = "none"; $("#done-panel").hidden = false;
+  $('[data-screen="play"]').classList.remove("playing"); $('[data-screen="play"]').classList.add("done");
+  $("#done-panel").hidden = false; $("#done-panel").scrollTop = 0;
   renderDone(cat, r);
   Sound.play("round");
-  if (best && berg.focused !== best.bi) berg.focus(best.bi);
-  window.scrollTo(0, 0);
+  // The panel slides in and the iceberg glides aside for it, ending on your deepest answer.
+  if (best && berg.focused !== best.bi) { syncFrame(0); berg.focus(best.bi); } else syncFrame(520);
 }
 
 function boardFor(cat, r) {
@@ -416,6 +454,7 @@ function boardFor(cat, r) {
 
 function renderDone(cat, r) {
   const best = bestOf(r), board = boardFor(cat, r), left = GUESSES - r.guesses.length;
+  $("#done-q").textContent = `Question ${state.round + 1} of ${CATS.length} · ${cat.prompt || cat.title}`;
   $("#best-lbl").textContent = best ? "Your deepest" : "No depth this time";
   $("#best-name").textContent = best ? guessName(cat, best) : "Nothing counted";
   const bd = $("#best-depth"); bd.textContent = ""; bd.append(String(scoreOf(r)), el("small", null, "m"));
@@ -448,6 +487,17 @@ function renderDone(cat, r) {
   $("#review-note").textContent = !waiting ? "" : BACKEND.verifyUrl ? "Answers marked ? are being checked. If one is approved, its depth is added."
     : "Answers marked ? weren't on today's list. They're saved for review, and approved answers are recognised from then on.";
 
+  // What was in the water on the way down.
+  const seenEl = $("#seen"), seen = (r.seen || []).map(k => Wildlife && Wildlife.species().find(x => x.key === k)).filter(Boolean);
+  seenEl.hidden = !seen.length; seenEl.textContent = "";
+  if (seen.length) {
+    // The rare ones first, then a few of the rest: a note, not a catalogue.
+    const order = [...seen.filter(x => x.rare), ...seen.filter(x => !x.rare)], few = order.slice(0, 4), more = order.length - few.length;
+    seenEl.append(el("b", null, "Seen on this dive: "));
+    few.forEach((sp, i) => { seenEl.append(sp.rare ? el("i", null, sp.name.toLowerCase()) : sp.name.toLowerCase(), i < few.length - 1 ? ", " : ""); });
+    seenEl.append(more > 0 ? ` and ${more} more.` : ".");
+  }
+
   // Everyone's answers: only shown now, so they can't steer your guesses.
   $("#players").textContent = board.isLive ? `${fmt(board.players)} players today` : `Sample data · ${fmt(board.players)} simulated players`;
   $("#sample-note").hidden = board.isLive;
@@ -473,7 +523,7 @@ function renderDone(cat, r) {
     t.style.left = `${100 * (d - lo) / (hi - lo)}%`; axis.append(t);
   }
   const rules = $("#rules"); rules.textContent = ""; (cat.rules || []).forEach(t => rules.append(el("li", null, t)));
-  $("#next").textContent = state.round + 1 < CATS.length ? "Next question" : "See your iceberg";
+  $("#next").textContent = state.round + 1 < CATS.length ? "Next question" : `See your ${Brand.noun}`;
   updateHeader();
 }
 // A guess or answer that has no depth: waiting for review, or didn't count. Either can be disputed.
@@ -538,9 +588,11 @@ function renderEnd(day, fresh, practice) {
   data.link = /^https:$/.test(location.protocol) && !/claude|anthropic|localhost/.test(location.hostname) ? location.host + (location.pathname === "/" ? "" : location.pathname) : "";
   $("#e-card").textContent = Share.text(data);
   $("#e-streak").textContent = data.streak ? `${data.streak}-day streak` : "";
-  $("#e-note").textContent = practice ? "Practice dive: this doesn't change your daily result or streak." : "A new iceberg surfaces tomorrow.";
+  const logged = Object.keys(store.get("sightings", {})).length, cast = Wildlife ? Wildlife.species().length : 0;
+  $("#e-seen").textContent = logged && cast ? `Animals seen so far: ${logged} of ${cast}` : "";
+  $("#e-note").textContent = practice ? "Practice dive: this doesn't change your daily result or streak." : `A new ${Brand.noun} surfaces tomorrow.`;
   Share.draw($("#share-canvas"), data);
-  state = null; $("main").classList.remove("fill"); show("end");
+  state = null; show("end");
   // The total counts up once, as the day's little finale.
   const totalEl = $("#e-total");
   if (fresh) Sound.play("day");
@@ -570,6 +622,8 @@ function wireSound() {
   sfx.oninput = () => Sound.set({ sfx: sfx.value / 100 });
   sfx.onchange = () => Sound.play("submit");
   amb.oninput = () => Sound.set({ amb: amb.value / 100 });
+  const fx = $("#fx-low"); fx.checked = store.get("fx", "full") === "low";
+  fx.onchange = () => { store.set("fx", fx.checked ? "low" : "full"); if (life) life.setLow(fx.checked); };
   // Interface sounds: a soft click on buttons, a whisper on hover for the main ones (mouse only).
   document.addEventListener("click", e => { const b = e.target.closest("button"); if (b && b.id !== "add" && !b.classList.contains("dispute")) Sound.play("click"); }, true);
   document.addEventListener("pointerover", e => { if (e.pointerType !== "mouse" || !e.target.closest) return; const b = e.target.closest(".btn, button.slot, button.sum-row, .ib-nav button"); if (b && !b.contains(e.relatedTarget)) Sound.play("hover"); });
@@ -580,10 +634,10 @@ function fitViewport() {
   // Keeps the question exactly as tall as the visible area, including when a phone keyboard is open.
   const vv = window.visualViewport, h = vv ? vv.height : innerHeight;
   document.documentElement.style.setProperty("--vvh", h + "px");
-  if (screen === "play" && state && state.phase === "play" && matchMedia("(max-width: 920px)").matches) window.scrollTo(0, 0);
+  if (screen === "play") { window.scrollTo(0, 0); syncFrame(0); }
 }
 async function saveCard() {
-  const btn = $("#save-card"), canvas = $("#share-canvas"), name = `iceberg-${dayNumber()}.png`;
+  const btn = $("#save-card"), canvas = $("#share-canvas"), name = `${Brand.slug}-${dayNumber()}.png`;
   try {
     const blob = await Share.blob(canvas), file = new File([blob], name, { type: "image/png" });
     if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer: coarse)").matches) { await navigator.share({ files: [file], text: $("#e-card").textContent }); return; }
@@ -640,7 +694,7 @@ async function boot() {
     window.ICEBERG_TEST = {
       judge: (text, i) => { const j = V.judge(text, prep(CATS[i]), null); return j ? { status: j.status, answer: j.row ? j.row.a : null, via: j.via, reason: j.reason } : null; },
       shareOf: (name, i) => { const row = CATS[i].answers.find(a => a.a === name); return row ? row.s : null; },
-      depthOf, get state() { return state; }, get screen() { return screen; }, get berg() { return berg; }, get busy() { return busy; },
+      depthOf, get state() { return state; }, get screen() { return screen; }, get berg() { return berg; }, get busy() { return busy; }, get life() { return life; },
     };
   }
   // Pick up where you left off: a game in progress is never reset by a reload.

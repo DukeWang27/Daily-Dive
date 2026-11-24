@@ -43,10 +43,14 @@ on the results screen and on the share card. No ranking is shown without real pl
 | `index.html` | The page: layout and styling for every screen |
 | `game.js` | Game flow: guesses, scoring, results, disputes, saving progress, streaks. Settings are at the top |
 | `validate.js` | Answer checking (see "How answers are judged") |
-| `iceberg.js` | The artwork, the depth scale, and the iceberg players explore (camera, markers, reveal) |
+| `brand.js` | **The game's name**, mark, tagline and search text, in one place (see "The name") |
+| `brand.html` | A review page showing the five candidate names in the game's style, with what was checked about each |
+| `iceberg.js` | The artwork, the depth scale, and the full-screen scene players explore (camera, markers, annotations, depth gauge) |
+| `wildlife.js` | The animals: one entry per species, how each is drawn and moves, and the rare encounters |
+| `tools/wildlife.html` | Every animal on one sheet, enlarged, for checking the artwork |
 | `share.js` | The share card image and the plain-text share |
 | `audio.js` | All sound, made live in the browser. No audio files |
-| `sea.js` | The animated sea behind every screen |
+| `sea.js` | The animated sea behind the home and results screens |
 | `icons.js` | Category icons (one custom style, no emoji) |
 | `days/1.json` … `days/15.json` | One file per day: that day's five questions with answers, other names, rules and sample shares. `days/0.json` is a fixed set used only by the tests |
 | `days/index.json`, `words.json` | How many days exist, and a list of common English words used by the typo checker |
@@ -226,12 +230,76 @@ in one of three styles: the obvious answers, any of them, or the rarest they kno
 an answer at least once, shown as counts out of 50,000. The most common answers come out around 10 to 30% and the
 shares add up to about 2.7 guesses per player.
 
+## The scene
+
+While you play, the scene fills the whole window. The question, the box and the three guesses float over the water
+(to the left on a wide screen; question at the top and box at the bottom on a phone). After the third guess a
+results panel slides in from the right (from below on a phone) and the iceberg moves aside for it.
+
+Each answer gets a marker on the ice at its exact depth, and an annotation drawn out from it by a thin line: the
+answer, the share of players, the depth, how rare that is, then the guess number and player count in small print.
+There is no card behind it. The depth gauge down the right edge is fixed to the water, and its reading follows the
+camera. One colour, a pale "living light" green, is kept for things you have earned: your deepest answer, an answer
+in the Abyss, a rare animal.
+
+### Wildlife
+
+Every animal is a real species, drawn by code as pixel art at the same pixel size as the iceberg, so there is
+nothing to license. Each keeps to its own depth, and they stay in the world rather than on the screen: travel down
+and back up and you pass the same ones.
+
+| Game depth | Who lives there |
+|---|---|
+| Sky and Shallows (to about 60 m) | little auks, a harp seal, capelin and polar cod in shoals, Arctic krill, moon jellies |
+| Midwater (about 45 to 150 m) | glacier lanternfish with lit bellies, Arctic comb jellies, a lion's mane jellyfish, a siphonophore, armhook squid |
+| The Deep (about 110 to 250 m) | humpback anglerfish, Sloane's viperfish, dumbo octopuses, a Greenland shark far off |
+| The Abyss (below 190 m) | hadal snailfish, flashes of glowing plankton |
+
+The game's depths are its own scale, not real metres, and the cast is drawn from cold and deep water worldwide
+rather than one real place (the colossal squid, for one, is Antarctic). Each entry in `wildlife.js` records the
+animal's real range.
+
+**Encounters.** Three animals are not residents. They come only when an answer reaches a set depth, once per
+question, and pass behind the iceberg while the annotation notes it:
+
+| An answer at | Rarer than | Brings |
+|---|---|---|
+| 200 m or deeper | 1 in 1,000 players | a giant squid |
+| 250 m or deeper | about 1 in 3,000 | a bigfin squid |
+| 300 m or deeper | 1 in 10,000 | a colossal squid |
+
+The depths are the `min` values in the `ENCOUNTERS` list in `wildlife.js`.
+
+**Keeping it calm.** Animals steer round the annotation, fade if they pass behind it or under the controls, and
+slow down while an answer is being revealed. Players who have asked their device for reduced motion get the animals
+as a still picture. The settings panel (speaker button) has a **Calmer water** switch that halves the number of
+animals and lights, and the game switches to it by itself if drawing turns out to be slow on a device.
+
+**Adding an animal.** Add one `define({ ... })` entry to `wildlife.js`: its name, where it really lives, its depth
+band (`zone`), how many share a wide screen (`n`), and three small functions: `make` (where it starts), `step` (how
+it moves) and `draw`. Open `tools/wildlife.html` to see it enlarged.
+
+**Sightings.** The game quietly records which animals each player has seen (in the browser, under
+`iceberg:sightings`), lists a few on the results panel, and shows a count at the end of the day. There is no
+collection screen yet; `Wildlife.species()` and that record are what one would be built from.
+
+## The name
+
+The game is still called Iceberg. Everything that names it (header, home page, browser tab and icon, search-engine
+text, share card, share message) reads from `brand.js`, so renaming is one line: change `DEFAULT` at the top of
+that file to another entry, or add an entry of your own.
+
+To see a name in the real game without changing anything, add `?brand=` and its key to the address:
+`?brand=oddfish`, `brinicle`, `dropstone`, `thirddive` or `hadal`. `brand.html` shows all five side by side with
+the research on each. Saved progress uses a fixed internal key, so renaming never loses anyone's streak.
+
 ## Sound
 
 All sound is generated by `audio.js`, so there is nothing to license. It starts on the player's first tap or key
 press, as browsers require. The speaker button in the header has a mute switch and separate sliders for effects and
 ambience; the choices are remembered on the device. The game is fully playable muted or in a browser with no audio.
-The underwater ambience follows the camera: open and airy near the surface, a low hum in the deep.
+The underwater ambience follows the camera: open and airy near the surface, a low hum in the deep. A rare encounter
+has its own quiet cue: two slow, falling calls from far off.
 
 ## Sharing
 
@@ -241,11 +309,15 @@ depths and zones only, never answers or questions.
 
 ## Tests
 
-`tests/matrix.cjs` plays the game in a real browser and checks 161 things: three rarer answers in a row, the rarest
+`tests/matrix.cjs` plays the game in a real browser and checks 217 things: three rarer answers in a row, the rarest
 first, three more common in a row, identical and near-identical rarity, duplicates, clear and unclear typos, invalid
 answers and the miss limit, pending answers, review verdicts, finishing early, all five questions, reloading at
 every stage, rapid Enter presses, sound on, off and unavailable, reveal length, layout at seven screen sizes, and
 the calendar (every day loads its own questions, none repeats, midnight rollover, looping after the last day).
+It also checks the scene: which animals are in view at the surface, at 100 m and in the Abyss; that the camera
+going back up finds the same animals; each encounter at its own depth and only once; the annotation's reading
+order, staged reveal and that it never covers the controls; two markers at the same depth; reduced motion; the
+Calmer water switch; frame times; and that a trial name changes every place the name appears.
 Instructions are at the top of the file.
 
 ## Known limits of this test version
@@ -262,4 +334,9 @@ Instructions are at the top of the file.
   reaches the Abyss. Narrower questions make for better days.
 - Sound was checked by measurement, not by ear, and phone layouts in a desktop browser at phone sizes, not on real
   phones. Worth a quick check on an iPhone and an Android phone with the keyboard open.
-- The artwork is drawn by code. A pixel artist could replace it without touching the game logic.
+- The artwork, animals included, is drawn by code. A pixel artist could replace it without touching the game logic.
+- The animals were checked as still pictures and by measuring frame times in a test browser, not judged in motion
+  by a person, and not on a real Chromebook or phone. If it stutters on school laptops, turn on Calmer water by
+  default (`store.get("fx", "full")` in `game.js`).
+- The name research checked .com addresses with the registry, but not social-media handles, trademark registers or
+  prices. See `brand.html` for exactly what was and was not confirmed.

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wildlife sheet</title>
+<style>
+  body { margin: 0; background: #040917; color: #cfe3f5; font: 15px/1.5 Inter, system-ui, sans-serif; padding: 20px; }
+  canvas { image-rendering: pixelated; max-width: 100%; height: auto; display: block; }
+  p { color: #93a9cc; max-width: 70ch; }
+</style>
+</head>
+<body>
+<h1>Every animal in the game</h1>
+<p>Drawn at five times their size in the game. Depths are the game's own scale. Encounters (the last three) only appear when an answer reaches the depth shown.</p>
+<canvas id="sheet"></canvas>
+<script src="../iceberg.js"></script>
+<script src="../wildlife.js"></script>
+<script>
+  const c = document.getElementById("sheet"), q = new URLSearchParams(location.search), zoom = +q.get("zoom") || 5;
+  const o = { keys: q.get("keys") ? q.get("keys").split(",") : null, cols: +q.get("cols") || 0, cw: +q.get("cw") || 0, ch: +q.get("ch") || 0 };
+  if (q.get("t") != null) Wildlife.sheet(c, +q.get("t"), zoom, o);
+  else (function loop(now) { Wildlife.sheet(c, now / 1000, zoom, o); requestAnimationFrame(loop); })(0);
+</script>
+</body>
+</html>

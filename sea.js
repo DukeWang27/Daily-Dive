@@ -8,7 +8,7 @@
   const g = canvas.getContext("2d");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const MOODS = { home: 0.5, play: 0.1, end: 0.1 };
-  let settled = false, W = 0, H = 0, px = 4, horizon = 0.5, target = 0.5, t0 = performance.now(), last = 0, raf = 0;
+  let settled = false, paused = false, W = 0, H = 0, px = 4, horizon = 0.5, target = 0.5, t0 = performance.now(), last = 0, raf = 0;
   let stars = [], snow = [], bergs = [];
 
   // Small deterministic random, so the scenery is the same on every visit.
@@ -92,7 +92,7 @@
     if (now - last < 33) return; // ~30 fps is plenty for slow water
     last = now; draw(now);
   }
-  function start() { cancelAnimationFrame(raf); if (reduce) { draw(performance.now()); return; } raf = requestAnimationFrame(loop); }
+  function start() { cancelAnimationFrame(raf); if (paused) return; if (reduce) { draw(performance.now()); return; } raf = requestAnimationFrame(loop); }
   addEventListener("resize", resize);
   document.addEventListener("visibilitychange", () => { if (document.hidden) cancelAnimationFrame(raf); else start(); });
   resize(); start();
@@ -100,6 +100,8 @@
   window.Sea = {
     homeLine(f) { MOODS.home = Math.max(0.2, Math.min(0.8, f)); if (document.querySelector('[data-screen="home"]:not([hidden])')) { target = MOODS.home; if (!settled) { settled = true; horizon = target; } if (reduce) { horizon = target; draw(performance.now()); } } },
     mood(name) {
+      // While playing, the full-screen scene covers this canvas, so it rests.
+      paused = name === "play"; if (paused) { cancelAnimationFrame(raf); return; } start();
       // While playing, the surface sits just under the header: everything you do happens underwater.
       const top = document.querySelector(".top");
       if (top && (name === "play" || name === "end")) MOODS[name] = (top.getBoundingClientRect().bottom + 2) / innerHeight;

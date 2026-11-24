@@ -1,6 +1,6 @@
 // Full play-through checks for the three-guess game. Needs Node and Playwright.
 // Run from the project folder:  node tests/matrix.cjs            (everything, about 3 minutes)
-//                               node tests/matrix.cjs audio,sizes (parts: desk, phone, edge, reload, review, audio, timing, sizes, daily, scene, perf, brand)
+//                               node tests/matrix.cjs audio,sizes (parts: desk, phone, edge, reload, review, audio, timing, sizes, daily, scene, perf, brand, timer)
 const { chromium, serve, open, audit } = require('./lib.cjs');
 const R = []; let fails = 0;
 const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${name}${extra ? '  [' + extra + ']' : ''}`); if (!cond) fails++; };
@@ -29,12 +29,12 @@ const start = async p => { await p.click('#play'); await p.waitForSelector('[dat
 async function fullGame(b, vp) {
   const T = s => `${vp}: ${s}`, p = await fresh(b, vp);
   const home = await p.evaluate(() => document.querySelector('[data-screen="home"]').innerText);
-  ok(T('home explains the new game, with no timer or speed talk'), /Three guesses/.test(home) && /How deep can you go/.test(home) && !/second|timer|as many as/i.test(home), home.replace(/\n+/g, ' ').slice(0, 90));
+  ok(T('home explains the game, with no speed talk'), /Three guesses/.test(home) && /How deep can you go/.test(home) && !/as many as|fast as/i.test(home), home.replace(/\n+/g, ' ').slice(0, 90));
   ok(T('home layout'), !(await audit(p)).length, (await audit(p)).join('; '));
   await start(p);
   let st = await slots(p);
   ok(T('q1: three slots, first one ready, none used'), st.length === 3 && /next/.test(st[0].cls) && /empty/.test(st[1].cls) && /empty/.test(st[2].cls), st.map(s => s.cls).join(','));
-  ok(T('q1: no timer on screen'), await p.evaluate(() => !document.querySelector('#time-left, .timer, .clock')));
+  ok(T('q1: with the clock turned off, no timer is shown'), await p.evaluate(() => document.querySelector('#melt').hidden && ICEBERG_TEST.clock.total === 0));
   ok(T('q1: the scene fills the whole window, controls floating over it'), await p.evaluate(() => { const r = document.querySelector('#ib').getBoundingClientRect(), a = document.querySelector('#answer').getBoundingClientRect(); return r.width * r.height / (innerWidth * innerHeight) > 0.99 && a.top > r.top && a.bottom < r.bottom; }), await p.evaluate(() => { const r = document.querySelector('#ib').getBoundingClientRect(); return Math.round(100 * r.width * r.height / (innerWidth * innerHeight)) + '% of the window'; }));
   ok(T('q1: play layout'), !(await audit(p)).length, (await audit(p)).join('; '));
 
@@ -472,6 +472,123 @@ async function perf(b) {
   }
 }
 
+// The melting-ice timer.
+async function timer(b) {
+  const C = p => p.evaluate(() => ICEBERG_TEST.clock);
+  const timed = async (vp, secs, extra = '', opts) => { const p = await open(b, vp, URL + `?test&day=0&reset&time=${secs}${extra}`, opts); await p.evaluate(() => { window.__snd = []; const o = Sound.play; Sound.play = (n, a) => { window.__snd.push(n); return o(n, a); }; }); return p; };
+  const begin = async p => { await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); };
+  const running = p => p.waitForFunction(() => ICEBERG_TEST.clock.on, null, { timeout: 8000 });
+
+  // Layout, start, pause and resume, at real speed.
+  for (const vp of ['desk', 'phone']) {
+    const p = await timed(vp, 45); await begin(p);
+    const early = await C(p);
+    ok(`${vp} timer: the clock waits until the question is in view`, !early.on && early.left === 45000, JSON.stringify(early));
+    await running(p); await p.waitForTimeout(700);
+    const box = await p.evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(), m = r('#melt'), e = r('#entry'), a = r('#answer'), n = document.querySelector('#melt-n'), cs = getComputedStyle(n);
+      return { inside: m.left >= e.left && m.right <= a.left + 1 && m.top >= e.top - 1 && m.bottom <= e.bottom + 1, leftOf: m.right <= a.left + 1, input: a.width, text: n.textContent, font: cs.fontFamily, size: parseFloat(cs.fontSize), sameFont: cs.fontFamily === getComputedStyle(document.querySelector('#answer')).fontFamily, canvas: document.querySelector('#melt-ice').getBoundingClientRect().width, pix: getComputedStyle(document.querySelector('#melt-ice')).imageRendering, emoji: /\p{Extended_Pictographic}/u.test(document.querySelector('#entry').innerText) }; });
+    ok(`${vp} timer: sits inside the answer bar, to the left of the box, in the same type`, box.inside && box.leftOf && box.sameFont && box.size >= 14 && box.input > 150 && !box.emoji, JSON.stringify(box));
+    ok(`${vp} timer: custom pixel artwork, small`, box.pix === 'pixelated' && box.canvas <= 40);
+    ok(`${vp} timer: counting down from 45`, /^4[345]$/.test(box.text) && (await C(p)).left < 45000, box.text);
+    ok(`${vp} timer: layout has no overlap or clipping`, !(await audit(p)).length, (await audit(p)).join('; '));
+    // A deep answer: a long journey. The clock must not run during it.
+    const before = await C(p);
+    await p.fill('#answer', 'axolotl'); const t0 = Date.now(); await p.keyboard.press('Enter');
+    await p.waitForTimeout(500); const mid = await C(p);
+    await settle(p); const took = Date.now() - t0, after = await C(p);
+    ok(`${vp} timer: stops for the reveal and the camera's journey down`, !mid.on && took > 1500 && before.left - after.left < 600, `reveal took ${took} ms, clock moved ${Math.round(before.left - after.left)} ms`);
+    ok(`${vp} timer: carries on, from where it stopped, when the box is ready again`, after.on && after.left > 38000);
+    // Back up to a common answer: the camera travels the other way; same rule.
+    const b2 = await C(p); await p.fill('#answer', 'dog'); const t1 = Date.now(); await p.keyboard.press('Enter'); await settle(p); const a2 = await C(p);
+    ok(`${vp} timer: also stops while the camera travels back up`, Date.now() - t1 > 1200 && b2.left - a2.left < 600, `clock moved ${Math.round(b2.left - a2.left)} ms`);
+    await p.waitForTimeout(1200); const s1 = await C(p);
+    ok(`${vp} timer: the ice matches the time left`, Math.abs(s1.ice.fraction - s1.left / s1.total) < 0.02 && s1.ice.length < 16.6 && s1.ice.length > 2.4, `${(s1.ice.fraction * 100).toFixed(1)}% ice, ${(100 * s1.left / s1.total).toFixed(1)}% time`);
+    // Third guess: the question ends in the ordinary way, with time to spare.
+    await guess(p, 'koala'); await waitDone(p);
+    const d = await p.evaluate(() => ({ t: ICEBERG_TEST.state.rounds[0].timeout, best: document.querySelector('#best-name').textContent, aside: document.querySelector('#sum-aside').textContent }));
+    ok(`${vp} timer: three guesses inside the time ends the question normally`, !d.t && d.best === 'axolotl' && !/time ran out/.test(d.aside) && !(await C(p)).on, d.aside);
+    ok(`${vp} timer: no errors`, !p.errs.length, p.errs.join('; '));
+    await p.context().close();
+  }
+
+  // Out of time after one guess, after two, and with none.
+  let p = await timed('desk', 7); await begin(p); await running(p);
+  await guess(p, 'octopus'); await waitDone(p); await p.waitForTimeout(300);
+  let d = await p.evaluate(() => ({ r: ICEBERG_TEST.state.rounds[0], best: document.querySelector('#best-name').textContent, depth: document.querySelector('#best-depth').textContent, aside: document.querySelector('#sum-aside').textContent, snd: window.__snd }));
+  ok('time runs out after one guess: the question ends and that answer is kept and scored', d.r.timeout && d.r.guesses.length === 1 && d.best === 'octopus' && d.depth === '121m' && /time ran out · 2 unused/.test(d.aside), `${d.best} ${d.depth}, ${d.aside}`);
+  ok('last seconds: a water drop each second, then a soft dissolve; no alarm', d.snd.filter(x => x === 'drip').length >= 4 && d.snd.filter(x => x === 'drip').length <= 5 && d.snd.includes('melt') && (await C(p)).ice.melted, d.snd.filter(x => /drip|melt|crack/.test(x)).join(','));
+  await p.click('#next'); await running(p);
+  await guess(p, 'banana'); await guess(p, 'kiwano'); await waitDone(p); await p.waitForTimeout(300);
+  d = await p.evaluate(() => ({ r: ICEBERG_TEST.state.rounds[1], best: document.querySelector('#best-name').textContent, depth: document.querySelector('#best-depth').textContent }));
+  ok('time runs out after two guesses: the deeper of the two is the score', d.r.timeout && d.r.guesses.length === 2 && d.best === 'kiwano' && d.depth === '260m', `${d.best} ${d.depth}`);
+  await p.click('#next'); await running(p); await waitDone(p); await p.waitForTimeout(300);
+  d = await p.evaluate(() => ({ r: ICEBERG_TEST.state.rounds[2], lbl: document.querySelector('#best-lbl').textContent, depth: document.querySelector('#best-depth').textContent, next: !document.querySelector('#next').closest('[hidden]') }));
+  ok('time runs out with no answer: 0 m, said plainly, and the game carries on', d.r.timeout && d.r.guesses.length === 0 && d.lbl === 'Time ran out' && d.depth === '0m' && d.next, `${d.lbl} ${d.depth}`);
+  await p.click('#next'); await running(p);
+  ok('each question starts with its full time', Math.abs((await C(p)).left - 7000) < 500);
+  ok('timed-out questions: no errors', !p.errs.length, p.errs.join('; '));
+  await p.context().close();
+
+  // Urgency is gradual and stays in the palette.
+  p = await timed('desk', 12); await begin(p); await running(p);
+  const cls = () => p.evaluate(() => ({ c: document.querySelector('#melt').className, col: getComputedStyle(document.querySelector('#melt-n')).color, n: +document.querySelector('#melt-n').textContent }));
+  const u0 = await cls(); await p.waitForFunction(() => +document.querySelector('#melt-n').textContent <= 9); const u1 = await cls();
+  await p.waitForFunction(() => +document.querySelector('#melt-n').textContent <= 4); await p.waitForTimeout(650); const u2 = await cls();
+  const redish = c => { const m = c.match(/\d+/g).map(Number); return m[0] > m[2] + 30; };
+  ok('urgency: calm above ten seconds, brighter under ten, a little larger under five; never red', !/low|last/.test(u0.c) && /low/.test(u1.c) && !/last/.test(u1.c) && /last/.test(u2.c) && ![u0, u1, u2].some(x => redish(x.col)), `${u0.c} | ${u1.c} | ${u2.c} ${u2.col}`);
+  ok('a single dry crack marks ten seconds left', (await p.evaluate(() => window.__snd.filter(x => x === 'crack').length)) === 1);
+  await p.context().close();
+
+  // Finishing early stops the clock for good.
+  p = await timed('desk', 6); await begin(p); await running(p); await guess(p, 'octopus'); await p.click('#finish'); await waitDone(p); await p.waitForTimeout(6500);
+  d = await p.evaluate(() => ({ t: ICEBERG_TEST.state.rounds[0].timeout, snd: window.__snd, round: ICEBERG_TEST.state.round }));
+  ok('finish early: the clock stops, nothing times out afterwards', !d.t && !d.snd.includes('melt') && d.round === 0);
+  await p.context().close();
+
+  // A reload never hands time back, and time away from the page still counts.
+  p = await timed('desk', 30); await begin(p); await running(p); await p.waitForTimeout(2500);
+  const r0 = (await C(p)).left;
+  await p.goto(URL + '?test&day=0&time=30'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(400);
+  const r1 = await C(p);
+  ok('reload: the time already used stays used', r1.left < r0 + 50 && r1.left > r0 - 2500 && r1.left < 28000, `${Math.round(r0)} ms before, ${Math.round(r1.left)} ms after`);
+  await p.goto('about:blank'); await p.waitForTimeout(3000);
+  await p.goto(URL + '?test&day=0&time=30'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(300);
+  const r2 = await C(p);
+  ok('closing the page does not stop the clock: three seconds away cost three seconds', r1.left - r2.left > 2800 && r1.left - r2.left < 5500, `${Math.round(r1.left - r2.left)} ms`);
+  // Reload while an answer is on the iceberg: guesses and time both survive.
+  await guess(p, 'octopus'); const r3 = (await C(p)).left; await p.goto(URL + '?test&day=0&time=30'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(400);
+  const r4 = await C(p), st = await S(p);
+  ok('reload mid-question: the guess is still there and the clock picks up', st.n === 1 && r4.on && r4.left <= r3 + 50 && r4.left > r3 - 2500);
+  await p.context().close();
+
+  // An answer still being checked when time runs out is not lost.
+  p = await timed('desk', 4, '&verify=/verify-mock');
+  await p.route('**/verify-mock', async route => { if (route.request().method() !== 'POST') return route.continue(); await new Promise(r => setTimeout(r, 6000)); await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: 'jackalope', status: 'ok', canonical: '', reason: 'ok' }] }) }); });
+  await begin(p); await running(p);
+  await enter(p, 'jackalope'); await p.keyboard.press('Enter'); await waitDone(p);
+  const v0 = await p.evaluate(() => ICEBERG_TEST.state.rounds[0].guesses[0].status);
+  await p.waitForFunction(() => ICEBERG_TEST.state.rounds[0].guesses[0].status === 'ok', null, { timeout: 9000 }); await p.waitForTimeout(500);
+  d = await p.evaluate(() => ({ depth: document.querySelector('#best-depth').textContent, t: ICEBERG_TEST.state.rounds[0].timeout }));
+  ok('slow checking: an answer approved after time ran out still gets its depth', v0 === 'pending' && d.t && d.depth === '52m', `${v0} -> ${d.depth}`);
+  await p.context().close();
+
+  // Sound off, and reduced motion.
+  p = await timed('desk', 6); await p.evaluate(() => Sound.set({ muted: true })); await begin(p); await running(p); await waitDone(p);
+  ok('muted: the timer runs and ends without sound or errors', (await p.evaluate(() => Sound.prefs.muted && ICEBERG_TEST.state.rounds[0].timeout)) && !p.errs.length, p.errs.join('; '));
+  await p.context().close();
+  p = await timed('desk', 6, '', { ctx: { reducedMotion: 'reduce' } }); await begin(p); await running(p); await p.waitForTimeout(2200);
+  const m1 = await C(p); await waitDone(p);
+  ok('reduced motion: the ice still shows the time left (no falling drops), and time still ends the question', Math.abs(m1.ice.fraction - m1.left / m1.total) < 0.03 && m1.ice.drops === 0 && (await p.evaluate(() => ICEBERG_TEST.state.rounds[0].timeout)) && !p.errs.length);
+  await p.context().close();
+
+  // Smoothness with the timer running.
+  p = await timed('phone', 45); await begin(p); await running(p); await p.waitForTimeout(800);
+  const fr = await p.evaluate(() => new Promise(res => { const d = []; let last = performance.now(), n = 0; const f = t => { d.push(t - last); last = t; if (++n < 150) requestAnimationFrame(f); else { d.sort((a, b) => a - b); res({ median: d[75], p95: d[142] }); } }; requestAnimationFrame(f); }));
+  ok('smoothness with the timer running (phone size)', fr.median < 34, `median ${fr.median.toFixed(1)} ms, 95th ${fr.p95.toFixed(1)} ms`);
+  await p.screenshot({ path: 'tests/shot-phone-timer.png' });
+  await p.context().close();
+}
+
 // The name lives in one place and can be previewed without changing the game.
 async function brand(b) {
   let p = await fresh(b, 'desk');
@@ -500,7 +617,7 @@ async function brand(b) {
 (async () => {
   const srv = serve(8782), b = await chromium.launch({ args: ['--autoplay-policy=document-user-activation-required'] });
   const only = process.argv[2];
-  const jobs = { desk: () => fullGame(b, 'desk'), phone: () => fullGame(b, 'phone'), edge: () => edge(b), reload: () => reload(b), review: () => review(b), audio: () => audio(b), timing: () => timing(b), sizes: () => sizes(b), daily: () => daily(b), scene: () => scene(b), perf: () => perf(b), brand: () => brand(b) };
+  const jobs = { desk: () => fullGame(b, 'desk'), phone: () => fullGame(b, 'phone'), edge: () => edge(b), reload: () => reload(b), review: () => review(b), audio: () => audio(b), timing: () => timing(b), sizes: () => sizes(b), daily: () => daily(b), scene: () => scene(b), perf: () => perf(b), brand: () => brand(b), timer: () => timer(b) };
   for (const [k, f] of Object.entries(jobs)) if (!only || only.split(',').includes(k)) { try { await f(); } catch (e) { ok(`${k}: test run completed`, false, e.message.split('\n')[0]); } }
   console.log(R.join('\n')); console.log(`\n${R.length - fails} passed, ${fails} failed`);
   await b.close(); srv.close();

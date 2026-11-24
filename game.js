@@ -11,6 +11,7 @@
 const BACKEND = { url: "", anonKey: "", verifyUrl: "" };
 const LAUNCH = [2026, 11, 24];     // Daily #1: year, month, day. Days change at each player's local midnight.
 const GUESSES = 3;                // per question
+const QUESTION_SECONDS = 45;        // thinking time per question, shared by its three guesses. It stops while an answer is revealed. 0 = no timer
 const FREE_MISSES = 3;            // answers that don't count are free up to this many per question; after that each uses a guess
 const IMAGINARY_PLAYERS = 200;    // early-estimate weight blended with real counts
 const BOARD_MIN_COUNT = 5;        // a rare answer needs this many real players before it's listed (no one-off junk)
@@ -18,6 +19,8 @@ const RANK_MIN_PLAYERS = 30;      // a ranking is only shown once this many real
 const REVIEWED_SHARE = 0.03;      // approved by review but not yet counted: sits in Midwater (52 m), never the maximum
 const PARAMS = new URLSearchParams(location.search);
 const SPEED = PARAMS.has("fast") ? 4 : 1;
+// The automated tests run untimed unless they ask for a clock (?test&time=20).
+const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : QUESTION_SECONDS);
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
 const { depthOf, tierOfDepth } = window.Iceberg;
 const Brand = window.Brand || { name: "Iceberg", noun: "iceberg", slug: "iceberg" }; // brand.js: the game's name, in one place
@@ -116,7 +119,7 @@ const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
 const save = () => { if (state) store.set(saveKey(state), state); };
 function newGame(practice) {
   state = { v: 3, day: dayNumber(), practice, round: 0, phase: "play", finished: false,
-    rounds: CATS.map(c => ({ key: c.key, guesses: [], rejects: [], misses: 0, done: false })) };
+    rounds: CATS.map(c => ({ key: c.key, guesses: [], rejects: [], misses: 0, done: false, left: TIME_MS, at: 0 })) };
   save();
 }
 const cur = () => state.rounds[state.round];
@@ -131,6 +134,7 @@ function show(id) {
   screen = id;
   for (const s of document.querySelectorAll("[data-screen]")) s.hidden = s.dataset.screen !== id;
   Sea.mood(id); Sound.setAmbience(id, 0);
+  if (id !== "play") { clock.on = false; clearInterval(clock.timer); cancelAnimationFrame(clock.raf); }
   document.documentElement.classList.toggle("in-play", id === "play"); // the scene takes the whole window: nothing scrolls behind it
   const playing = !!state && id === "play";
   $("#steps").hidden = !playing;
@@ -158,6 +162,60 @@ function renderHome() {
   };
   clearInterval(nextTimer); tick(); nextTimer = setInterval(tick, 30000);
   state = null; show("home");
+}
+
+// ---------- The clock: one melting icicle per question ----------
+// Time only runs while the player can type a guess. It stops for every reveal and camera move and picks up where it
+// left off, so nobody pays for animation. It is measured against the real clock, so it keeps running if the page is
+// hidden or closed mid-question: looking something up in another tab does not stop it.
+const clock = { on: false, deadline: 0, timer: 0, raf: 0, shown: -1, ice: null };
+const timeLeft = r => clock.on && cur() === r ? Math.max(0, clock.deadline - Date.now()) : Math.max(0, r.left == null ? TIME_MS : r.left);
+function clockDraw() {
+  if (!TIME_MS || !state || screen !== "play") return;
+  const r = cur(), ms = timeLeft(r), secs = Math.ceil(ms / 1000), box = $("#melt");
+  if (!clock.ice) clock.ice = window.IceTimer.create($("#melt-ice"));
+  clock.ice.set(ms / TIME_MS, { paused: !clock.on, urgent: secs <= 5 ? 1 - ms / 5000 : 0 });
+  box.classList.toggle("paused", !clock.on && ms > 0); box.classList.toggle("low", secs <= 10 && ms > 0); box.classList.toggle("last", secs <= 5 && ms > 0); box.classList.toggle("out", ms <= 0);
+  if (secs !== clock.shown) {
+    clock.shown = secs; $("#melt-n").textContent = secs;
+    if (secs % 5 === 0 || secs <= 5) box.setAttribute("aria-label", `Time left: ${secs} second${secs === 1 ? "" : "s"}`);
+  }
+}
+function clockStart() {
+  if (!TIME_MS || !state || screen !== "play" || state.phase !== "play" || clock.on || busy) return;
+  const r = cur(); if (r.done || r.guesses.length >= GUESSES) return;
+  if (r.left == null) r.left = TIME_MS;
+  if (r.left <= 0) { timeUp(); return; }
+  clock.on = true; clock.deadline = Date.now() + r.left; r.at = Date.now(); save();
+  clearInterval(clock.timer); clock.timer = setInterval(clockTick, 200);
+  const frame = () => { if (!clock.on) return; clockDraw(); clock.raf = requestAnimationFrame(frame); };
+  cancelAnimationFrame(clock.raf); clock.raf = requestAnimationFrame(frame);
+  clockDraw();
+}
+function clockStop() {
+  if (!clock.on) return;
+  const r = cur(); r.left = Math.max(0, clock.deadline - Date.now()); r.at = 0;
+  clock.on = false; clearInterval(clock.timer); cancelAnimationFrame(clock.raf); save(); clockDraw();
+}
+function clockTick() {
+  if (!clock.on || !state) return;
+  const r = cur(), ms = Math.max(0, clock.deadline - Date.now()), secs = Math.ceil(ms / 1000);
+  if (secs !== r.sec) {                                   // once a second: remember it, and mark the last few
+    r.sec = secs; r.left = ms; r.at = Date.now(); save();
+    if (secs === 10) Sound.play("crack");
+    if (secs <= 5 && secs >= 1) { Sound.play("drip", { step: 5 - secs }); clock.ice && clock.ice.drip(); const box = $("#melt"); box.classList.remove("beat"); void box.offsetWidth; box.classList.add("beat"); }
+  }
+  if (document.hidden) clockDraw();
+  if (ms <= 0) timeUp();
+}
+// Out of time: the last of the ice goes, and the question ends with whatever has been found.
+function timeUp() {
+  const r = cur(); if (!state || r.done) return;
+  clock.on = false; clearInterval(clock.timer); cancelAnimationFrame(clock.raf);
+  r.left = 0; r.at = 0; r.timeout = true; busy = true; save(); clockDraw();
+  clock.ice && clock.ice.dissolve(); Sound.play("melt");
+  $("#answer").blur(); setHint(bestOf(r) ? `Time's up. Your ${depthOf(bestOf(r).share)} m counts.` : "Time's up.");
+  setTimeout(() => { if (state && cur() === r) { busy = false; finishQuestion(); } }, 1100 / SPEED);
 }
 
 // ---------- A question ----------
@@ -217,8 +275,20 @@ async function startQuestion(animated) {
   // Real counts for this question, if a database is connected. Depths are fixed from what's known when you guess.
   r.stats = null; live.counts(state.day, state.round + 1).then(s => { if (state && cur() === r) { r.stats = s; if (s && s.players) r.players = s.players; } });
   const shown = okGuesses(r);
+  let ready = Promise.resolve();
   if (shown.length || done) { shown.forEach((g, i) => { g.bi = i; }); berg.restore(shown.map(g => bergItem(cat, r, g, r.guesses.indexOf(g) + 1))); tagBest(cat, r); }
-  else berg.enter(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches);
+  else ready = berg.enter(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches) || ready;
+  // The clock. A reload never hands time back: whatever passed while the page was away has gone too.
+  clearInterval(clock.timer); cancelAnimationFrame(clock.raf); clock.on = false; clock.shown = -1;
+  $("#melt").hidden = !TIME_MS;
+  if (TIME_MS && !done) {
+    if (r.left == null) r.left = TIME_MS;
+    if (r.at) { r.left = Math.max(0, r.left - (Date.now() - r.at)); r.at = 0; }
+    if (clock.ice) clock.ice.reset();
+    clockDraw();
+    // It starts once the question is in view and the box is ready.
+    ready.then(() => { if (state && cur() === r && state.phase === "play") clockStart(); });
+  }
   if (done) { renderDone(cat, r); syncFrame(0); return; }
   renderSlots(); syncFrame(0);
   const input = $("#answer"); input.value = "";
@@ -344,7 +414,7 @@ function submit() {
 }
 
 async function reveal(cat, r, g) {
-  busy = true;
+  clockStop(); busy = true;
   const index = r.guesses.indexOf(g), before = okGuesses(r).filter(x => x !== g && x.bi != null), prevBest = before.reduce((b, x) => !b || x.share < b.share ? x : b, null);
   const d = depthOf(g.share), deeper = !prevBest || g.share < prevBest.share, special = d >= 200 && deeper;
   g.bi = berg.count;
@@ -352,7 +422,7 @@ async function reveal(cat, r, g) {
   berg.onTravel((it, dir, ms) => { Sound.play("travel", { dir, seconds: ms / 1000 }); if (special) Sound.play("rare", { lead: ms / 1000 }); if (life) life.calm(ms + 2600); });
   await berg.add(bergItem(cat, r, g, index + 1), { special });
   if (!state || cur() !== r) return;
-  busy = false;
+  busy = false; clockStart();
   // An answer this deep does not go unnoticed. Each of the great squid comes once per question, at its own depth.
   const guest = life && life.encounterFor(d, r.guests || []);
   if (guest) {
@@ -380,7 +450,7 @@ async function reveal(cat, r, g) {
 function afterGuess(special) {
   const r = cur();
   if (r.guesses.length < GUESSES) { $("#answer").focus({ preventScroll: true }); return; }
-  clearTimeout(autoFinish);
+  clearTimeout(autoFinish); clockStop();
   autoFinish = setTimeout(() => { if (state && cur() === r && state.phase === "play") finishQuestion(); }, (special ? 3000 : 1900) / SPEED);
 }
 
@@ -427,6 +497,7 @@ function finishQuestion() {
   const cat = CATS[state.round], r = cur();
   clearTimeout(autoFinish);
   if (r.done) return;
+  clockStop();
   r.done = true; state.phase = "done"; save();
   const best = bestOf(r);
   if (!state.practice) live.record(state.day, state.round + 1, okGuesses(r).map(g => g.name).filter(Boolean), best ? best.name : null, scoreOf(r));
@@ -455,12 +526,12 @@ function boardFor(cat, r) {
 function renderDone(cat, r) {
   const best = bestOf(r), board = boardFor(cat, r), left = GUESSES - r.guesses.length;
   $("#done-q").textContent = `Question ${state.round + 1} of ${CATS.length} · ${cat.prompt || cat.title}`;
-  $("#best-lbl").textContent = best ? "Your deepest" : "No depth this time";
+  $("#best-lbl").textContent = best ? "Your deepest" : r.timeout && !r.guesses.length ? "Time ran out" : "No depth this time";
   $("#best-name").textContent = best ? guessName(cat, best) : "Nothing counted";
   const bd = $("#best-depth"); bd.textContent = ""; bd.append(String(scoreOf(r)), el("small", null, "m"));
   // Your guesses, in the order you made them. Tapping one flies the camera to it.
   const sum = $("#sum"); sum.textContent = "";
-  $("#sum-aside").textContent = okGuesses(r).length > 1 ? "tap one to compare" : left ? `${left} unused` : "";
+  $("#sum-aside").textContent = r.timeout ? `time ran out${left ? ` · ${left} unused` : ""}` : okGuesses(r).length > 1 ? "tap one to compare" : left ? `${left} unused` : "";
   r.guesses.forEach((g, i) => {
     const li = el("li");
     if (g.status === "ok") {
@@ -660,6 +731,7 @@ async function boot() {
     SAMPLE_PLAYERS = day.samplePlayers || index.samplePlayers || SAMPLE_PLAYERS;
   } catch { CATS = []; }
   if (!CATS.length) { $("#home-streak").textContent = "Couldn't load today's questions. Refresh to try again."; show("home"); return; }
+  $("#rules-time").textContent = TIME_MS ? `, ${TIME_MS / 1000} seconds a question` : "";
   if (PARAMS.has("reset")) { store.del("game:" + dayNumber()); store.del("game:practice"); store.del("day:" + dayNumber()); }
 
   $("#entry").onsubmit = e => { e.preventDefault(); submit(); };
@@ -694,7 +766,7 @@ async function boot() {
     window.ICEBERG_TEST = {
       judge: (text, i) => { const j = V.judge(text, prep(CATS[i]), null); return j ? { status: j.status, answer: j.row ? j.row.a : null, via: j.via, reason: j.reason } : null; },
       shareOf: (name, i) => { const row = CATS[i].answers.find(a => a.a === name); return row ? row.s : null; },
-      depthOf, get state() { return state; }, get screen() { return screen; }, get berg() { return berg; }, get busy() { return busy; }, get life() { return life; },
+      depthOf, get clock() { return { on: clock.on, left: state ? timeLeft(cur()) : 0, total: TIME_MS, ice: clock.ice ? { length: clock.ice.length, fraction: clock.ice.fraction, melted: clock.ice.melted, drops: clock.ice.drops } : null }; }, get state() { return state; }, get screen() { return screen; }, get berg() { return berg; }, get busy() { return busy; }, get life() { return life; },
     };
   }
   // Pick up where you left off: a game in progress is never reset by a reload.

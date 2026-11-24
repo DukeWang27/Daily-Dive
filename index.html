@@ -117,16 +117,29 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .q-icon { font-size: 38px; line-height: 1; flex: none; }
 .q-title h2 { font-size: clamp(26px, 2.6vw, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; text-shadow: 0 2px 18px rgba(2, 6, 16, .7); }
 .q-hint { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
-#play-panel { display: grid; gap: 14px; }
-.entry { position: relative; display: flex; }
-#answer { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; padding: 16px 62px 16px 18px; border-radius: 14px; border: 0; background: rgba(3, 8, 20, .7); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--line-2); transition: box-shadow .15s; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-#answer:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 4px rgba(143, 208, 245, .12); }
+#play-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+/* One bar: the melting-ice timer, the box and the button share a single outline. */
+.entry { position: relative; display: flex; align-items: stretch; border-radius: 14px; background: rgba(3, 8, 20, .7); box-shadow: inset 0 0 0 1.5px var(--line-2); transition: box-shadow .15s; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.entry:focus-within { box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 4px rgba(143, 208, 245, .12); }
+#answer { flex: 1; min-width: 0; font-size: 20px; font-weight: 600; padding: 16px 62px 16px 16px; border: 0; border-radius: 14px; background: transparent; color: var(--text); }
+#answer:focus { outline: none; }
 #answer::placeholder { color: var(--faint); font-weight: 500; }
-.entry.shake #answer { animation: shake .28s; }
+.entry.shake { animation: shake .28s; }
 @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 #add { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 10px; border: 0; background: var(--accent); color: #06112a; display: grid; place-items: center; }
 #add svg { width: 22px; height: 22px; }
 #add:active { transform: translateY(-50%) scale(.94); }
+/* The timer: an icicle that melts as the question's time runs down, with the seconds beside it. */
+.melt { flex: none; display: flex; align-items: center; gap: 7px; padding: 0 12px 0 14px; border-right: 1px solid var(--line-2); border-radius: 14px 0 0 14px; position: relative; transition: background .8s; }
+.melt canvas { width: 34px; height: 44px; image-rendering: pixelated; display: block; align-self: flex-start; margin-top: 4px; transition: opacity .3s; }
+.melt-n { min-width: 2ch; text-align: right; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); transition: color .6s, opacity .3s, transform .3s; transform-origin: 100% 50%; }
+.melt.paused canvas { opacity: .7; } .melt.paused .melt-n { opacity: .55; }
+.melt.low .melt-n { color: var(--ice); font-weight: 800; }
+.melt.low { background: linear-gradient(90deg, rgba(143, 208, 245, .1), rgba(143, 208, 245, 0)); }
+.melt.last .melt-n { transform: scale(1.14); text-shadow: 0 0 12px rgba(190, 228, 255, .55); }
+.melt.last { background: linear-gradient(90deg, rgba(190, 228, 255, .16), rgba(143, 208, 245, 0)); }
+.melt.beat .melt-n { animation: beat .5s ease-out; } @keyframes beat { 0% { opacity: .45; } 100% { opacity: 1; } }
+.melt.out .melt-n { color: var(--faint); transform: none; text-shadow: none; }
 .hint { min-height: 21px; margin: -6px 2px -4px; font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
 .hint.warn { color: var(--warn); } .hint.good { color: var(--accent); }
 /* The three guesses: quiet rows divided by hairlines. Empty, waiting, revealed, deepest: each reads at a glance. */
@@ -361,7 +374,8 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
   .q-icon { font-size: 26px; } .q-title { gap: 10px; }
   .q-title h2 { font-size: 20px; }
   #play-panel { gap: 8px; padding: 0 var(--gutter) calc(8px + env(safe-area-inset-bottom, 0px)); }
-  #answer { font-size: 18px; padding: 13px 58px 13px 16px; }
+  #answer { font-size: 18px; padding: 13px 58px 13px 12px; }
+  .melt { gap: 5px; padding: 0 9px 0 11px; } .melt-n { font-size: 15px; } .melt canvas { margin-top: 3px; }
   #add { width: 42px; height: 42px; }
   .hint { margin: -2px 2px 0; font-size: 13px; line-height: 1.35; height: 36px; min-height: 0; align-items: flex-start; overflow: hidden; } /* always two lines tall: nothing below it shifts */
   .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; }
@@ -396,7 +410,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
   .q-title h2 { font-size: 17px; } .q-icon { font-size: 22px; }
   #play-panel { gap: 6px; padding-bottom: 6px; }
   .slot { height: 58px; padding-top: 4px; padding-bottom: 4px; }
-  #answer { padding-top: 10px; padding-bottom: 10px; }
+  #answer { padding-top: 12px; padding-bottom: 12px; }
   .hint { height: 34px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
@@ -429,7 +443,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
     <div>
       <h1 class="wordmark" data-brand="wordmark">Ice<span>berg</span></h1>
       <p class="tagline" data-brand="tagline">Three guesses. <span>How deep can you go?</span></p>
-      <p class="rules">Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts.</p>
+      <p class="rules">Five questions a day, three guesses each<span id="rules-time">, 45 seconds a question</span>. The fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts.</p>
       <ul class="depths" aria-label="Depth zones">
         <li class="tier-tip"><i></i><b>The Tip</b><span>above water · 1 in 10 players or more</span></li>
         <li class="tier-shallows"><i></i><b>Shallows</b><span>0 to 50 m · 1 in 10 to 1 in 30</span></li>
@@ -461,6 +475,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
       </div>
       <div id="play-panel">
         <form class="entry" id="entry" autocomplete="off" novalidate>
+          <div class="melt" id="melt" role="timer" aria-label="Time left" hidden><canvas id="melt-ice" aria-hidden="true"></canvas><span class="melt-n" id="melt-n">45</span></div>
           <label class="sr" for="answer">Your guess</label>
           <input id="answer" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" maxlength="60" placeholder="Type a guess">
           <button id="add" type="submit" aria-label="Submit guess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg></button>
@@ -519,6 +534,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
 <script src="audio.js"></script>
 <script src="validate.js"></script>
 <script src="sea.js"></script>
+<script src="icetimer.js"></script>
 <script src="iceberg.js"></script>
 <script src="wildlife.js"></script>
 <script src="share.js"></script>

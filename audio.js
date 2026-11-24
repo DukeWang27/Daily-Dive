@@ -166,6 +166,19 @@
       tone(g, { f0: 98, f: 73.4, glide: 1.6, t: t + 1.9, gain: 0.06, attack: 0.6, decay: 3, wet: 0.9, lp: 440 });
       bell(g, { f: note(88), t: t + 0.9, gain: 0.02, decay: 2.4, wet: 0.9, bright: 0.4, pan: 0.3 });
     },
+    // The ice timer. A dry little crack when ten seconds are left, a water drop on each of the last five, and a soft
+    // dissolve when the ice is gone. All quiet: urgency by atmosphere, never an alarm.
+    crack(g, t) {
+      noise(g, { t, dur: 0.05, gain: 0.07, type: "bandpass", f: 3200, q: 3, attack: 0.001, wet: 0.25 });
+      noise(g, { t: t + 0.08, dur: 0.035, gain: 0.05, type: "bandpass", f: 4700, q: 4, attack: 0.001, wet: 0.3 });
+      tone(g, { type: "triangle", f: 1900, t, gain: 0.018, attack: 0.001, decay: 0.05, wet: 0.2 });
+    },
+    drip(g, t, o = {}) { const k = o.step || 0; tone(g, { f0: 1280 + k * 70, f: 650 + k * 35, glide: 0.07, t, gain: 0.045 + k * 0.006, attack: 0.002, decay: 0.17, wet: 0.5 }); },
+    melt(g, t) {
+      noise(g, { t, dur: 1.1, gain: 0.045, type: "lowpass", sweep: [2200, 240], attack: 0.05, wet: 0.6 });
+      tone(g, { f0: 520, f: 196, glide: 0.5, t: t + 0.05, gain: 0.055, attack: 0.02, decay: 1.2, wet: 0.6 });
+      bell(g, { f: note(67), t: t + 0.35, gain: 0.03, decay: 1.6, wet: 0.7, bright: 0.4 });
+    },
     round(g, t) { bell(g, { f: note(79), t, gain: 0.08, decay: 1.2, wet: 0.4, bright: 0.7 }); bell(g, { f: note(84), t: t + 0.14, gain: 0.08, decay: 1.6, wet: 0.45, bright: 0.7 }); },
     day(g, t) {
       [72, 76, 79, 84, 86, 91].forEach((n, i) => bell(g, { f: note(n), t: t + i * 0.12, gain: 0.07, decay: 2.2, wet: 0.55, bright: 0.65 }));

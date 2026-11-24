@@ -506,7 +506,7 @@
         return yy > -by + 6 && yy < -by + cv.back.height - 6 && c.x > -bx + 4 && c.x < -bx + cv.back.width - 4;
       };
       if (guests.length) {
-        for (const c of guests) { c.fade = Math.min(1, c.age / (c.hover ? 3 : 0.8), (c.life - c.age) / 3); paint(c); if (!low && !c.sp.big) paint(c, true); }
+        for (const c of guests) { c.fade = Math.min(1, c.age / (c.hover ? 3 : 0.8), (c.life - c.age) / (c.quick ? 0.9 : 3)); paint(c); if (!low && !c.sp.big) paint(c, true); }
         // They pass behind the iceberg: cut its outline back out of the light layer.
         if (!low) for (let cy = 0; cy < cv.lume.height; cy++) { const sp = I.iceSpan(cy - by); if (sp) ctx.lume.clearRect(sp[0] + bx, cy, sp[1] - sp[0], 1); }
       }
@@ -522,9 +522,9 @@
       if (s + 1 >= 24) { seen.set(sp.key, -1); handlers.sight(sp); } else seen.set(sp.key, s + 1);
     }
     function loop(now) {
+      if (cv.back.offsetParent === null) { raf = 0; last = now; return; } // the scene is not on screen: rest until it is seen again
       raf = requestAnimationFrame(loop);
       const v = berg.view;
-      if (cv.back.offsetParent === null) { last = now; return; } // the scene is not on screen (home, results): rest
       if (now - last < (low ? 48 : 31)) return;
       const dt = Math.min(0.1, (now - last) / 1000 || 0.033); last = now;
       if (built !== v.w + "x" + v.u + ":" + low) populate();
@@ -553,6 +553,8 @@
         return e;
       },
       calm(ms) { calmUntil = performance.now() + ms; },
+      // Moving on: any visiting giant slips away into the dark over the next second.
+      dismiss() { for (const c of guests) { c.life = Math.min(c.life, c.age + 0.9); c.quick = true; } },
       setLow(v) { low = !!v; auto = true; populate(); draw(); },
       get low() { return low; },
       onSight(f) { handlers.sight = f; },
@@ -566,6 +568,7 @@
     };
     populate();
     if (reduce) draw(); else raf = requestAnimationFrame(loop);
+    if (!reduce) new IntersectionObserver(e => { if (e.some(x => x.isIntersecting) && !raf) { last = performance.now(); raf = requestAnimationFrame(loop); } }).observe(cv.back);
     document.addEventListener("visibilitychange", () => { last = performance.now(); });
     return api;
   }

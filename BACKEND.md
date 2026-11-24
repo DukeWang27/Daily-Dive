@@ -21,7 +21,7 @@ It takes about half an hour. Nothing here needs code beyond pasting two values i
 
 **Be clear about what has and hasn't been tested.** The database rules in `supabase/` were tested on a real
 PostgreSQL database, and the game was tested against it through a local stand-in for Supabase's web service. No
-real Supabase project was available, so Supabase's own sign-in service (sending emails, Google, real sessions) has
+real Supabase project was available, so Supabase's own sign-in service (sending emails, real sessions) has
 not been tried. Follow the steps, then run the short check at the end before telling anyone it's open.
 
 ## 1. Make the project
@@ -65,24 +65,44 @@ Email links (confirming an address, resetting a password) send the player back t
 
 ## 4. Email sign-in
 
-Email and password sign-in is on by default. Two decisions:
+Players sign up with an email address and a password. Any address works, Gmail included. This is the only way to
+sign in at launch (see section 5).
 
-- **Confirm email** (Authentication → Providers → Email). On: a new player must click a link in an email before
-  their first sign-in; the game tells them to check their inbox. Off: they're in at once. On is safer against junk
-  accounts.
-- **Sending email.** Supabase's built-in sender only allows a handful of emails an hour and is meant for testing.
-  Before real players arrive, connect your own sender under **Authentication → Emails → SMTP Settings** (Resend,
-  Postmark and SendGrid all have free tiers). Without it, sign-ups and password resets will start failing as soon
-  as a few people try at once.
+**How the live project is set up (checked 24 November 2026):** email sign-up on; **Confirm email off**, so a new
+player is signed in at once; **no email service connected**, so Supabase's built-in sender is used, which allows
+**2 emails an hour** for the whole project; redirect addresses point at the live site.
 
-## 5. Google sign-in (optional)
+What that means in practice: signing up and signing in work for everyone. **Password-reset emails will fail once
+more than two are asked for in an hour**, and nobody's email address is verified. Before telling many people about
+the game:
+
+1. **Connect an email service:** Authentication → Emails → SMTP Settings. Resend, Postmark, Brevo and SendGrid
+   all have free tiers. You need the service's SMTP host, port, username, password and a sender address on a
+   domain you control.
+2. **Then turn Confirm email on:** Authentication → Providers → Email. The game already handles it: after
+   signing up, players see "Check your email" with their address, a button to send the link again (once a
+   minute) and a way back; when they follow the link they come straight back signed in, see "Email confirmed",
+   and are asked for a username.
+3. **Raise the email rate limit** to suit (Authentication → Rate Limits) once your own service is connected.
+
+What players see when something goes wrong is always one plain sentence (wrong email or password, an address
+that can't be used, a password that's too short, too many tries, no connection, the session ran out), never a
+technical message. The page never says whether someone else's email has an account.
+
+## 5. Google sign-in (postponed)
+
+Not offered at launch: email accounts cover everyone, and there is nothing to set up. Nothing about Google appears
+anywhere in the game. If you add it later:
 
 1. In Google Cloud Console create an **OAuth client ID** (type: Web application). Under *Authorised redirect
    URIs* add `https://YOUR-PROJECT.supabase.co/auth/v1/callback`.
 2. In Supabase: **Authentication → Providers → Google**, switch it on and paste the client ID and secret.
-3. In `game.js`, set `google: true` on the `BACKEND` line. The "Continue with Google" button is hidden until you do.
+3. In `game.js`, add it to the `BACKEND` line: `providers: ["google"]`. That is the only change the game needs;
+   the code to sign in with a provider (`Account.signInWith`) is already there, but no button is drawn while the
+   list is empty. Put the button in the account screen in `social.js` (`authView`).
 
-A Google sign-in has no username yet, so the game asks for one before anything else.
+A Google sign-in has no username yet, so the game asks for one before anything else. Existing email accounts
+are unaffected either way.
 
 ## 6. Connect the game
 
@@ -90,7 +110,7 @@ A Google sign-in has no username yet, so the game asks for one before anything e
 top of `game.js`:
 
 ```js
-const BACKEND = { url: "https://YOUR-PROJECT.supabase.co", anonKey: "YOUR-ANON-KEY", google: false, verifyUrl: "" };
+const BACKEND = { url: "https://YOUR-PROJECT.supabase.co", anonKey: "YOUR-ANON-KEY", providers: [], verifyUrl: "" };
 ```
 
 Commit and push; Vercel redeploys on its own.
@@ -177,7 +197,8 @@ alive until the end of the day after your last dive.
 
 1. **Load the race and the answer check onto the live project** (step 2, files 2 to 7), then try a race between
    two real accounts on two devices. The race has only been tested against a local copy of the database.
-2. **Email sending** (section 4) and, if wanted, **Google** (section 5).
+2. **Email sending** (section 4): connect an email service, then turn Confirm email on. Until then password
+   resets are limited to 2 emails an hour for everyone.
 3. **Privacy.** A privacy page is published (`privacy.html`). There is deliberately no age check at sign-up. Whether
    that is enough where you are (for example, rules about collecting details from under-13s) is a legal question,
    not a technical one.

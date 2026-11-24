@@ -9,9 +9,10 @@
 // answers stay "pending".
 //   url + anonKey: a Supabase project (see BACKEND.md) for accounts, friends, rankings and real player counts.
 //                  The anon key is the project's PUBLIC key. Never put the service-role key or any secret here.
-//   google: true once "Continue with Google" has been set up in Supabase (BACKEND.md, step 5). It shows the button.
+//   providers: other ways to sign in besides email and password, e.g. ["google"]. None at launch: players sign up
+//              with any email address (Gmail included). See BACKEND.md, "Google sign-in (postponed)".
 //   verifyUrl: an endpoint that reviews unknown answers (see api/verify.js).
-const BACKEND = { url: "https://lrubyctrjrkzbbshlois.supabase.co", anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxydWJ5Y3RyanJremJic2hsb2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NDAzODMsImV4cCI6MjExMTExNjM4M30.fHMwQT9ioTTmlrrC9PZku2brxuqffvGQ8kv7JohTinY", google: false, verifyUrl: "" };
+const BACKEND = { url: "https://lrubyctrjrkzbbshlois.supabase.co", anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxydWJ5Y3RyanJremJic2hsb2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1NDAzODMsImV4cCI6MjExMTExNjM4M30.fHMwQT9ioTTmlrrC9PZku2brxuqffvGQ8kv7JohTinY", providers: [], verifyUrl: "" };
 const LAUNCH = [2026, 11, 24];     // Daily #1: year, month, day. Days change at each player's local midnight.
 const GUESSES = 3;                // per question
 const QUESTION_SECONDS = 20;        // thinking time per question, shared by its three guesses. It stops while an answer is revealed. 0 = no timer
@@ -27,7 +28,7 @@ const SPEED = PARAMS.has("fast") ? 4 : 1;
 const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : QUESTION_SECONDS);
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
 // Automated tests never touch the live database: with ?test the game uses only the stand-in it is given (or none).
-if (PARAMS.has("test")) { BACKEND.url = PARAMS.get("api") || ""; BACKEND.anonKey = PARAMS.get("api") ? PARAMS.get("key") || "" : ""; BACKEND.google = !!PARAMS.get("api"); }
+if (PARAMS.has("test")) { BACKEND.url = PARAMS.get("api") || ""; BACKEND.anonKey = PARAMS.get("api") ? PARAMS.get("key") || "" : ""; BACKEND.providers = PARAMS.get("providers") ? PARAMS.get("providers").split(",") : []; }
 if (PARAMS.has("test") && /^\d{4}-\d\d-\d\d$/.test(PARAMS.get("launch") || "")) { const d = PARAMS.get("launch").split("-").map(Number); LAUNCH[0] = d[0]; LAUNCH[1] = d[1]; LAUNCH[2] = d[2]; }
 const { depthOf, tierOfDepth } = window.Iceberg;
 const Brand = window.Brand || { name: "Iceberg", noun: "iceberg", slug: "iceberg" }; // brand.js: the game's name, in one place
@@ -116,6 +117,8 @@ async function requestReview(cat, texts) {
 const shareOf = row => row.s;
 
 // ---------- State (saved after every change, so a reload never resets a question) ----------
+// Run something when the browser has a quiet moment (falls back to a short timeout where that isn't available).
+const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 1500 }) : setTimeout(f, 60));
 let CATS = [], state = null, berg = null, life = null, cameFrom = "home", screen = "home", busy = false, unknownKey = "", autoFinish = 0;
 const prepared = new Map();
 const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
@@ -219,7 +222,7 @@ function timeUp() {
   r.left = 0; r.at = 0; r.timeout = true; busy = true; save(); clockDraw();
   clock.ice && clock.ice.dissolve(); Sound.play("melt");
   $("#answer").blur(); setHint(bestOf(r) ? `Time's up. Your ${depthOf(bestOf(r).share)} m counts.` : "Time's up.");
-  setTimeout(() => { if (state && cur() === r) { busy = false; finishQuestion(); } }, 1100 / SPEED);
+  setTimeout(() => { if (state && cur() === r) { busy = false; finishQuestion(); } }, 750 / SPEED);   // the last of the ice dissolving
 }
 
 // ---------- A question ----------
@@ -261,10 +264,11 @@ function logSighting(r, key) {
 }
 function setHint(text, kind) { const h = $("#hint"); h.className = "hint" + (kind ? " " + kind : ""); h.textContent = text || ""; }
 
+// animated: true for the first question (the push in to the tip), "surface" between questions (rise to the tip).
 async function startQuestion(animated) {
-  const cat = CATS[state.round], r = cur();
+  const cat = CATS[state.round], r = cur(), rising = animated === "surface" && berg && berg.count > 0 && screen === "play";
   ensureBerg(); prep(cat); // build the lookup now, so the first guess is judged instantly
-  clearTimeout(autoFinish); busy = false; unknownKey = "";
+  clearTimeout(autoFinish); busy = false; unknownKey = ""; queued = false;
   $("#q-num").textContent = `Question ${state.round + 1} of ${CATS.length}`;
   Icons.put($("#q-icon"), cat.icon);
   $("#q-title").textContent = cat.prompt || cat.title;
@@ -272,15 +276,18 @@ async function startQuestion(animated) {
   setHint("");
   const done = state.phase === "done";
   $('[data-screen="play"]').classList.toggle("playing", !done); $('[data-screen="play"]').classList.toggle("done", done);
-  $("#done-panel").hidden = !done;
-  show("play");
-  syncFrame(0);
-  if (life) life.reset(state.day * 10 + state.round + 1);
+  if (rising) { const d = $("#done-panel"); d.classList.add("leaving"); setTimeout(() => { d.hidden = true; d.classList.remove("leaving"); }, 220); }
+  else $("#done-panel").hidden = !done;
+  if (!rising) { show("play"); syncFrame(0); } else updateHeader();
+  // The water stays as it is between questions: the deep animals pass out of view above as the camera rises and the
+  // shallow ones come into it. A visiting giant leaves. A fresh start (or a reload) fills the water anew.
+  if (life) { if (rising) life.dismiss(); else life.reset(state.day * 10 + state.round + 1); }
   // Real counts for this question, if a database is connected. Depths are fixed from what's known when you guess.
   r.stats = null;
   const shown = okGuesses(r);
   let ready = Promise.resolve();
   if (shown.length || done) { shown.forEach((g, i) => { g.bi = i; }); berg.restore(shown.map(g => bergItem(cat, r, g, r.guesses.indexOf(g) + 1))); tagBest(cat, r); }
+  else if (rising) ready = berg.surface(sceneFrame());
   else ready = berg.enter(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches) || ready;
   // The clock. A reload never hands time back: whatever passed while the page was away has gone too.
   clearInterval(clock.timer); cancelAnimationFrame(clock.raf); clock.on = false; clock.shown = -1;
@@ -293,13 +300,16 @@ async function startQuestion(animated) {
     // It starts once the question is in view and the box is ready.
     ready.then(() => { if (state && cur() === r && state.phase === "play") clockStart(); });
   }
-  if (done) { renderDone(cat, r); syncFrame(0); return; }
-  renderSlots(); syncFrame(0);
+  if (done) { renderDone(cat, r); syncFrame(0); return ready; }
+  renderSlots(); if (!rising) syncFrame(0);
   const input = $("#answer"); input.value = "";
   if (animated) Sound.play("question");
   input.focus({ preventScroll: true });
+  // While this question is being played, get the next one's answer lookup ready (it is already on this device).
+  idle(() => { if (state && CATS[state.round + 1]) prep(CATS[state.round + 1]); });
   // A reload after the last guess landed but before the results appeared: carry on to the results.
   if (r.guesses.length >= GUESSES) finishQuestion();
+  return ready;
 }
 function tagBest(cat, r) {
   const b = bestOf(r);
@@ -358,8 +368,10 @@ function rankText(cat, r, share) {
 }
 
 // Everything a guess can turn out to be is decided here, in the browser, at once.
+let queued = false;   // a guess typed and sent while the last one was still travelling: it goes in as soon as that lands
 function submit() {
-  if (!state || screen !== "play" || state.phase !== "play" || busy) return; // a guess is mid-reveal: ignore extra presses
+  if (state && screen === "play" && state.phase === "play" && busy) { if ($("#answer").value.trim() && cur().guesses.length < GUESSES) { queued = true; berg.hurry(); } return; }
+  if (!state || screen !== "play" || state.phase !== "play" || busy) return;
   const input = $("#answer"), form = $("#entry"), cat = CATS[state.round], r = cur(), P = prep(cat);
   if (document.activeElement !== input) input.focus({ preventScroll: true });
   const text = input.value.trim();
@@ -452,14 +464,18 @@ async function reveal(cat, r, g) {
     else if (deeper) { if (!special) Sound.play("deeper", { depth: Math.min(1, d / 260), m: d }); setHint(`${counted}New deepest: ${d} m, ${d - depthOf(prevBest.share)} m further down.${more}`, "good"); }
     else { Sound.play("neutral"); setHint(counted + (g.share === prevBest.share ? `Level with your deepest (${depthOf(prevBest.share)} m).` : `Not deeper. Your ${depthOf(prevBest.share)} m still counts.`) + more); }
   }, 260 / SPEED);
-  afterGuess(special);
+  afterGuess(special, beneath);
+  if (queued) { queued = false; if (r.guesses.length < GUESSES) setTimeout(submit, 0); }
 }
 // After any guess that used a slot: carry on, or wrap the question up once all three are used.
-function afterGuess(special) {
+// The results follow the last answer as soon as it has landed and its annotation has drawn: a short beat for an
+// ordinary answer, a little longer for a rare one and for one beneath the iceberg, so the find gets its moment.
+// Enter (or a tap on the scene) moves on at once.
+function afterGuess(special, beneath) {
   const r = cur();
   if (r.guesses.length < GUESSES) { $("#answer").focus({ preventScroll: true }); return; }
   clearTimeout(autoFinish); clockStop();
-  autoFinish = setTimeout(() => { if (state && cur() === r && state.phase === "play") finishQuestion(); }, (special ? 3000 : 1900) / SPEED);
+  autoFinish = setTimeout(() => { if (state && cur() === r && state.phase === "play") finishQuestion(); }, (beneath ? 1400 : special ? 800 : 380) / SPEED);
 }
 
 // Ask the review service about one unknown guess (only if one is configured). The guess already holds its slot.
@@ -498,6 +514,16 @@ function recheckPending() {
     const cat = CATS[i], j = V.judge(g.typed, prep(cat), null);
     if (j && j.status === "ok") applyVerdict(cat, r, g, "ok", j.row || null); else if (j && j.status === "invalid") applyVerdict(cat, r, g, "invalid", null, j.reason);
   }));
+}
+
+// On to the next question. Starts at once; a second press while it is under way does nothing.
+let moving = false;
+function nextQuestion() {
+  if (!state || state.phase !== "done" || moving) return;
+  state.round++; state.phase = "play"; save();
+  if (state.round >= CATS.length) { finishDay(); return; }
+  moving = true; Sound.play("click");
+  startQuestion("surface").finally(() => { moving = false; });
 }
 
 // ---------- After the question: your dive, then everyone's answers ----------
@@ -828,12 +854,14 @@ async function boot() {
   try {
     const index = await (await fetch("days/index.json")).json();
     const n = PARAMS.has("test") && PARAMS.has("day") ? +PARAMS.get("day") : ((dayNumber() - 1) % index.count) + 1;
-    const [day, words] = await Promise.all([fetch(`days/${n}.json`).then(r => r.json()), fetch("words.json").then(r => r.json()).catch(() => null)]);
+    // The common-word list only sharpens the typo check, so the game doesn't wait for it.
+    fetch("words.json").then(r => r.json()).then(words => { if (words && words.commonWords) V.setCommonWords(words.commonWords); }).catch(() => {});
+    const day = await fetch(`days/${n}.json`).then(r => r.json());
     CATS = day.questions || []; DAY_COUNT = index.count || 1;
-    if (words && words.commonWords) V.setCommonWords(words.commonWords);
     SAMPLE_PLAYERS = day.samplePlayers || index.samplePlayers || SAMPLE_PLAYERS;
   } catch { CATS = []; }
-  if (!CATS.length) { $("#home-streak").textContent = "Couldn't load today's questions. Refresh to try again."; show("home"); return; }
+  if (!CATS.length) { $("#play").textContent = "Couldn't load today's questions"; $("#home-streak").textContent = "Check your connection, then refresh the page to try again."; show("home"); return; }
+  { const b = $("#play"); b.disabled = false; b.classList.remove("busy"); b.removeAttribute("aria-busy"); }   // ready: Play works from here
   $("#rules-time").textContent = TIME_MS ? `, ${TIME_MS / 1000} seconds a question` : "";
   if (PARAMS.has("reset")) { store.del("game:" + dayNumber()); store.del("game:practice"); store.del("day:" + dayNumber()); }
 
@@ -841,7 +869,7 @@ async function boot() {
   $("#add").onpointerdown = e => e.preventDefault(); // tapping the button never takes focus (or the phone keyboard) away
   $("#answer").oninput = () => { if (unknownKey && V.normalize($("#answer").value) !== unknownKey) { unknownKey = ""; setHint(""); } };
   $("#finish").onclick = () => { if (!busy) finishQuestion(); };
-  $("#next").onclick = () => { if (!state) return; state.round++; state.phase = "play"; save(); if (state.round < CATS.length) startQuestion(true); else finishDay(); };
+  $("#next").onclick = nextQuestion;
   $("#play").onclick = () => {
     const today = todayResult();
     if (today) { state = null; return renderEnd(today, false, false); }
@@ -860,7 +888,12 @@ async function boot() {
     setTimeout(() => { $("#copy").textContent = "Copy text"; }, 2000);
   };
   // Keys after a question: arrows step through your guesses, Enter moves on.
+  // Skipping: during a long reveal, Enter, Space or Escape (or a tap on the water) brings it to its end quickly.
+  const hurry = () => { if (berg && screen === "play" && state && busy) berg.hurry(); };
+  $("#ib").addEventListener("pointerdown", e => { if (!e.target.closest("button")) hurry(); });
   document.addEventListener("keydown", e => {
+    if (screen === "play" && state && state.phase === "play" && busy && ["Enter", " ", "Escape"].includes(e.key) && !(e.key === " " && e.target.closest("input"))) { hurry(); if (e.key !== "Enter") e.preventDefault(); }
+    if (screen === "play" && state && state.phase === "play" && e.key === "Enter" && !busy && cur().guesses.length >= GUESSES) { e.preventDefault(); finishQuestion(); return; }
     if (screen !== "play" || !state || state.phase !== "done" || e.target.closest("input, button, summary")) return;
     if (e.key === "ArrowDown") { e.preventDefault(); berg.step(1); }
     else if (e.key === "ArrowUp") { e.preventDefault(); berg.step(-1); }
@@ -897,5 +930,9 @@ async function boot() {
     return;
   }
   renderHome();
+  // While the home screen is up and nothing else is happening, build the scene and work out the sound's raw
+  // material, so pressing Play doesn't have to wait for either.
+  idle(() => { if (screen === "home") ensureBerg(); });
+  idle(() => Sound.prepare && Sound.prepare());
 }
 boot();

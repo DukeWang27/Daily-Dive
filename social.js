@@ -13,8 +13,15 @@
     for (const k of kids.flat()) if (k != null && k !== false) n.append(k);
     return n;
   }
+  // Add children to a node, skipping nothing-values: the browser's own append() would print null as "null".
+  const add = (node, ...kids) => { for (const k of kids.flat()) if (k != null && k !== false && k !== "") node.append(k); return node; };
   const ICON = {
     person: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 15.5 7 12 10.5 8.5 7z"/><path d="M4.5 20c.6-4 3.6-6 7.5-6s6.900 2 7.500 6"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><path d="M12 9.5 14.5 12 12 14.5 9.5 12z"/></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5c2 0 3.7.7 5 1.6M21.5 12s-3.5 6.5-9.5 6.5c-2 0-3.7-.7-5-1.6"/><path d="M4 20 20 4"/></svg>',
+    mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="1.5"/><path d="m3.5 7 8.5 6.5L20.5 7"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 21 12 12 21 3 12z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 21 12 12 21 3 12z"/><path d="M12 8v5M12 16h.01"/></svg>',
     lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   };
   const fmt = n => Number(n).toLocaleString("en-US"), m = n => `${fmt(n)} m`;
@@ -52,16 +59,17 @@
     const tab = (id, label, n) => h("button", { type: "button", "aria-current": cur === id ? "page" : null, onclick: () => go(id) }, label, n ? h("span.n", String(n)) : null);
     const list = [tab("log", "Dive log")];
     if (st !== "off") list.push(tab("friends", "Friends", reqs), tab("ranks", "Rankings"), st === "in" ? tab("settings", "Settings") : tab("account", st === "new" ? "Finish signing up" : "Sign in"));
-    const nav = $("#hub-tabs"); nav.textContent = ""; nav.append(...list);
+    const nav = $("#hub-tabs"); nav.textContent = ""; add(nav, ...list);
     const flag = $("#hub-demo"); flag.hidden = !(A && A.demo);
-    if (!flag.hidden && !flag.querySelector("button")) flag.append(" ", h("button.link", { type: "button", onclick: () => G().demo.set(false) }, "Leave the demonstration"));
+    if (!flag.hidden && !flag.querySelector("button")) add(flag, " ", h("button.link", { type: "button", onclick: () => G().demo.set(false) }, "Leave the demonstration"));
   }
   function render() {
     if (G().screen !== "hub") return;
+    if (A && A.takeArrival && A.takeArrival() === "signup" && A.state !== "off") setTimeout(() => toast("Email confirmed. Welcome aboard."), 0);
     tabs(); const mine = ++token, box = body(); box.textContent = ""; window.scrollTo(0, 0);
     const st = A ? A.state : "off", v = route.view;
     const view = v === "account" ? account : st === "new" ? account : v === "u" ? t => log(route.a, t) : v === "friends" ? friends : v === "ranks" ? ranks : v === "settings" ? settings : t => log(null, t);
-    Promise.resolve(view(mine)).catch(e => { if (mine === token) { box.textContent = ""; box.append(h("p.note-line", e.message || "Something went wrong."), h("button.btn.ghost.small", { type: "button", onclick: render }, "Try again")); } });
+    Promise.resolve(view(mine)).catch(e => { if (mine === token) { box.textContent = ""; add(box, h("p.note-line", e.message || "Something went wrong."), h("button.btn.ghost.small", { type: "button", onclick: render }, "Try again")); } });
   }
   const stale = t => t !== token;
   const wait = () => { body().append(h("p.note-line.wait", "Loading…")); };
@@ -69,7 +77,7 @@
   async function act(btn, fn, after) {
     if (btn) btn.disabled = true;
     try { await fn(); await A.refresh(); if (after) after(); else render(); }
-    catch (e) { if (btn) { btn.disabled = false; const row = btn.closest("li, .row, form") || btn.parentNode; let msg = row.querySelector(".msg"); if (!msg) { msg = h("span.msg.bad"); row.append(msg); } msg.textContent = e.message; } }
+    catch (e) { if (btn) { btn.disabled = false; const row = btn.closest("li, .row, form") || btn.parentNode; let msg = row.querySelector(".msg"); if (!msg) { msg = h("span.msg.bad"); add(row, msg); } msg.textContent = e.message; } }
   }
 
   // ---------- The dive log: a profile, and the calendar ----------
@@ -90,20 +98,20 @@
       const d = byDay.get(day), dt = game.dateOf(day);
       detail.textContent = ""; detail.className = "cal-day" + (d ? " has" : "");
       const head = h("div.cd-head", h("b", dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: dt.getFullYear() === end.getFullYear() ? undefined : "numeric" })), h("span", `Daily #${day}`));
-      if (!d) { head.append(h("span.cd-state", day > today ? "not yet" : day === today ? "not finished yet" : "no dive")); detail.append(head); return; }
-      if (d.max_depth >= BENEATH) head.append(h("span.cd-beyond", "Unfathomable find")); else if (d.max_depth >= RARE_FIND) head.append(h("span.cd-abyss", "Rare find"));
+      if (!d) { add(head, h("span.cd-state", day > today ? "not yet" : day === today ? "not finished yet" : "no dive")); add(detail, head); return; }
+      if (d.max_depth >= BENEATH) add(head, h("span.cd-beyond", "Unfathomable find")); else if (d.max_depth >= RARE_FIND) add(head, h("span.cd-abyss", "Rare find"));
       const facts = h("div.cd-facts",
         h("span", h("b", m(d.total)), "total"),
         h("span", "deepest", h("b", m(d.max_depth)), d.deepest_answer ? h("i", `(${d.deepest_answer})`) : null),
         d.rank && d.players ? h("span", h("b", `#${fmt(d.rank)}`), `of ${fmt(d.players)}${d.ranked === false ? " (unlisted)" : ""}`) : null,
         run.get(day) > 1 ? h("span", h("b", `day ${run.get(day)}`), "of a streak") : null);
-      detail.append(head, facts);
-      if (opts.open && opts.open(d)) detail.append(h("button.link", { type: "button", onclick: () => opts.open(d)() }, "Open this dive"));
+      add(detail, head, facts);
+      if (opts.open && opts.open(d)) add(detail, h("button.link", { type: "button", onclick: () => opts.open(d)() }, "Open this dive"));
     };
     for (let w = 0; w < 53; w++) {
       const first = new Date(startCol); first.setDate(startCol.getDate() + w * 7);
       const label = h("span.m"); for (let k = 0; k < 7; k++) { const dt = new Date(first); dt.setDate(first.getDate() + k); if (dt.getDate() === 1 && dt.getMonth() !== lastMonth) { label.textContent = dt.toLocaleDateString("en-US", { month: "short" }); lastMonth = dt.getMonth(); } }
-      grid.append(label);
+      add(grid, label);
       for (let k = 0; k < 7; k++) {
         const dt = new Date(first); dt.setDate(first.getDate() + k);
         const day = Math.round((dt - game.dateOf(1)) / 86400000) + 1, d = byDay.get(day);
@@ -111,14 +119,14 @@
         const state = day < 1 ? "" : day > today ? "not yet" : d ? `${m(d.total)}${d.max_depth >= BENEATH ? ", with an Unfathomable find" : d.max_depth >= RARE_FIND ? `, with a ${RARE_FIND} m+ find` : ""}` : day === today ? "not finished yet" : "no dive";
         const cell = h("button." + cls.replace(/ /g, ".") + (day === today ? ".today" : ""), { type: "button", tabIndex: day < 1 ? -1 : 0, disabled: day < 1, "aria-label": day < 1 ? null : `${dt.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}: ${state}`, "data-day": day });
         if (day >= 1) { cell.onclick = () => pick(day, cell); cell.onmouseenter = () => { if (matchMedia("(hover: hover)").matches) pick(day, cell); }; }
-        grid.append(cell);
+        add(grid, cell);
         if (day === (opts.select || today)) setTimeout(() => pick(day, cell), 0);
       }
     }
     // Today's square fills in, once, the first time the log is opened after finishing.
     const doneToday = byDay.has(today), seenKey = "cal-filled:" + (opts.who || "me");
     if (doneToday && opts.own && game.store.get(seenKey, 0) !== today) { const c = grid.querySelector("button.today"); if (c) { c.classList.add("fill-in"); game.store.set(seenKey, today); if (window.Sound) setTimeout(() => window.Sound.play("fill"), 350); } }
-    scroller.append(grid); setTimeout(() => { scroller.scrollLeft = scroller.scrollWidth; }, 0);
+    add(scroller, grid); setTimeout(() => { scroller.scrollLeft = scroller.scrollWidth; }, 0);
     const weekdays = h("div.cal-dow", { "aria-hidden": "true" }, h("span"), ...["", "Mon", "", "Wed", "", "Fri", ""].map(x => h("span", x)));
     const year = days.filter(d => d.day > today - 371), abyss = year.filter(d => d.max_depth >= RARE_FIND).length;
     const top = h("div.cal-top", h("span", h("b", fmt(year.length)), year.length === 1 ? " dive in the last year" : " dives in the last year"), abyss ? h("span", h("b", fmt(abyss)), ` with a rare find (${RARE_FIND} m+)`) : null);
@@ -151,31 +159,31 @@
     if (st === "in") { wait(); p = await A.rpc("profile_of", { p_username: own ? A.profile.username : username }); if (stale(t)) return; box.textContent = ""; days = p.calendar; stats = p.stats; if (own) stats.streak = game.streak().count; }
     else { const l = localLog(); days = l.days; stats = l.stats; }
     const openDay = d => (own || (p && p.can_explore)) ? () => go("dive", own ? (st === "in" ? A.profile.username : "me") : p.username, d.day) : null;
-    box.append(h("div.who", avatar(p ? p.avatar : "dumbo", "big"), h("div", h("p.eyebrow", own ? "Your dive log" : "Dive log"), h("h2.title", p ? p.username : "Guest"),
+    add(box, h("div.who", avatar(p ? p.avatar : "dumbo", "big"), h("div", h("p.eyebrow", own ? "Your dive log" : "Dive log"), h("h2.title", p ? p.username : "Guest"),
       h("p.note-line", p ? `Diving since ${G().dateOf(1) && new Date(p.since).toLocaleDateString("en-US", { month: "long", year: "numeric" })}` : "Kept on this device only."))));
-    if (!own) box.append(relationRow(p));
-    box.append(statsGrid(stats, own));
+    if (!own) add(box, relationRow(p));
+    add(box, statsGrid(stats, own));
     // Submarine races: a record of their own, never mixed into the daily numbers above.
     if (st === "in" && (own || p.relation === "friend")) {
-      const races = h("p.r-record"); box.append(races);
+      const races = h("p.r-record"); add(box, races);
       A.rpc("race_record", { p_username: p.username }).then(r => { if (stale(t)) return; if (!r.races) { races.remove(); return; }
-        races.append(h("span", "Submarine races "), h("span", h("b", String(r.races)), r.races === 1 ? " race" : " races"), h("span", h("b", String(r.wins)), r.wins === 1 ? " win" : " wins"), h("span", "furthest ", h("b", `${Number(r.best).toLocaleString("en-US")} m`))); }).catch(() => races.remove());
+        add(races, h("span", "Submarine races "), h("span", h("b", String(r.races)), r.races === 1 ? " race" : " races"), h("span", h("b", String(r.wins)), r.wins === 1 ? " win" : " wins"), h("span", "furthest ", h("b", `${Number(r.best).toLocaleString("en-US")} m`))); }).catch(() => races.remove());
     }
-    if (days) box.append(h("div.section", h("h3", "Calendar"), calendar(days, { open: openDay, own, who: p ? p.username : "guest" })), h("div.section", h("h3", own ? "Recent dives" : "Their recent dives"), recent(days, openDay, own)));
-    else box.append(h("p.note-line", p.relation === "friend" ? `${p.username} keeps their calendar private.` : "Friends can see each other's calendar and dives."));
-    if (own && st === "in") box.append(h("div.row", h("button.btn.ghost.small", { type: "button", onclick: () => go("friends") }, plural(+p.friends || 0, "friend")), h("button.btn.ghost.small", { type: "button", onclick: () => go("ranks") }, "Today's rankings")));
-    if (own && st === "off" && G().demo && G().demo.offered) box.append(h("div.invite", h("p", h("b", "Friends, rankings and accounts "), "need the game's database, which isn't connected to this copy. You can still see how they look."), h("button.btn.small.ghost", { type: "button", onclick: () => G().demo.set(true) }, "Preview with demonstration data")));
-    if (own && st === "out") box.append(h("div.invite", h("p", h("b", "Keep this log. "), "With a free account your streak and dives follow you to any device, and you can add friends and join the daily rankings."), h("button.btn.small", { type: "button", onclick: () => go("account") }, "Create an account")));
-    if (!own && p.can_explore) { const today = game.today(), theirs = (days || []).find(d => d.day === today); if (theirs) box.append(h("div.row", h("button.btn.small", { type: "button", onclick: () => go("dive", p.username, today) }, "Explore today's dive"), h("button.btn.ghost.small", { type: "button", onclick: () => go("vs", p.username, today) }, "Compare with mine"))); }
+    if (days) add(box, h("div.section", h("h3", "Calendar"), calendar(days, { open: openDay, own, who: p ? p.username : "guest" })), h("div.section", h("h3", own ? "Recent dives" : "Their recent dives"), recent(days, openDay, own)));
+    else add(box, h("p.note-line", p.relation === "friend" ? `${p.username} keeps their calendar private.` : "Friends can see each other's calendar and dives."));
+    if (own && st === "in") add(box, h("div.row", h("button.btn.ghost.small", { type: "button", onclick: () => go("friends") }, plural(+p.friends || 0, "friend")), h("button.btn.ghost.small", { type: "button", onclick: () => go("ranks") }, "Today's rankings")));
+    if (own && st === "off" && G().demo && G().demo.offered) add(box, h("div.invite", h("p", h("b", "Friends, rankings and accounts "), "need the game's database, which isn't connected to this copy. You can still see how they look."), h("button.btn.small.ghost", { type: "button", onclick: () => G().demo.set(true) }, "Preview with demonstration data")));
+    if (own && st === "out") add(box, h("div.invite", h("p", h("b", "Keep this log. "), "With a free account your streak and dives follow you to any device, and you can add friends and join the daily rankings."), h("button.btn.small", { type: "button", onclick: () => go("account") }, "Create an account")));
+    if (!own && p.can_explore) { const today = game.today(), theirs = (days || []).find(d => d.day === today); if (theirs) add(box, h("div.row", h("button.btn.small", { type: "button", onclick: () => go("dive", p.username, today) }, "Explore today's dive"), h("button.btn.ghost.small", { type: "button", onclick: () => go("vs", p.username, today) }, "Compare with mine"))); }
   }
   function relationRow(p) {
     const u = p.username, row = h("div.row.rel");
     const b = (label, fn, cls = "ghost") => h("button.btn.small." + cls, { type: "button", onclick: e => act(e.currentTarget, fn) }, label);
-    if (p.relation === "friend") row.append(h("span.tag", "Friends"), b("Remove friend", () => A.rpc("friend_remove", { p_username: u })));
-    else if (p.relation === "requested") row.append(h("span.tag", "Request sent"), b("Cancel request", () => A.rpc("friend_remove", { p_username: u })));
-    else if (p.relation === "incoming") row.append(b("Accept request", () => A.rpc("friend_respond", { p_username: u, p_accept: true }), "solid"), b("Decline", () => A.rpc("friend_respond", { p_username: u, p_accept: false })));
-    else row.append(b("Add friend", () => A.rpc("friend_request", { p_username: u }), "solid"));
-    row.append(h("button.link.quiet", { type: "button", onclick: e => { if (confirm(`Block ${u}? You won't see each other, and any friendship ends.`)) act(e.currentTarget, () => A.rpc("block_user", { p_username: u }), () => go("friends")); } }, "Block"));
+    if (p.relation === "friend") add(row, h("span.tag", "Friends"), b("Remove friend", () => A.rpc("friend_remove", { p_username: u })));
+    else if (p.relation === "requested") add(row, h("span.tag", "Request sent"), b("Cancel request", () => A.rpc("friend_remove", { p_username: u })));
+    else if (p.relation === "incoming") add(row, b("Accept request", () => A.rpc("friend_respond", { p_username: u, p_accept: true }), "solid"), b("Decline", () => A.rpc("friend_respond", { p_username: u, p_accept: false })));
+    else add(row, b("Add friend", () => A.rpc("friend_request", { p_username: u }), "solid"));
+    add(row, h("button.link.quiet", { type: "button", onclick: e => { if (confirm(`Block ${u}? You won't see each other, and any friendship ends.`)) act(e.currentTarget, () => A.rpc("block_user", { p_username: u }), () => go("friends")); } }, "Block"));
     return row;
   }
 
@@ -189,23 +197,23 @@
     let timer = 0;
     input.oninput = () => { clearTimeout(timer); const q = input.value.trim(); if (q.length < 2) { results.textContent = ""; return; }
       timer = setTimeout(async () => { try { const list = await A.rpc("search_users", { p_query: q }); if (input.value.trim() !== q) return; results.textContent = "";
-        if (!list.length) results.append(h("li.none", h("span"), h("span.sub", `No player's name starts with “${q}”.`), h("span")));
-        list.forEach(u => results.append(h("li", avatar(u.avatar, "s"), h("button.name.linkish", { type: "button", onclick: () => go("u", u.username) }, u.username),
+        if (!list.length) add(results, h("li.none", h("span"), h("span.sub", `No player's name starts with “${q}”.`), h("span")));
+        list.forEach(u => add(results, h("li", avatar(u.avatar, "s"), h("button.name.linkish", { type: "button", onclick: () => go("u", u.username) }, u.username),
           u.relation === "friend" ? h("span.tag", "Friends") : u.relation === "requested" ? h("span.tag", "Request sent") : h("button.btn.small.solid", { type: "button", onclick: e => act(e.currentTarget, () => u.relation === "incoming" ? A.rpc("friend_respond", { p_username: u.username, p_accept: true }) : A.rpc("friend_request", { p_username: u.username })) }, u.relation === "incoming" ? "Accept" : "Add friend"))));
-      } catch (e) { results.textContent = ""; results.append(h("li.none", h("span"), h("span.sub.msg.bad", e.message), h("span"))); } }, 280); };
-    box.append(h("div.lead", h("h2.title", "Friends"), h("label.field", input), results));
-    if (f.incoming.length) box.append(h("div.section", h("h3", "Requests for you"), h("ul.rows", f.incoming.map(u => h("li", avatar(u.avatar, "s"), h("button.name.linkish", { type: "button", onclick: () => go("u", u.username) }, u.username),
+      } catch (e) { results.textContent = ""; add(results, h("li.none", h("span"), h("span.sub.msg.bad", e.message), h("span"))); } }, 280); };
+    add(box, h("div.lead", h("h2.title", "Friends"), h("label.field", input), results));
+    if (f.incoming.length) add(box, h("div.section", h("h3", "Requests for you"), h("ul.rows", f.incoming.map(u => h("li", avatar(u.avatar, "s"), h("button.name.linkish", { type: "button", onclick: () => go("u", u.username) }, u.username),
       h("span.row", h("button.btn.small.solid", { type: "button", onclick: e => act(e.currentTarget, () => A.rpc("friend_respond", { p_username: u.username, p_accept: true })) }, "Accept"), h("button.btn.small.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.rpc("friend_respond", { p_username: u.username, p_accept: false })) }, "Decline")))))));
     const mine = f.me, done = f.friends.filter(x => x.done).length;
     const status = x => { if (!x.done) return ["Not yet today", ""]; if (!f.unlocked) return ["Finished today", "score hidden until you dive"]; const d = x.total - mine.total, dd = x.max_depth - mine.max_depth;
       return [m(x.total), `${d === 0 ? "level with you" : d > 0 ? `${m(d)} ahead of you` : `${m(-d)} behind you`} · deepest ${m(x.max_depth)}${dd > 0 ? ", deeper than yours" : ""}`]; };
-    box.append(h("div.section", h("h3", "Today", h("span.aside", f.friends.length ? `${done} of ${f.friends.length} finished${mine ? ` · you: ${m(mine.total)}` : " · you haven't dived yet"}` : "")),
+    add(box, h("div.section", h("h3", "Today", h("span.aside", f.friends.length ? `${done} of ${f.friends.length} finished${mine ? ` · you: ${m(mine.total)}` : " · you haven't dived yet"}` : "")),
       f.friends.length ? h("ul.rows", f.friends.map(x => { const [val, sub] = status(x); return h("li" + (x.done ? "" : ".dim"), avatar(x.avatar, "s"), h("div", h("button.name.linkish", { type: "button", onclick: () => go("u", x.username) }, x.username), h("div.sub", x.streak ? `${x.streak}-day streak` : "no streak", sub ? " · " + sub : "")),
         h("div.val", val, x.done && f.unlocked && x.can_explore ? h("span.row", h("button.link", { type: "button", onclick: () => go("dive", x.username, today) }, "Explore"), h("button.link", { type: "button", onclick: () => go("vs", x.username, today) }, "Compare")) : null)); }))
         : h("p.note-line", "No friends yet. Search for a username above; they'll need to accept.")));
-    if (!f.unlocked && done) box.append(h("p.note-line.locked", h("span", { html: ICON.lock }), "Friends' scores and icebergs open as soon as you finish today's dive."));
-    if (f.outgoing.length) box.append(h("div.section", h("h3", "Waiting for an answer"), h("ul.rows", f.outgoing.map(u => h("li", avatar(u.avatar, "s"), h("span.name", u.username), h("button.btn.small.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.rpc("friend_remove", { p_username: u.username })) }, "Cancel"))))));
-    if (f.blocked.length) box.append(h("details.section", h("summary", `Blocked (${f.blocked.length})`), h("ul.rows", f.blocked.map(u => h("li", h("span"), h("span.name", u), h("button.btn.small.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.rpc("block_user", { p_username: u, p_block: false })) }, "Unblock"))))));
+    if (!f.unlocked && done) add(box, h("p.note-line.locked", h("span", { html: ICON.lock }), "Friends' scores and icebergs open as soon as you finish today's dive."));
+    if (f.outgoing.length) add(box, h("div.section", h("h3", "Waiting for an answer"), h("ul.rows", f.outgoing.map(u => h("li", avatar(u.avatar, "s"), h("span.name", u.username), h("button.btn.small.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.rpc("friend_remove", { p_username: u.username })) }, "Cancel"))))));
+    if (f.blocked.length) add(box, h("details.section", h("summary", `Blocked (${f.blocked.length})`), h("ul.rows", f.blocked.map(u => h("li", h("span"), h("span.name", u), h("button.btn.small.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.rpc("block_user", { p_username: u, p_block: false })) }, "Unblock"))))));
   }
 
   // ---------- Rankings ----------
@@ -217,44 +225,110 @@
     const head = h("div.lead", h("h2.title", "Rankings"),
       h("div.day-step", h("button.icon-btn", { type: "button", disabled: day <= 1, "aria-label": "Earlier day", onclick: () => { rankState.day = day - 1; go("ranks", day - 1); } }, "‹"), h("span", h("b", `Daily #${day}`), ` · ${day === today ? "today" : dateText(day)}`), h("button.icon-btn", { type: "button", disabled: day >= today, "aria-label": "Later day", onclick: () => { rankState.day = day + 1; go("ranks", day + 1); } }, "›")),
       h("div.seg", { role: "tablist" }, ["global", "friends"].map(s => h("button", { type: "button", role: "tab", "aria-selected": String(scope === s), disabled: s === "friends" && st !== "in", onclick: () => { rankState.scope = s; render(); } }, s === "global" ? "Everyone" : "Friends"))));
-    box.append(head); wait();
-    let lb; try { lb = await A.rpc("leaderboard", { p_day: day, p_scope: scope, p_limit: 50, p_offset: 0 }); } catch (e) { if (stale(t)) return; box.querySelector(".wait").remove(); if (e.code === "not_signed_in" || st !== "in") { box.append(h("p.note-line", "Sign in to see rankings.")); return; } throw e; }
+    add(box, head); wait();
+    let lb; try { lb = await A.rpc("leaderboard", { p_day: day, p_scope: scope, p_limit: 50, p_offset: 0 }); } catch (e) { if (stale(t)) return; box.querySelector(".wait").remove(); if (e.code === "not_signed_in" || st !== "in") { add(box, h("p.note-line", "Sign in to see rankings.")); return; } throw e; }
     if (stale(t)) return; box.querySelector(".wait").remove();
-    if (lb.locked) { box.append(h("div.locked-panel", h("span.big", { html: ICON.lock }), h("p", h("b", day === today ? "Finish today's dive to see today's rankings." : "Finish that day's dive to see its rankings."), lb.players ? ` ${plural(lb.players, "player")} ${lb.players === 1 ? "has" : "have"} finished so far.` : ""), h("p.note-line", "Rankings show how deep everyone went, so they stay closed until you have had your own go. Earlier days are open.")),
+    if (lb.locked) { add(box, h("div.locked-panel", h("span.big", { html: ICON.lock }), h("p", h("b", day === today ? "Finish today's dive to see today's rankings." : "Finish that day's dive to see its rankings."), lb.players ? ` ${plural(lb.players, "player")} ${lb.players === 1 ? "has" : "have"} finished so far.` : ""), h("p.note-line", "Rankings show how deep everyone went, so they stay closed until you have had your own go. Earlier days are open.")),
       st === "in" && day === today ? h("div.row", h("button.btn", { type: "button", onclick: () => { leave(); } }, "Back to the game")) : null); return; }
-    if (lb.me) box.append(h("p.standing", scope === "global" ? [h("b", `#${fmt(lb.me.rank)}`), ` of ${plural(lb.players, "ranked player")}`, lb.players >= 20 ? ` · top ${lb.me.top}%` : ""] : [h("b", `#${fmt(lb.me.rank)}`), ` of ${lb.players} among your friends`]));
-    else if (st === "in" && scope === "global" && A.profile.settings.ranked === false) box.append(h("p.note-line", "You've chosen not to appear in the global ranking (Settings)."));
-    if (!lb.rows.length) box.append(h("p.note-line", scope === "friends" ? "None of your friends dived that day." : "Nobody is ranked for that day."));
-    else box.append(h("ol.rows.board", lb.rows.map(r => h("li" + (r.me ? ".me" : ""), h("span.rank-n", fmt(r.rank)), h("div.who-s", avatar(r.avatar, "s"), st === "in" && !r.me ? h("button.name.linkish", { type: "button", onclick: () => go("u", r.username) }, r.username) : h("span.name", r.username), r.me ? h("span.tag", "You") : r.friend ? h("span.tag", "Friend") : null),
+    if (lb.me) add(box, h("p.standing", scope === "global" ? [h("b", `#${fmt(lb.me.rank)}`), ` of ${plural(lb.players, "ranked player")}`, lb.players >= 20 ? ` · top ${lb.me.top}%` : ""] : [h("b", `#${fmt(lb.me.rank)}`), ` of ${lb.players} among your friends`]));
+    else if (st === "in" && scope === "global" && A.profile.settings.ranked === false) add(box, h("p.note-line", "You've chosen not to appear in the global ranking (Settings)."));
+    if (!lb.rows.length) add(box, h("p.note-line", scope === "friends" ? "None of your friends dived that day." : "Nobody is ranked for that day."));
+    else add(box, h("ol.rows.board", lb.rows.map(r => h("li" + (r.me ? ".me" : ""), h("span.rank-n", fmt(r.rank)), h("div.who-s", avatar(r.avatar, "s"), st === "in" && !r.me ? h("button.name.linkish", { type: "button", onclick: () => go("u", r.username) }, r.username) : h("span.name", r.username), r.me ? h("span.tag", "You") : r.friend ? h("span.tag", "Friend") : null),
       h("div.val", m(r.total), h("small", `deepest ${m(r.max_depth)}`))))));
-    box.append(h("p.fine", "Ranked by the day's total depth: the deepest answer on each of the five questions, added up. Equal totals are split by the deepest single answer, then by who finished first. ", scope === "global" ? "Only players with an account who have finished the day are listed." : ""));
+    add(box, h("p.fine", "Ranked by the day's total depth: the deepest answer on each of the five questions, added up. Equal totals are split by the deepest single answer, then by who finished first. ", scope === "global" ? "Only players with an account who have finished the day are listed." : ""));
   }
 
   // ---------- Sign-in ----------
+  // ---------- Signing in, creating an account, resetting a password ----------
+  // One centred column over the water, the same for every account screen: the game's mark, a heading, a line of
+  // explanation, the form, a message when there is one, then the quieter links. No card: a soft deepening of the
+  // water behind it keeps the words readable. Whatever was typed is kept when switching between screens.
+  let draft = { email: "" }, sentTo = "", resendAt = 0, justAuthed = false;
+  const EMAIL_OK = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+  function authView({ title, lede, switcher, form, after, note }) {
+    const box = body();
+    const mark = h("span.auth-mark", { "aria-hidden": "true", html: window.Brand ? window.Brand.markSvg(undefined, 30) : "" });
+    const sw = switcher ? h("div.auth-switch", { role: "tablist", "aria-label": "Account" },
+      [["in", "Sign in"], ["up", "Create account"]].map(([k, label]) => h("button", { type: "button", role: "tab", "aria-selected": String(mode === k), onclick: () => { if (mode !== k) { mode = k; render(); } } }, label))) : null;
+    add(box, h("section.auth", { "aria-labelledby": "auth-title" }, mark, sw, h("h2.auth-title#auth-title", title), lede ? h("p.auth-lede", lede) : null, note || null, form || null, after ? h("div.auth-after", after) : null));
+  }
+  // A message under the form: only ever a sentence, never a blank, a code or a null.
+  function say(slot, kind, text) {
+    slot.textContent = ""; slot.className = "auth-msg"; slot.hidden = !text;
+    if (!text) return;
+    slot.classList.add(kind);
+    add(slot, h("span.auth-msg-icon", { "aria-hidden": "true", html: kind === "good" ? ICON.check : kind === "info" ? ICON.mail : ICON.alert }), h("span", String(text)));
+  }
+  const msgSlot = () => h("p.auth-msg", { role: "status", "aria-live": "polite", hidden: true });
+  // The button says what is happening while it waits; a second press does nothing.
+  function busyButton(btn, label) { const was = btn.textContent; btn.disabled = true; btn.classList.add("busy"); btn.setAttribute("aria-busy", "true"); btn.textContent = label; return () => { btn.disabled = false; btn.classList.remove("busy"); btn.removeAttribute("aria-busy"); btn.textContent = was; }; }
+  function emailField(id) {
+    const input = h("input", { id, name: "email", type: "email", autocomplete: "email", inputmode: "email", autocapitalize: "none", spellcheck: false, required: true, value: draft.email, placeholder: "you@example.com" });
+    input.oninput = () => { draft.email = input.value.trim(); };
+    return { el: h("div.field", h("label", { for: id }, "Email"), input), input };
+  }
+  function passwordField(id, label, fresh) {
+    const input = h("input", { id, name: fresh ? "new-password" : "password", type: "password", autocomplete: fresh ? "new-password" : "current-password", required: true, minLength: 6, placeholder: fresh ? "At least 6 characters" : "" });
+    const eye = h("button.pw-toggle", { type: "button", "aria-label": "Show password", "aria-pressed": "false", html: ICON.eye,
+      onclick: () => { const show = input.type === "password"; input.type = show ? "text" : "password"; eye.innerHTML = show ? ICON.eyeOff : ICON.eye; eye.setAttribute("aria-pressed", String(show)); eye.setAttribute("aria-label", show ? "Hide password" : "Show password"); input.focus(); } });
+    return { el: h("div.field", h("label", { for: id }, label), h("div.input-wrap", input, eye)), input };
+  }
   function account() {
-    const box = body(), st = A ? A.state : "off";
-    if (st === "off") { box.append(h("p.note-line", "Accounts aren't switched on for this copy of the game.")); return; }
+    const st = A ? A.state : "off";
+    if (st === "off") return authView({ title: "Accounts aren't available here", lede: "This copy of the game isn't connected to the game's server, so you can play, but not sign in. Your dives are kept on this device." });
     if (A.recovery) return newPassword();
     if (st === "new") return chooseName();
-    if (st === "in") { go("settings"); return; }
-    const email = h("input", { type: "email", autocomplete: "email", required: true, placeholder: "you@example.com" }), pass = h("input", { type: "password", autocomplete: mode === "in" ? "current-password" : "new-password", required: true, minLength: 6, placeholder: mode === "in" ? "Password" : "At least 6 characters" });
-    const msg = h("p.msg", { role: "status" }), submit = h("button.btn", { type: "submit" }, mode === "in" ? "Sign in" : "Create account");
-    const form = h("form.form", { novalidate: true, onsubmit: async e => { e.preventDefault(); msg.className = "msg"; msg.textContent = ""; submit.disabled = true;
+    if (st === "in") { if (justAuthed) toast(`Signed in as ${A.profile.username}.`); justAuthed = false; go("log"); return; }
+    if (mode === "sent" || mode === "sent-reset") return checkEmail(mode === "sent-reset");
+    if (mode === "forgot") return forgot();
+    const up = mode === "up", em = emailField("auth-email"), pw = passwordField("auth-password", "Password", up), msg = msgSlot();
+    const submit = h("button.btn.wide", { type: "submit" }, up ? "Create account" : "Sign in");
+    if (A.takeExpired && A.takeExpired()) say(msg, "info", A.fail("session_expired").message);
+    const form = h("form.auth-form", { novalidate: true, onsubmit: async e => {
+      e.preventDefault(); if (submit.disabled) return;
+      const email = em.input.value.trim(), pass = pw.input.value;
+      if (!EMAIL_OK(email)) { say(msg, "bad", "That doesn't look like an email address."); em.input.focus(); return; }
+      if (pass.length < 6) { say(msg, "bad", up ? "Choose a password of at least 6 characters." : "Enter your password."); pw.input.focus(); return; }
+      say(msg); draft.email = email;
+      const done = busyButton(submit, up ? "Creating your account" : "Signing in");
       try {
-        if (mode === "forgot") { await A.recover(email.value.trim()); msg.className = "msg good"; msg.textContent = "If there's an account with that email, a link to set a new password is on its way."; }
-        else if (mode === "in") await A.signIn(email.value.trim(), pass.value);
-        else { const r = await A.signUp(email.value.trim(), pass.value); if (r.confirm) { msg.className = "msg good"; msg.textContent = "Check your email and follow the link to confirm your address. Then come back and sign in."; } }
-      } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; }
-      submit.disabled = false; } },
-      h("label.field", "Email", email), mode === "forgot" ? null : h("label.field", "Password", pass), msg,
-      h("div.row", submit, mode === "in" ? h("button.link", { type: "button", onclick: () => { mode = "forgot"; render(); } }, "Forgot password?") : null));
-    if (mode === "forgot") submit.textContent = "Email me a link";
-    box.append(h("div.lead", h("h2.title", mode === "in" ? "Sign in" : mode === "up" ? "Create an account" : "Reset your password"),
-      h("p.note-line", mode === "up" ? "Free. Keeps your streak and dives on any device, and lets you add friends and join the daily rankings. Your email is only used to sign you in: other players never see it." : mode === "in" ? "Welcome back." : "Enter the email you signed up with.")),
-      form,
-      mode === "forgot" || !A.google ? null : h("div.or", h("span", "or")), mode === "forgot" || !A.google ? null : h("button.btn.ghost", { type: "button", onclick: e => act(e.currentTarget, () => A.withGoogle(), () => {}) }, "Continue with Google"),
-      h("p.note-line", mode === "in" ? ["New here? ", h("button.link", { type: "button", onclick: () => { mode = "up"; render(); } }, "Create an account")] : ["Already have one? ", h("button.link", { type: "button", onclick: () => { mode = "in"; render(); } }, "Sign in")]),
-      h("p.fine", "You can always play without an account. Anything you've already played on this device moves across when you sign in. ", h("a", { href: "privacy.html" }, "Privacy")));
+        if (up) { const r = await A.signUp(email, pass); if (r.confirm) { sentTo = email; resendAt = Date.now() + 60000; mode = "sent"; render(); return; } }
+        else await A.signIn(email, pass);
+        justAuthed = true; submit.textContent = up ? "Account created" : "Signed in"; // the account screen moves on by itself (Account.onChange)
+      } catch (err) { done(); say(msg, "bad", err.message); (/password/i.test(err.message) ? pw.input : em.input).focus(); }
+    } }, em.el, pw.el, msg, submit,
+      up ? null : h("button.link.auth-forgot", { type: "button", onclick: () => { draft.email = em.input.value.trim(); mode = "forgot"; render(); } }, "Forgot your password?"));
+    authView({ switcher: true, title: up ? "Create your account" : "Welcome back",
+      lede: up ? "Free. Your streak and dives follow you to any device, and you can add friends and join the daily rankings. Other players only ever see your username." : "Sign in to keep your streak and see your friends.",
+      form, after: [h("p.fine", "You can always play without an account. Anything you've already played on this device moves across when you sign in. ", h("a", { href: "privacy.html" }, "Privacy"))] });
+    (draft.email ? pw.input : em.input).focus({ preventScroll: true });
+  }
+  function forgot() {
+    const em = emailField("auth-email"), msg = msgSlot(), submit = h("button.btn.wide", { type: "submit" }, "Email me a reset link");
+    const form = h("form.auth-form", { novalidate: true, onsubmit: async e => {
+      e.preventDefault(); if (submit.disabled) return;
+      const email = em.input.value.trim();
+      if (!EMAIL_OK(email)) { say(msg, "bad", "That doesn't look like an email address."); em.input.focus(); return; }
+      say(msg); draft.email = email; const done = busyButton(submit, "Sending");
+      try { await A.recover(email); sentTo = email; resendAt = Date.now() + 60000; mode = "sent-reset"; done(); checkEmail(true); }
+      catch (err) { done(); say(msg, "bad", err.message); }
+    } }, em.el, msg, submit);
+    authView({ title: "Reset your password", lede: "Enter the email you signed up with and we'll send a link to choose a new password.", form,
+      after: [h("button.link", { type: "button", onclick: () => { mode = "in"; render(); } }, "Back to sign in")] });
+    em.input.focus({ preventScroll: true });
+  }
+  // After signing up (when the project asks for email confirmation) or asking for a reset link.
+  function checkEmail(reset) {
+    const box = body(); box.textContent = "";
+    const msg = msgSlot(), again = h("button.btn.ghost.wide", { type: "button" }, "Send it again");
+    const tick = () => { const s = Math.ceil((resendAt - Date.now()) / 1000); again.disabled = s > 0; again.textContent = s > 0 ? `Send it again (${s} s)` : "Send it again"; if (s > 0 && again.isConnected) setTimeout(tick, 1000); };
+    again.onclick = async () => { const done = busyButton(again, "Sending"); try { if (reset) await A.recover(sentTo); else await A.resend(sentTo); resendAt = Date.now() + 60000; done(); say(msg, "good", "Sent again. It can take a minute or two to arrive."); tick(); } catch (err) { done(); say(msg, "bad", err.message); } };
+    authView({ title: "Check your email",
+      lede: reset ? "If there's an account for that address, a link to set a new password is on its way." : "We've sent a link to confirm your address. Follow it and you'll come straight back here, signed in.",
+      note: h("p.auth-sent", { html: ICON.mail }, h("b", sentTo)),
+      form: h("div.auth-form", h("p.fine", "Nothing after a few minutes? Check your spam or junk folder."), msg, again),
+      after: [h("button.link", { type: "button", onclick: () => { mode = reset ? "forgot" : "up"; render(); } }, "Use a different email"), h("span.sep", { "aria-hidden": "true" }, "·"), h("button.link", { type: "button", onclick: () => { mode = "in"; render(); } }, "Back to sign in")] });
+    tick();
   }
   function nameField(current) {
     const input = h("input", { type: "text", autocomplete: "username", autocapitalize: "none", spellcheck: false, maxLength: 20, value: current || "", placeholder: "3 to 20 letters, numbers or _" }), msg = h("span.msg", { role: "status" });
@@ -269,13 +343,33 @@
     return { el: h("div.field", "Picture", row), get value() { return value; } };
   }
   function chooseName() {
-    const box = body(), name = nameField(""), pic = avatarPicker("dumbo"), submit = h("button.btn", { type: "submit" }, "Start diving");
-    box.append(h("div.lead", h("h2.title", "Choose a username"), h("p.note-line", "This is how friends find you and how you appear in rankings. It's public, so don't use your real name unless you want to. ", h("a", { href: "privacy.html" }, "Privacy"))),
-      h("form.form", { novalidate: true, onsubmit: async e => { e.preventDefault(); submit.disabled = true; try { await A.claim(name.input.value.trim(), pic.value); go("log"); } catch (err) { name.msg.className = "msg bad"; name.msg.textContent = err.message; submit.disabled = false; } } }, name.el, pic.el, h("div.row", submit, h("button.link", { type: "button", onclick: () => A.signOut().then(render) }, "Sign out"))));
+    const name = nameField(""), pic = avatarPicker("dumbo"), submit = h("button.btn.wide", { type: "submit" }, "Start diving"), msg = msgSlot();
+    const form = h("form.auth-form", { novalidate: true, onsubmit: async e => {
+      e.preventDefault(); if (submit.disabled) return;
+      const done = busyButton(submit, "Saving");
+      try { await A.claim(name.input.value.trim(), pic.value); toast(`Welcome, ${A.profile.username}. Your dives are saved to your account from now on.`); go("log"); } catch (err) { done(); say(msg, "bad", err.message); name.input.focus(); }
+    } }, name.el, pic.el, msg, submit);
+    authView({ title: "Choose a username", lede: "This is how friends find you and how you appear in rankings. It's public, so use something other than your real name if you'd rather.", form,
+      after: [h("a", { href: "privacy.html" }, "Privacy"), h("span.sep", { "aria-hidden": "true" }, "·"), h("button.link", { type: "button", onclick: () => A.signOut().then(render) }, "Sign out")] });
+    name.input.focus({ preventScroll: true });
   }
   function newPassword() {
-    const box = body(), pass = h("input", { type: "password", autocomplete: "new-password", minLength: 6, placeholder: "At least 6 characters" }), msg = h("p.msg", { role: "status" });
-    box.append(h("div.lead", h("h2.title", "Set a new password")), h("form.form", { novalidate: true, onsubmit: async e => { e.preventDefault(); try { await A.setPassword(pass.value); go("log"); } catch (err) { msg.className = "msg bad"; msg.textContent = err.message; } } }, h("label.field", "New password", pass), msg, h("div.row", h("button.btn", { type: "submit" }, "Save password"))));
+    const pw = passwordField("auth-new-password", "New password", true), msg = msgSlot(), submit = h("button.btn.wide", { type: "submit" }, "Save new password");
+    const form = h("form.auth-form", { novalidate: true, onsubmit: async e => {
+      e.preventDefault(); if (submit.disabled) return;
+      if (pw.input.value.length < 6) { say(msg, "bad", "Choose a password of at least 6 characters."); pw.input.focus(); return; }
+      const done = busyButton(submit, "Saving");
+      try { await A.setPassword(pw.input.value); toast("Password updated. You're signed in."); go("log"); } catch (err) { done(); say(msg, "bad", err.message); }
+    } }, pw.el, msg, submit);
+    authView({ title: "Choose a new password", lede: "Then you're signed in and back where you were.", form });
+    pw.input.focus({ preventScroll: true });
+  }
+  // A short note at the top of the page after something happened elsewhere (signed in, email confirmed).
+  function toast(text) {
+    const t = $("#hub-toast"); if (!t || !text) return;
+    t.textContent = ""; add(t, h("span.auth-msg-icon", { "aria-hidden": "true", html: ICON.check }), h("span", text)); t.hidden = false;
+    t.classList.remove("on"); void t.offsetWidth; t.classList.add("on");
+    clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 4200);
   }
 
   // ---------- Settings ----------
@@ -286,7 +380,7 @@
     const toggle = (key, label, sub) => { const input = h("input", { type: "checkbox", role: "switch", checked: !!s[key], onchange: () => act(null, () => A.rpc("update_settings", { p: { [key]: input.checked } }), () => {}) }); return h("label.toggle-row", h("span", label, h("small", sub)), input); };
     const pass = h("input", { type: "password", autocomplete: "new-password", minLength: 6, placeholder: "New password" }), pmsg = h("span.msg", { role: "status" });
     const confirmBox = h("input", { type: "text", autocomplete: "off", placeholder: `Type ${p.username} to confirm`, "aria-label": "Type your username to confirm" });
-    box.append(h("div.lead", h("h2.title", "Settings"), h("p.note-line", A.demo ? "A demonstration account. Changes here stay on this device." : A.email ? `Signed in as ${A.email}. Other players never see your email.` : "")),
+    add(box, h("div.lead", h("h2.title", "Settings"), h("p.note-line", A.demo ? "A demonstration account. Changes here stay on this device." : A.email ? `Signed in as ${A.email}. Other players never see your email.` : "")),
       h("div.section", h("h3", "You"), h("form.form", { novalidate: true, onsubmit: e => { e.preventDefault(); const v = name.input.value.trim(); act(e.submitter, async () => { if (v !== p.username) await A.rpc("change_username", { p_username: v }); if (pic.value !== p.avatar) await A.rpc("update_settings", { p: { avatar: pic.value } }); }).then(() => {}); } }, name.el, pic.el,
         h("div.row", h("button.btn.small", { type: "submit" }, "Save"), h("span.fine", "A username can be changed once every two weeks.")))),
       h("div.section", h("h3", "Privacy"),
@@ -316,13 +410,13 @@
     const st = A ? A.state : "off", game = G(), today = game.today();
     box.textContent = ""; box.hidden = st === "off" || day === null;
     if (box.hidden) return;
-    if (st !== "in") { box.append(h("p", h("b", "Keep this dive. "), "Create a free account to save your streak, add friends and see where you ranked today."), h("div.row", h("button.btn.small", { type: "button", onclick: () => go("account") }, st === "new" ? "Choose a username" : "Create an account"))); return; }
-    const line = h("p.standing", "Saving your dive…"), sub = h("p.note-line"); box.append(line, sub,
+    if (st !== "in") { add(box, h("p", h("b", "Keep this dive. "), "Create a free account to save your streak, add friends and see where you ranked today."), h("div.row", h("button.btn.small", { type: "button", onclick: () => go("account") }, st === "new" ? "Choose a username" : "Create an account"))); return; }
+    const line = h("p.standing", "Saving your dive…"), sub = h("p.note-line"); add(box, line, sub,
       h("div.row", h("button.btn.small.ghost", { type: "button", onclick: () => go("ranks", today) }, "Rankings"), h("button.btn.small.ghost", { type: "button", onclick: () => go("friends") }, "Friends"), h("button.btn.small.ghost", { type: "button", onclick: () => go("log") }, "Your log")));
     for (let i = 0; i < 6; i++) {                                    // the dive may still be on its way to the database
       let s = null; try { s = await A.rpc("day_summary", { p_day: day ? day.day : today }); } catch { /* try again */ }
       if (s && s.done) {
-        line.textContent = ""; line.append(s.ranked === false ? `Your place today: #${fmt(s.rank)} of ${fmt(s.players)} (you're not listed)` : h("b", `Ranked #${fmt(s.rank)}`), s.ranked === false ? "" : ` of ${plural(s.players, "player")} so far`);
+        line.textContent = ""; add(line, s.ranked === false ? `Your place today: #${fmt(s.rank)} of ${fmt(s.players)} (you're not listed)` : h("b", `Ranked #${fmt(s.rank)}`), s.ranked === false ? "" : ` of ${plural(s.players, "player")} so far`);
         sub.textContent = friendsLine(+s.friends, +s.friends_done, +s.friends_beaten, +(s.friends_level || 0));
         return;
       }

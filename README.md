@@ -127,7 +127,7 @@ doing before a public launch. In short:
 
 - **Guests first.** Nobody has to sign in to play. After a guest's first dive the results screen offers, once and
   quietly, to save it to an account. Days already played on the device move across, and a day is never counted twice.
-- **Accounts.** Email and password, optional Google, password reset, a unique username, one of the game's animals
+- **Accounts.** Email and password (any address, Gmail included; Google sign-in is postponed), password reset, a unique username, one of the game's animals
   as a picture, privacy switches, account deletion.
 - **Dive log.** Streak, longest streak, total expeditions, average, personal record, deepest discovery, and a
   year calendar: one square a day, brighter for a deeper day, ringed in pale green for an answer in the Abyss.
@@ -267,6 +267,32 @@ There is no card behind it. The depth gauge down the right edge is fixed to the 
 camera. One colour, a pale "living light" green, is kept for things you have earned: your deepest answer, an answer
 in the Abyss, a rare animal.
 
+### Moving through it
+
+Ordinary things are quick; only real discoveries take their time. One set of timings and curves is used
+everywhere (`--ease-out`, `--t-move` and friends at the top of `index.html`; the camera's in `iceberg.js`):
+
+- **A guess** starts moving within a few hundredths of a second and lands in about three quarters of one. Typing
+  the next guess and pressing Enter while the last is still travelling is fine: the reveal finishes quickly and the
+  new guess goes in by itself.
+- **After the third guess** the results follow about 0.4 s after the answer lands (0.8 s for a rare one, 1.4 s for
+  one beneath the iceberg, so the find gets its moment). Enter brings them at once.
+- **Next question** starts the moment it is pressed: the results slide away, the answers fade, and the camera rises
+  back to the iceberg's tip while the next question comes in, in about 0.8 s. The box takes typing straight away;
+  the clock starts only once the camera has arrived. From beneath the iceberg the dark closes in and lifts again
+  just under the surface instead of making you watch the whole climb.
+- **Skipping:** during a long reveal (the descent beneath the iceberg above all), a tap on the water or Enter,
+  Space or Escape brings it to its end in about a quarter of a second. Not in races, where everyone shares one clock.
+- **Waiting for something** (the day's questions on a slow connection, signing in) is always shown where it
+  happens: the button says what it is doing, with three small rising bubbles, and can't be pressed twice.
+- **Reduced motion:** camera journeys become cuts and nothing slides.
+
+What used to make it feel slow, and was fixed at the source (measured with `tests/perf.cjs`): a fixed 1.9 s wait
+(3 s after a rare answer) before the results; a zoom-out and 1.35 s push-in before every question; the audio
+engine and the scene being built in the same tap as Play (now prepared while the home screen is idle); and a live
+blur behind the results panel and answer box that the browser had to redo on every frame of the moving water
+(results ran at about 38 frames a second; now 60).
+
 ### Wildlife
 
 Every animal is a real species, drawn by code as pixel art at the same pixel size as the iceberg, so there is
@@ -378,7 +404,7 @@ depths and zones only, never answers or questions.
 
 ## Tests
 
-Six sets of checks, all run against the real code:
+Eight sets of checks, all run against the real code:
 
 - **`tests/matrix.cjs`** plays the game in a real browser: 255 checks. Three rarer answers in a row, the
   rarest first, duplicates, typos, invalid and pending answers, review verdicts, finishing early, all five
@@ -391,15 +417,24 @@ Six sets of checks, all run against the real code:
 - **`tests/db/race.cjs`** checks the race's database rules: 57 checks. Matching, codes, seats, the host, ready
   states, settings, the clock, the three-guess limit, late guesses, scoring by improvement, answer secrecy,
   disconnects, results, rematches, invitations, and that races leave the daily game alone.
-- **`tests/social.cjs`** runs the account and social screens in a real browser against that database: 92 checks.
+- **`tests/social.cjs`** runs the account and social screens in a real browser against that database: 100 checks.
   Signing up, guest progress, friends, what is hidden before diving (including requests made by hand), rankings,
   exploring and comparing dives, best-of-three scoring end to end, the calendar, privacy, a second device,
-  blocking, Google, deleting an account.
+  blocking, a Gmail sign-up, the account screens (no Google offered anywhere), and a check that no screen shows
+  placeholder text such as "null", "undefined" or "NaN", deleting an account.
 - **`tests/beneath.cjs`** checks the region beneath the iceberg in a real browser, on a desktop and a phone: 52
   checks. The evidence rule and the depth scale, every daily answer that can reach it, an ordinary answer, a rare one
   near the bottom of the iceberg, then an Unfathomable one: the descent past the tip, the iceberg out of view, the
   red annotation, gauge and guess row, the colossal squid (its size, colour and drawing time), the results, the share
   card and text, and exploring the dive again.
+- **`tests/flow.cjs`** times the game's moments in a real browser, with tight limits: 21 checks. Typing ahead, the
+  third guess to the results, the next question and when its clock starts, pressing Next twice, a guess sent while
+  the camera is still rising, running out of time, a whole dive, animation loops and memory over repeated questions,
+  cutting short the descent beneath the iceberg and the quick way back up, reduced motion on a phone, a reload.
+- **`tests/perf.cjs`** is a measuring tool rather than a pass/fail suite: it plays questions and reports how long
+  each moment takes, frame times, long main-thread tasks and memory, optionally with a slower CPU (`--cpu=4`), a
+  slow connection (`--net=slow`), a phone screen, a slow server (`--api` with `GATEWAY_DELAY=600`) or signed in
+  (`--auth`).
 - **`tests/race-ui.cjs`** runs races in several browsers at once against that database: 53 checks. A private race
   from link to rematch (desktop and phone), a three-player quick race that starts by itself, a player who closes
   the tab mid-race, a reload mid-race, simultaneous guesses, the same guess sent twice at once, answer secrecy,

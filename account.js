@@ -4,7 +4,10 @@
 // (vendor/supabase.js), using the project's public key only.
 (function () {
   "use strict";
-  let sb = null, session = null, profile = null, state = "off", recovery = false, demo = null, starting = null, google = false;
+  let sb = null, session = null, profile = null, state = "off", recovery = false, demo = null, starting = null, providers = [], arrived = "", leaving = false, expired = false;
+  // Arriving from an email link: Supabase puts what kind of link it was in the address. Read it before the library
+  // tidies the address away, so the screen can say "Email confirmed" or ask for a new password.
+  try { const hp = new URLSearchParams(location.hash.replace(/^#/, "")); arrived = hp.get("type") || ""; } catch { /* fine */ }
   const listeners = [];
   // state: "off" no database · "out" signed out · "new" signed in, no username yet · "in" a player
   const emit = () => listeners.slice().forEach(f => { try { f(api); } catch (e) { console.error(e); } });
@@ -21,13 +24,33 @@
     no_dive: "No dive on that day.", no_request: "That request is no longer there.", you_blocked_them: "You've blocked this player. Unblock them first.",
     too_many_requests: "You have a lot of requests waiting. Let some be answered first.", too_many_friends: "Your friends list is full.",
     day_closed: "That day is over, so it can't be handed in any more.", bad_guesses: "That dive couldn't be read.",
-    "Invalid login credentials": "That email and password don't match.", "User already registered": "There's already an account with that email. Sign in instead.",
-    "Email not confirmed": "Check your email and follow the link to confirm your address, then sign in.",
+    // The race
+    race_not_found: "There's no race with that code, or it has finished.", race_started: "That race has already started.", race_full: "That race is full.",
+    not_in_race: "You're not in that race any more.", no_guesses_left: "That's all three guesses for this question.", round_closed: "Time's up on that question.",
+    friends_only_race: "You can only invite friends.", bad_kind: "That kind of race isn't available.",
+    // Signing in. Worded so they never confirm whether someone else's email has an account.
+    "Invalid login credentials": "That email and password don't match. Check them, or reset your password.",
+    "User already registered": "That email can't be used to create a new account. If it's yours, sign in or reset your password.",
+    "Email not confirmed": "Confirm your email first: follow the link we sent you, then sign in.",
+    invalid_email: "That doesn't look like an email address.", weak_password: "Passwords need at least 6 characters.",
+    session_expired: "You were signed out because your session ran out. Sign in again to carry on.",
+    rate_limited_auth: "Too many tries in a short time. Wait a minute, then try again.",
+    offline: "Couldn't reach the server. Check your connection and try again.", unavailable: "The game's server isn't answering right now. Try again in a moment.",
   };
+  // Every error a player sees goes through here, and comes out as one of the sentences above. Nothing technical
+  // (no raw server text, codes, or "null") ever reaches the screen.
   function fail(error) {
-    const raw = String((error && (error.message || error.msg || error.error_description)) || error || ""), code = (raw.match(/^[a-z_]+$/) || [raw])[0];
-    const e = new Error(SAY[code] || (/password/i.test(raw) && /6|short|weak/i.test(raw) ? "Passwords need at least 6 characters." : /fetch|network|load/i.test(raw) ? "Couldn't reach the server. Check your connection and try again." : raw && raw.length < 120 && !/^[a-z_]+$/.test(raw) ? raw : "Something went wrong. Try again."));
-    e.code = code; return e;
+    const raw = String((error && (error.message || error.msg || error.error_description)) || (typeof error === "string" ? error : "") || ""), status = error && (error.status || error.code);
+    let code = (raw.match(/^[a-z_]+$/) || [raw])[0];
+    if (!SAY[code]) {
+      if (/password/i.test(raw) && /6|short|weak|characters/i.test(raw)) code = "weak_password";
+      else if (/invalid.*email|email.*invalid|unable to validate email/i.test(raw)) code = "invalid_email";
+      else if (/jwt.*expired|invalid jwt|refresh token|session.*(missing|expired|not found)/i.test(raw)) code = "session_expired";
+      else if (/rate limit|security purposes|too many/i.test(raw) || status === 429) code = "rate_limited_auth";
+      else if (/fetch|network|load failed|networkerror|timed? ?out/i.test(raw)) code = "offline";
+      else if (status >= 500 || /service unavailable|bad gateway/i.test(raw)) code = "unavailable";
+    }
+    const e = new Error(SAY[code] || "Something went wrong. Try again."); e.code = code; return e;
   }
   async function rpc(name, args = {}) {
     if (demo) return demo.rpc(name, args);
@@ -55,12 +78,14 @@
       starting = (async () => {
         if (cfg && cfg.demo) { demo = cfg.demo; await refresh(); return true; }
         if (!cfg || !cfg.url || !cfg.anonKey) { state = "off"; emit(); return false; }
-        google = !!cfg.google;
+        providers = Array.isArray(cfg.providers) ? cfg.providers.slice() : [];   // other ways to sign in (none at launch; see BACKEND.md)
         try {
           if (!window.supabase) await loadScript("vendor/supabase.js");
           sb = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "iceberg:auth" } });
           sb.auth.onAuthStateChange((event, s) => {
             session = s; if (event === "PASSWORD_RECOVERY") recovery = true;
+            if (event === "SIGNED_OUT" && !leaving && profile) expired = true;   // signed out without asking: the session ran out
+            if (event === "SIGNED_IN") { expired = false; leaving = false; }
             setTimeout(refresh, 0);                     // never call back into the library from inside its own callback
           });
           session = (await sb.auth.getSession()).data.session;
@@ -72,7 +97,10 @@
     },
     get state() { return state; }, get on() { return state !== "off"; }, get signedIn() { return state === "in"; }, get demo() { return !!demo; },
     get profile() { return profile; }, get email() { return session && session.user ? session.user.email : ""; },
-    get recovery() { return recovery; }, get google() { return google; },
+    get recovery() { return recovery; }, get providers() { return providers.slice(); },
+    // "signup" when the player has just followed the link in their confirmation email (shown once, then cleared).
+    takeArrival() { const a = arrived; arrived = ""; return a; },
+    takeExpired() { const e = expired; expired = false; return e; },
     onChange(f) { listeners.push(f); }, refresh, rpc,
     async signUp(email, password) {
       const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: here() } });
@@ -82,12 +110,14 @@
       session = data.session; await refresh(); return { confirm: false };
     },
     async signIn(email, password) { const { data, error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw fail(error); session = data.session; await refresh(); },
-    async withGoogle() { const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: here() } }); if (error) throw fail(error); },
+    // Ready for a provider such as Google later: only offered when listed in BACKEND.providers.
+    async signInWith(provider) { if (!providers.includes(provider)) throw fail("unavailable"); const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: here() } }); if (error) throw fail(error); },
+    async resend(email) { const { error } = await sb.auth.resend({ type: "signup", email, options: { emailRedirectTo: here() } }); if (error) throw fail(error); },
     async recover(email) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: here() }); if (error) throw fail(error); },
     async setPassword(password) { const { error } = await sb.auth.updateUser({ password }); if (error) throw fail(error); recovery = false; emit(); },
-    async signOut() { if (demo) return; await sb.auth.signOut(); session = null; profile = null; state = "out"; emit(); },
+    async signOut() { if (demo) return; leaving = true; await sb.auth.signOut(); session = null; profile = null; state = "out"; emit(); },
     async claim(username, avatar) { profile = await rpc("claim_profile", { p_username: username, p_avatar: avatar || "dumbo" }); state = "in"; emit(); return profile; },
-    async remove() { await rpc("delete_account"); if (sb) await sb.auth.signOut().catch(() => {}); session = null; profile = null; state = demo ? "in" : "out"; emit(); },
+    async remove() { await rpc("delete_account"); leaving = true; if (sb) await sb.auth.signOut().catch(() => {}); session = null; profile = null; state = demo ? "in" : "out"; emit(); },
     // A realtime channel for one race: a "poke" from anyone in it means "something changed, ask again".
     // Only a nudge: the race itself is always read from the database. Off in tests (the stand-in server has no realtime).
     channel(name, onPoke) {

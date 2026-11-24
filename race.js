@@ -17,6 +17,8 @@
     if (attrs && (typeof attrs !== "object" || attrs instanceof Node || Array.isArray(attrs))) { kids.unshift(attrs); attrs = null; }
     for (const [k, v] of Object.entries(attrs || {})) { if (v == null || v === false) continue; if (k.startsWith("on")) n[k] = v; else if (k in n && k !== "list") n[k] = v; else n.setAttribute(k, v === true ? "" : v); }
     for (const k of kids.flat()) if (k != null && k !== false) n.append(k); return n; };
+  // Add children to a node, skipping nothing-values: the browser's own append() would print null as "null".
+  const add = (node, ...kids) => { for (const k of kids.flat()) if (k != null && k !== false && k !== "") node.append(k); return node; };
   const fmt = n => Number(n).toLocaleString("en-US"), m = n => `${fmt(Math.round(n))} m`;
   const PARAMS = new URLSearchParams(location.search), FAST = PARAMS.has("fast") ? 3 : 1, reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -118,8 +120,8 @@
   function mount() {
     if (S.host) return;
     S.host = $("#rc");
-    for (const k of ["world", "back", "subs", "front", "dark", "lume", "lamps"]) { const c = document.createElement("canvas"); c.className = "rc-layer rc-" + k; S.host.append(c); S.c[k] = c; S.g[k] = c.getContext("2d"); }
-    S.labelBox = h("div.rc-labels"); S.map = h("div.rc-map", { "aria-hidden": "true" }); S.edge = h("div.rc-edges"); S.host.append(S.labelBox, S.edge, S.map);
+    for (const k of ["world", "back", "subs", "front", "dark", "lume", "lamps"]) { const c = document.createElement("canvas"); c.className = "rc-layer rc-" + k; add(S.host, c); S.c[k] = c; S.g[k] = c.getContext("2d"); }
+    S.labelBox = h("div.rc-labels"); S.map = h("div.rc-map", { "aria-hidden": "true" }); S.edge = h("div.rc-edges"); add(S.host, S.labelBox, S.edge, S.map);
     new ResizeObserver(() => size(true)).observe(S.host); size(true);
     // The daily game's wildlife, reused: an adapter makes the race camera look like the iceberg's to it.
     if (window.Wildlife) {
@@ -170,8 +172,8 @@
     return { x: fits ? mid : me.x, y: me.y };
   }
   function loop(now) {
+    if (!S.host || S.host.offsetParent === null) { S.raf = 0; S.last = now; return; }   // not on screen: rest until the race is opened again
     S.raf = requestAnimationFrame(loop);
-    if (!S.host || S.host.offsetParent === null) { S.last = now; return; }
     const dt = Math.min(0.05, (now - S.last) / 1000 || 0.016); S.last = now; S.t += dt;
     if (++S.frame % 15 === 0) size(false);
     // Submarines ease towards where the server says they are: quick to start, gentle to arrive.
@@ -234,7 +236,7 @@
     for (const s of S.subs.values()) {
       seen.add(s.name);
       let el = S.labels.get(s.name);
-      if (!el) { el = h("div.rc-tag", h("span.n"), h("b.d"), h("span.x")); S.labelBox.append(el); S.labels.set(s.name, el); }
+      if (!el) { el = h("div.rc-tag", h("span.n"), h("b.d"), h("span.x")); add(S.labelBox, el); S.labels.set(s.name, el); }
       el.style.setProperty("--who", s.look.hull.base);
       el.classList.toggle("me", !!s.me); el.classList.toggle("away", s.here === false); el.classList.toggle("beneath", !!s.beneath);
       const n = s.me ? "You" : s.name, d = m(s.dist), x = s.note || "";
@@ -253,8 +255,8 @@
       S.edgeKey = key; S.edge.textContent = "";
       const chip = (s, where) => h("span.rc-edge.rc-" + where + (s.beneath ? ".beneath" : ""), { style: `--who:${s.look.hull.base}` }, h("i"), (s.me ? "You" : s.name) + " ", h("b", (where === "up" ? "↑ " : "↓ ") + m(Math.abs(s.dist - myD))));
       const row = (list, where, style) => h("div.rc-edge-row.rc-" + where, { style: `left:${f.l + 8}px; right:${S.w - f.r + 8}px; ${style}` }, list.slice(0, 4).map(s => chip(s, where)));
-      if (edgeTop.length) S.edge.append(row(edgeTop.sort((a, b) => b.dist - a.dist), "up", `top:${f.t + 8}px`));
-      if (edgeBot.length) S.edge.append(row(edgeBot.sort((a, b) => a.dist - b.dist), "down", `top:${f.b - 34}px`));
+      if (edgeTop.length) add(S.edge, row(edgeTop.sort((a, b) => b.dist - a.dist), "up", `top:${f.t + 8}px`));
+      if (edgeBot.length) add(S.edge, row(edgeBot.sort((a, b) => a.dist - b.dist), "down", `top:${f.b - 34}px`));
       S.map.style.top = f.t + (phone() ? 8 : 22) + "px"; S.map.style.height = Math.max(80, f.b - f.t - (phone() ? 16 : 60)) + "px";
     }
     drawMap();
@@ -266,9 +268,9 @@
     const key = subs.map(s => s.name + Math.round(s.dist) + !!s.beneath).join() + Math.round(deepest);
     if (S.mapKey === key) return; S.mapKey = key;
     S.map.textContent = "";
-    S.map.append(h("i.rc-map-line"));
-    ZONES.forEach((z, i) => { if (i && z.from < deepest) S.map.append(h("span.rc-map-zone", { style: `top:${(z.from / deepest) * 100}%` }, z.name.replace("The ", ""))); });
-    for (const s of subs) S.map.append(h("b.rc-map-dot" + (s.me ? ".me" : "") + (s.beneath ? ".beneath" : ""), { style: `top:${(s.dist / deepest) * 100}%; --who:${s.look.hull.base}`, title: `${s.name}: ${m(s.dist)}` }));
+    add(S.map, h("i.rc-map-line"));
+    ZONES.forEach((z, i) => { if (i && z.from < deepest) add(S.map, h("span.rc-map-zone", { style: `top:${(z.from / deepest) * 100}%` }, z.name.replace("The ", ""))); });
+    for (const s of subs) add(S.map, h("b.rc-map-dot" + (s.me ? ".me" : "") + (s.beneath ? ".beneath" : ""), { style: `top:${(s.dist / deepest) * 100}%; --who:${s.look.hull.base}`, title: `${s.name}: ${m(s.dist)}` }));
   }
   // Keep the submarines in step with the race's players.
   function syncSubs(players, first) {
@@ -306,7 +308,7 @@
     busyOpen = true; try { await openInner(code); } finally { busyOpen = false; }
   }
   async function openInner(code) {
-    const game = G(); if (game.screen !== "race") game.show("race"); mount();
+    const game = G(); if (game.screen !== "race") game.show("race"); mount(); if (!S.raf) { S.last = performance.now(); S.raf = requestAnimationFrame(loop); }
     document.documentElement.classList.add("in-race");
     window.Sound.setAmbience("race", 0);
     if (!A || !A.signedIn) return showHome();
@@ -342,14 +344,14 @@
   async function showHome(error) {
     view = "home"; stopPolling(); race = null; syncSubs([], true); lastStatus = ""; { const meta = $("#top-meta"); if (meta) meta.textContent = "Submarine race"; }
     const box = dock(); box.textContent = ""; box.className = "rdock home";
-    box.append(h("div.q", h("p.eyebrow", "Submarine race"), h("h2.r-title", "Race to the bottom"),
+    add(box, h("div.q", h("p.eyebrow", "Submarine race"), h("h2.r-title", "Race to the bottom"),
       h("p.q-hint", "Live races against real players. Same questions, same clock, three guesses each. Your rarest answer on each question takes your sub deeper. Deepest at the end wins.")));
-    if (!A || A.state === "off") { box.append(h("p.note-line", "Races need the game's database, which isn't connected to this copy.")); return; }
-    if (!A.signedIn) { box.append(h("p.note-line", "Races are for players with an account, so everyone in a race is a real person."), h("div.row", h("button.btn", { type: "button", onclick: () => window.Hub.open("account") }, "Sign in or create an account"))); return; }
+    if (!A || A.state === "off") { add(box, h("p.note-line", "Races need the game's database, which isn't connected to this copy.")); return; }
+    if (!A.signedIn) { add(box, h("p.note-line", "Races are for players with an account, so everyone in a race is a real person."), h("div.row", h("button.btn", { type: "button", onclick: () => window.Hub.open("account") }, "Sign in or create an account"))); return; }
     const waiting = h("span.r-wait", "…");
     const code = h("input", { type: "text", maxLength: 6, placeholder: "CODE", autocapitalize: "characters", autocomplete: "off", spellcheck: false, "aria-label": "Race code" });
     const err = h("p.msg.bad", { role: "status" }, error || "");
-    box.append(
+    add(box, 
       h("div.r-choices",
         h("button.btn.wide", { type: "button", id: "r-quick", onclick: e => act(e.currentTarget, async () => { race = await call("race_quick"); enter(); }, err) }, "Quick race"),
         h("p.fine.center", waiting),
@@ -362,7 +364,7 @@
       const [n, inv, rec] = await Promise.all([A.rpc("race_waiting"), A.rpc("race_invites"), A.rpc("race_record", { p_username: A.profile.username })]);
       waiting.textContent = n ? `${n} ${n === 1 ? "player is" : "players are"} waiting for a race` : "Nobody is waiting right now: you'll open a new race and others can join.";
       if (inv.length) box.insertBefore(h("div.r-invites", h("h3", "Invitations"), inv.map(x => h("div.r-inv", h("span", h("b", x.from), ` · ${x.players} in the lobby`), h("button.btn.small.solid", { type: "button", onclick: e => act(e.currentTarget, async () => { race = await call("race_join", { p_code: x.code }); enter(); }, err) }, "Join")))), box.querySelector(".r-choices"));
-      if (rec.races) box.append(h("p.r-record", h("span", h("b", fmt(rec.races)), rec.races === 1 ? " race" : " races"), h("span", h("b", fmt(rec.wins)), rec.wins === 1 ? " win" : " wins"), h("span", "best ", h("b", m(rec.best)))));
+      if (rec.races) add(box, h("p.r-record", h("span", h("b", fmt(rec.races)), rec.races === 1 ? " race" : " races"), h("span", h("b", fmt(rec.wins)), rec.wins === 1 ? " win" : " wins"), h("span", "best ", h("b", m(rec.best)))));
     } catch { waiting.textContent = ""; }
   }
   async function act(btn, fn, err) { if (btn) btn.disabled = true; try { await fn(); } catch (e) { if (err) err.textContent = e.message; if (btn) btn.disabled = false; } }
@@ -422,7 +424,7 @@
     if (changed || !box.querySelector(".r-lobby")) {
       box.textContent = ""; box.className = "rdock lobby";
       const link = location.origin + location.pathname + "#race/" + r.code;
-      box.append(h("div.r-lobby",
+      add(box, h("div.r-lobby",
         h("p.eyebrow", r.kind === "public" ? "Quick race" : "Private race"),
         r.kind === "private" ? h("div.r-code", h("span", "Code"), h("b#r-code", r.code), h("button.btn.small.ghost", { type: "button", id: "r-copy", onclick: e => { copy(link, e.currentTarget); } }, "Copy invite link")) : h("p.r-title", "Waiting for racers"),
         h("p.note-line#r-lobby-note"),
@@ -434,7 +436,7 @@
       if (r.kind === "private") inviteList();
     }
     const list = $("#r-players"); list.textContent = "";
-    r.players.forEach(p => list.append(h("li", { style: `--who:${window.SubArt.look(p.seat).hull.base}` }, h("i.r-dot"), h("span.r-name", p.me ? `${p.username} (you)` : p.username), p.host ? h("span.tag", "Host") : null,
+    r.players.forEach(p => add(list, h("li", { style: `--who:${window.SubArt.look(p.seat).hull.base}` }, h("i.r-dot"), h("span.r-name", p.me ? `${p.username} (you)` : p.username), p.host ? h("span.tag", "Host") : null,
       h("span.r-state" + (p.ready ? ".ok" : ""), p.here === false ? "connecting…" : p.ready ? "Ready" : "Not ready"))));
     const ready = r.players.filter(p => p.ready).length, need = r.players.length;
     const note = $("#r-lobby-note");
@@ -447,9 +449,9 @@
     const acts = $("#r-actions"); acts.textContent = "";
     const err = $("#r-err");
     const me = r.players.find(p => p.me);
-    if (r.kind === "private" && !meHost) acts.append(h("button.btn" + (me.ready ? ".ghost" : ""), { type: "button", id: "r-ready", onclick: e => act(e.currentTarget, async () => { race = await call("race_ready", { p_race: r.id, p_ready: !me.ready }); nudge(); update(); }, err) }, me.ready ? "Not ready" : "I'm ready"));
-    if (meHost && r.kind === "private") { const can = need >= 2 && ready >= need; acts.append(h("button.btn", { type: "button", id: "r-start", disabled: !can, onclick: e => act(e.currentTarget, async () => { race = await call("race_start", { p_race: r.id }); nudge(); update(); }, err) }, can ? "Start the race" : need < 2 ? "Waiting for racers" : "Waiting for everyone to be ready")); }
-    acts.append(h("button.link", { type: "button", id: "r-leave", onclick: () => leave() }, "Leave"));
+    if (r.kind === "private" && !meHost) add(acts, h("button.btn" + (me.ready ? ".ghost" : ""), { type: "button", id: "r-ready", onclick: e => act(e.currentTarget, async () => { race = await call("race_ready", { p_race: r.id, p_ready: !me.ready }); nudge(); update(); }, err) }, me.ready ? "Not ready" : "I'm ready"));
+    if (meHost && r.kind === "private") { const can = need >= 2 && ready >= need; add(acts, h("button.btn", { type: "button", id: "r-start", disabled: !can, onclick: e => act(e.currentTarget, async () => { race = await call("race_start", { p_race: r.id }); nudge(); update(); }, err) }, can ? "Start the race" : need < 2 ? "Waiting for racers" : "Waiting for everyone to be ready")); }
+    add(acts, h("button.link", { type: "button", id: "r-leave", onclick: () => leave() }, "Leave"));
   }
   function settingsRow(r) {
     const sel = (label, opts, cur, key) => h("label.r-set", label, h("select", { onchange: () => setting() }, opts.map(([v, t]) => { const o = h("option", { value: v }, t); if (v === cur) o.selected = true; return o; })));
@@ -466,7 +468,7 @@
       const f = await A.rpc("friends", { p_day: G().today() }), here = new Set(race.players.map(p => p.username));
       const list = f.friends.filter(x => !here.has(x.username));
       if (!list.length) { box.textContent = ""; return; }
-      box.append(h("h3", "Invite friends"), h("ul.rows", list.slice(0, 8).map(x => h("li", h("span"), h("span.name", x.username), h("button.btn.small.ghost", { type: "button", onclick: e => act(e.currentTarget, async () => { await A.rpc("race_invite", { p_race: race.id, p_username: x.username }); e.target.textContent = "Invited"; }, $("#r-err")) }, "Invite")))));
+      add(box, h("h3", "Invite friends"), h("ul.rows", list.slice(0, 8).map(x => h("li", h("span"), h("span.name", x.username), h("button.btn.small.ghost", { type: "button", onclick: e => act(e.currentTarget, async () => { await A.rpc("race_invite", { p_race: race.id, p_username: x.username }); e.target.textContent = "Invited"; }, $("#r-err")) }, "Invite")))));
     } catch { /* fine */ }
   }
   async function copy(text, btn) { try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; } catch { btn.textContent = text; } setTimeout(() => { btn.textContent = "Copy invite link"; }, 2500); }
@@ -481,7 +483,7 @@
       box.textContent = ""; box.className = "rdock playing";
       unknownKey = ""; busy = false; encountered.clear();
       const qinfo = pool && pool.get(r.qid);
-      box.append(h("div.q", h("p.eyebrow", h("span#r-qnum", `Question ${r.round} of ${r.q_count}`), h("span.r-mydepth#r-mydepth")), h("div.q-title", h("span.q-icon.cat-icon#r-qicon", { "aria-hidden": "true" }), h("h2#r-qtitle", qinfo ? qinfo.title : "…"))),
+      add(box, h("div.q", h("p.eyebrow", h("span#r-qnum", `Question ${r.round} of ${r.q_count}`), h("span.r-mydepth#r-mydepth")), h("div.q-title", h("span.q-icon.cat-icon#r-qicon", { "aria-hidden": "true" }), h("h2#r-qtitle", qinfo ? qinfo.title : "…"))),
         h("div#r-panel",
           h("form.entry#r-entry", { autocomplete: "off", novalidate: true, onsubmit: e => { e.preventDefault(); submit(); } },
             h("div.melt#r-melt", { role: "timer" }, h("canvas#r-ice", { "aria-hidden": "true" }), h("span.melt-n#r-secs", String(r.seconds))),
@@ -522,7 +524,7 @@
     for (let i = 1; i <= 3; i++) {
       const g = mine.find(x => x.slot === i);
       const name = g ? (g.status === "ok" ? (cat ? (cat.answers.find(a => a.a === g.answer) || {}).d || g.answer : g.answer) : g.typed) : "";
-      list.append(h("li.r-try" + (!g ? (i === mine.length + 1 ? ".next" : ".empty") : g.status === "ok" ? ".ok" + (g === best ? ".best" : "") + (window.Iceberg.isBeyond(g.depth) ? ".beyond" : "") : ".pending"),
+      add(list, h("li.r-try" + (!g ? (i === mine.length + 1 ? ".next" : ".empty") : g.status === "ok" ? ".ok" + (g === best ? ".best" : "") + (window.Iceberg.isBeyond(g.depth) ? ".beyond" : "") : ".pending"),
         h("span.slot-n", String(i)), h("span.r-try-name", g ? name : `Guess ${i}`), h("span.r-try-d", g ? (g.status === "ok" ? m(g.depth) : "no depth") : "–")));
     }
     const me = race.players.find(p => p.me), d = $("#r-mydepth"); if (d && me) d.textContent = `Your depth ${m(me.distance)}`;
@@ -533,7 +535,7 @@
     const box = $("#r-standing"); if (!box) return;
     const ps = race.players.slice().sort((a, b) => b.distance - a.distance);
     box.textContent = "";
-    ps.forEach((p, i) => box.append(h("div.r-row" + (p.me ? ".me" : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` }, h("span.r-pos", String(i + 1)), h("i.r-dot"), h("span.r-name", p.me ? "You" : p.username),
+    ps.forEach((p, i) => add(box, h("div.r-row" + (p.me ? ".me" : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` }, h("span.r-pos", String(i + 1)), h("i.r-dot"), h("span.r-name", p.me ? "You" : p.username),
       h("span.r-used", { title: "guesses used" }, "•".repeat(p.used) + "◦".repeat(Math.max(0, 3 - p.used))), h("b", m(p.distance)))));
   }
   async function submit() {
@@ -588,7 +590,7 @@
     const top = Math.max(0, ...Object.values(best).map(g => g.depth));
     const nameOf = g => q ? ((q.answers.find(a => a.a === g.answer) || {}).d || g.answer) : g.answer;
     const rows = r.players.slice().sort((a, b) => ((best[b.username] || {}).depth || 0) - ((best[a.username] || {}).depth || 0));
-    box.append(h("div.r-between", h("p.eyebrow", `Question ${r.round} of ${r.q_count} · ${title}`), h("h2.r-title", "Deepest answers"),
+    add(box, h("div.r-between", h("p.eyebrow", `Question ${r.round} of ${r.q_count} · ${title}`), h("h2.r-title", "Deepest answers"),
       h("ul.r-best", rows.map(p => { const g = best[p.username]; return h("li" + (g && g.depth === top && top > 0 ? ".won" : "") + (p.me ? ".me" : "") + (g && window.Iceberg.isBeyond(g.depth) ? ".beyond" : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` },
         h("i.r-dot"), h("span.r-name", p.me ? "You" : p.username), h("span.r-ans", g ? nameOf(g) : "nothing counted"), h("span.r-pct", g ? G().pctText(g.share) : ""), h("b", g ? m(g.depth) : "0 m")); })),
       h("p.fine#r-next"), h("button.link#r-leave", { type: "button", onclick: () => { if (confirm("Leave this race? You can't rejoin it once you leave.")) leave(); } }, "Leave race")));
@@ -612,7 +614,7 @@
       return { title: (pool && pool.get(qid) || {}).title || (q && q.title) || "", name: g ? (q ? ((q.answers.find(a => a.a === g.answer) || {}).d || g.answer) : g.answer) : "", depth: g ? g.depth : 0 };
     });
     const playerOf = n => r.players.find(p => p.username === n) || { seat: 0 };
-    box.append(h("div.r-results",
+    add(box, h("div.r-results",
       h("p.eyebrow", `${r.kind === "practice" ? "Practice" : "Race"} over · ${r.q_count} questions`),
       h("h2.r-title", res.length > 1 ? (win && win.username === r.me ? "You won" : `${win ? win.username : ""} wins`) : "Your expedition"),
       me ? h("p.r-sum", h("b", m(me.distance)), ` · deepest ${me.deepest} m · ${me.rounds_won} question${me.rounds_won === 1 ? "" : "s"} won${res.length > 1 ? ` · place ${me.place} of ${res.length}` : ""}`) : null,

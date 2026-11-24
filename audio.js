@@ -25,43 +25,72 @@
   const listeners = new Set();
   let seed = 1; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;   // repeatable, so offline tests are stable
 
-  // ---------- The room ----------
+  // ---------- The room, and the noise every water sound is made from ----------
+  // These are long arrays of samples (about ten seconds' worth). Working them out takes the better part of a tenth
+  // of a second, so it is done ahead of time, in small pieces while the page is idle (prepare()), and kept. The
+  // first tap then only has to hand them to the audio engine. If they aren't ready yet, they are made on the spot.
+  const DATA = new Map();     // "impulse:48000" -> [left, right]; "brown:48000" -> samples
   // An underwater space: a short early reflection, then a long tail that loses its top end fast, with the two
   // channels different so it feels wide.
-  function makeImpulse(c, seconds) {
-    const rate = c.sampleRate, len = Math.floor(rate * seconds), buf = c.createBuffer(2, len, rate);
+  function* impulseSteps(rate, seconds, out) {
+    const len = Math.floor(rate * seconds);
     for (let ch = 0; ch < 2; ch++) {
-      const d = buf.getChannelData(ch); let lp = 0, s = 9 + ch * 31;
+      const d = out[ch] = new Float32Array(len); let lp = 0, s = 9 + ch * 31;
       const r = () => (s = (s * 16807) % 2147483647) / 2147483647 * 2 - 1;
       for (let i = 0; i < len; i++) {
         const t = i / len, k = 0.06 + 0.9 * Math.pow(t, 0.6);         // darker as it fades
         lp += (r() - lp) * (1 - k);
         const early = i > rate * (0.019 + ch * 0.007) && i < rate * (0.03 + ch * 0.007) ? 1.8 : 0;   // one soft wall
         d[i] = (lp * Math.pow(1 - t, 2.8) + early * r() * 0.12) * (i < rate * 0.008 ? i / (rate * 0.008) : 1);
+        if ((i & 32767) === 32767) yield;
       }
     }
-    return buf;
   }
-  function makeNoise(c, seconds, kind) {
-    const len = Math.floor(c.sampleRate * seconds), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
-    let b = 0, p0 = 0, p1 = 0, p2 = 0;
+  function* noiseSteps(rate, seconds, kind, out) {
+    const len = Math.floor(rate * seconds), d = out[0] = new Float32Array(len);
+    let b = 0, p0 = 0, p1 = 0, p2 = 0, s = kind === "brown" ? 3 : kind === "pink" ? 5 : 7;
     for (let i = 0; i < len; i++) {
-      const w = rnd() * 2 - 1;
+      const w = (s = (s * 16807) % 2147483647) / 2147483647 * 2 - 1;
       if (kind === "brown") { b = (b + 0.02 * w) / 1.02; d[i] = b * 3.5; }
       else if (kind === "pink") { p0 = 0.997 * p0 + 0.029591 * w; p1 = 0.985 * p1 + 0.032534 * w; p2 = 0.95 * p2 + 0.048056 * w; d[i] = (p0 + p1 + p2 + 0.05 * w) * 2.2; }
       else d[i] = w;
+      if ((i & 32767) === 32767) yield;
     }
-    const fade = Math.floor(c.sampleRate * 0.05); for (let i = 0; i < fade; i++) { const k = i / fade; d[len - fade + i] = d[len - fade + i] * (1 - k) + d[i] * k; }   // loops without a click
-    return buf;
+    const fade = Math.floor(rate * 0.05); for (let i = 0; i < fade; i++) { const k = i / fade; d[len - fade + i] = d[len - fade + i] * (1 - k) + d[i] * k; }   // loops without a click
   }
+  const JOBS = { impulse: [3.6, (rate, out) => impulseSteps(rate, 3.6, out)], white: [2, (rate, out) => noiseSteps(rate, 2, "white", out)], pink: [4, (rate, out) => noiseSteps(rate, 4, "pink", out)], brown: [6, (rate, out) => noiseSteps(rate, 6, "brown", out)] };
+  function dataFor(kind, rate) {
+    const key = kind + ":" + rate; if (DATA.has(key)) return DATA.get(key);
+    const out = []; for (const _ of JOBS[kind][1](rate, out)) { /* run to the end now */ } DATA.set(key, out); return out;
+  }
+  // Ahead of time, in slices of a few milliseconds, only while nothing else is happening.
+  let preparing = false;
+  function prepare() {
+    if (preparing) return; preparing = true;
+    // The engine, paused (no sound can start before the player does something), so its real sample rate is known.
+    try { if (!ctx) ctx = newContext(); } catch { ctx = null; }
+    const rate = ctx ? ctx.sampleRate : 48000;
+    const idle = window.requestIdleCallback || (f => setTimeout(() => f({ timeRemaining: () => 8 }), 30));
+    const kinds = Object.keys(JOBS).filter(k => !DATA.has(k + ":" + rate)); let it = null, kind = null, outArr = null;
+    const work = deadline => {
+      while (deadline.timeRemaining() > 2) {
+        if (!it) { kind = kinds.shift(); if (!kind) { if (ctx && !A) idle(() => { try { if (!A) ensure(); } catch { /* the first tap will try again */ } }); return; } outArr = []; it = JOBS[kind][1](rate, outArr); }
+        if (it.next().done) { DATA.set(kind + ":" + rate, outArr); it = null; }
+      }
+      idle(work);
+    };
+    idle(work);
+  }
+  function makeImpulse(c) { const [l, r] = dataFor("impulse", c.sampleRate), buf = c.createBuffer(2, l.length, c.sampleRate); buf.copyToChannel(l, 0); buf.copyToChannel(r, 1); return buf; }
+  function makeNoise(c, kind) { const [d] = dataFor(kind, c.sampleRate), buf = c.createBuffer(1, d.length, c.sampleRate); buf.copyToChannel(d, 0); return buf; }
   // A graph (buses, room, limiter) for any context: the live one, or an offline one used by the self-test.
   function buildGraph(c) {
     seed = 1;
     const g = {
       c, master: c.createGain(), sfx: c.createGain(), amb: c.createGain(), dark: c.createBiquadFilter(), verb: c.createConvolver(), verbIn: c.createGain(),
-      lim: c.createDynamicsCompressor(), white: makeNoise(c, 2, "white"), pink: makeNoise(c, 4, "pink"), brown: makeNoise(c, 6, "brown"),
+      lim: c.createDynamicsCompressor(), white: makeNoise(c, "white"), pink: makeNoise(c, "pink"), brown: makeNoise(c, "brown"),
     };
-    g.verb.buffer = makeImpulse(c, 3.6);
+    g.verb.buffer = makeImpulse(c);
     g.verbIn.gain.value = 0.8;
     g.dark.type = "lowpass"; g.dark.frequency.value = 18000; g.dark.Q.value = 0.5;   // follows depth (setAmbience)
     g.lim.threshold.value = -12; g.lim.knee.value = 8; g.lim.ratio.value = 6; g.lim.attack.value = 0.003; g.lim.release.value = 0.2;
@@ -371,25 +400,29 @@
   let A = null, ambMode = "off", ambDepth = 0, ambBeyond = 0, lastSubmit = 0, lastHover = 0, lastThrust = 0, eventTimer = 0;
   const AMB_LEVEL = { off: 0, home: 0.8, play: 0.9, race: 0.9, end: 0.8 };
 
+  // The engine can be built ahead of time (prepare(), while the page is idle). Browsers keep it paused until the
+  // player's first tap or key press, and that press then only has to un-pause it.
+  const newContext = () => { const AC = window.AudioContext || window.webkitAudioContext; return AC ? new AC({ latencyHint: "interactive" }) : null; };
+  function build() {
+    out = buildGraph(ctx); seed = (Date.now() % 100000) + 7;
+    applyPrefs();
+    A = buildAmbience(out);
+    setAmbience(ambMode, ambDepth);
+    eventTimer = setInterval(ambientEvent, 1000);
+  }
   function ensure() {
-    if (ctx) return ctx.state === "running";
-    try {
-      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
-      ctx = new AC({ latencyHint: "interactive" });
-      out = buildGraph(ctx); seed = (Date.now() % 100000) + 7;
-      applyPrefs();
-      A = buildAmbience(out);
-      setAmbience(ambMode, ambDepth);
-      eventTimer = setInterval(ambientEvent, 1000);
-    } catch { ctx = null; return false; }
+    if (ctx && out) return ctx.state === "running";
+    try { if (!ctx) ctx = newContext(); if (!ctx) return false; build(); }
+    catch { ctx = null; out = null; return false; }
     return ctx.state === "running";
   }
-  function unlock() { if (!ensure() && ctx && ctx.state === "suspended") ctx.resume().catch(() => {}); }
+  let lastUnlock = -1e9;
+  function unlock() { lastUnlock = performance.now(); if (!ensure() && ctx && ctx.state === "suspended") ctx.resume().catch(() => {}); }
   ["pointerdown", "keydown", "touchend"].forEach(ev => window.addEventListener(ev, unlock, { capture: true, passive: true }));
   document.addEventListener("visibilitychange", () => { if (!ctx) return; if (document.hidden) ctx.suspend().catch(() => {}); else ctx.resume().catch(() => {}); });
 
   function applyPrefs() {
-    if (!ctx) return;
+    if (!ctx || !out) return;
     const t = ctx.currentTime;
     out.master.gain.setTargetAtTime(prefs.muted ? 0 : 1, t, 0.03);
     out.sfx.gain.setTargetAtTime(prefs.sfx * prefs.sfx * 1.1, t, 0.03); // squared: sliders feel even to the ear
@@ -397,7 +430,9 @@
     listeners.forEach(f => f(prefs));
   }
   function play(name, o = {}) {
-    if (!ctx || ctx.state !== "running" || prefs.muted || !prefs.sfx || !SOUNDS[name]) return;
+    // The very first sound comes in the same tap that wakes the engine, a moment before it is running: play it then.
+    if (ctx && out && ctx.state === "suspended" && performance.now() - lastUnlock < 1000 && !prefs.muted && prefs.sfx && SOUNDS[name]) { ctx.resume().then(() => { if (ctx.state === "running") play(name, o); }).catch(() => {}); return; }
+    if (!ctx || !out || ctx.state !== "running" || prefs.muted || !prefs.sfx || !SOUNDS[name]) return;
     const now = ctx.currentTime;
     if (name === "hover") { if (now - lastHover < 0.08) return; lastHover = now; }
     if (name === "submit" || name === "final") { if (now - lastSubmit < 0.05) return; lastSubmit = now; } // a double tap is one sound
@@ -448,7 +483,7 @@
   }
 
   window.Sound = {
-    play, unlock, setAmbience,
+    play, unlock, setAmbience, prepare,
     get prefs() { return { ...prefs }; },
     get ready() { return !!ctx && ctx.state === "running"; },
     set(p) { Object.assign(prefs, p); prefs.sfx = Math.max(0, Math.min(1, +prefs.sfx)); prefs.amb = Math.max(0, Math.min(1, +prefs.amb)); save(); applyPrefs(); },

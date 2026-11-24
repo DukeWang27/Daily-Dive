@@ -4,6 +4,7 @@
 // (tests/db/setup.sh). So the database rules are tested for real; the sign-in service is imitated.
 //   node tests/gateway.cjs [port]            (default 8790)
 const http = require('http'), crypto = require('crypto'), { Pool } = require('./node_modules/pg');
+const DELAY = +(process.env.GATEWAY_DELAY || 0);
 const SECRET = 'local-test-secret', DB = process.env.ICEBERG_TEST_DB || 'icetest';
 const pool = new Pool({ host: '/var/run/postgresql', user: 'postgres', database: DB, max: 8 });
 const b64 = o => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64url');
@@ -35,6 +36,7 @@ const server = http.createServer(async (req, res) => {
   let raw = ''; for await (const chunk of req) raw += chunk;
   let body = {}; try { body = raw ? JSON.parse(raw) : {}; } catch { /* not JSON */ }
   const bearer = (req.headers.authorization || '').replace(/^Bearer /, ''), claims = verify(bearer), p = url.pathname;
+  if (DELAY && !p.startsWith('/__')) await new Promise(r => setTimeout(r, DELAY));   // GATEWAY_DELAY=ms: a slow server, for timing tests
   try {
     if (!verify(req.headers.apikey) && p !== '/auth/v1/authorize' && !p.startsWith('/__')) return send(401, { message: 'Invalid API key' });
     // ----- sign-in (imitated) -----
@@ -47,6 +49,7 @@ const server = http.createServer(async (req, res) => {
       if (/@confirm\./.test(email)) { sent.push({ to: email, kind: 'confirm' }); return send(200, { ...userJson(u), email_confirmed_at: null, confirmation_sent_at: u.created_at, identities: [{ id: u.id, user_id: u.id, provider: 'email', identity_data: { email } }] }); }   // a project with "confirm email" on
       return send(200, session(u));
     }
+    if (p === '/auth/v1/resend') { sent.push({ to: String(body.email || '').toLowerCase(), kind: 'confirm-again' }); return send(200, {}); }   // always quiet: never says whether the address exists
     if (p === '/auth/v1/token') {
       const grant = url.searchParams.get('grant_type');
       if (grant === 'password') {

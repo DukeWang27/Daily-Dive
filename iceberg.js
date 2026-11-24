@@ -265,7 +265,9 @@
   }
 
   // ---------- Motion ----------
+  // The game's motion: ease in and out for journeys, ease out for things arriving (they start at speed and settle).
   const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const easeOutQuart = t => 1 - Math.pow(1 - t, 4);
   const easeInOutSlow = t => t < 0.5 ? 16 * t ** 5 : 1 - Math.pow(-2 * t + 2, 5) / 2; // longer glide, gentler landing
   // The way down beneath the iceberg: gathers pace, then slows long before the end, so the last stretch is a drift.
   const easeDescent = t => { const q = t * t * (3 - 2 * t); return 1 - Math.pow(1 - q, 1.8); };
@@ -291,6 +293,7 @@
       <div class="ib-shade"></div>
       <canvas class="ib-life ib-life-lume"></canvas>
       <div class="ib-glow"></div>
+      <div class="ib-veil"></div>
       <div class="ib-bestline" hidden></div>
       <svg class="ib-lines" aria-hidden="true"><path class="ib-leader" pathLength="1" fill="none"/></svg>
       <div class="ib-layer"></div>
@@ -298,7 +301,7 @@
       <div class="ib-nav" hidden><button type="button" class="ib-prev" aria-label="Shallower guess">${SVG.up}</button><button type="button" class="ib-next" aria-label="Deeper guess">${SVG.down}</button></div>`;
     const $ = sel => host.querySelector(sel);
     const seaW = $(".ib-sea"), iceW = $(".ib-ice"), seaC = $(".ib-sea canvas"), iceC = $(".ib-ice canvas"), layer = $(".ib-layer"), snow = $(".ib-snow"), sg = snow.getContext("2d");
-    const shade = $(".ib-shade"), glow = $(".ib-glow"), depthEl = $(".ib-depth"), gauge = $(".ib-gauge"), scale = $(".ib-scale"), read = $(".ib-read"), nav = $(".ib-nav"), bestLine = $(".ib-bestline"), leader = $(".ib-leader");
+    const veil = $(".ib-veil"), shade = $(".ib-shade"), glow = $(".ib-glow"), depthEl = $(".ib-depth"), gauge = $(".ib-gauge"), scale = $(".ib-scale"), read = $(".ib-read"), nav = $(".ib-nav"), bestLine = $(".ib-bestline"), leader = $(".ib-leader");
     const life = { back: $(".ib-life-back"), front: $(".ib-life-front"), lume: $(".ib-life-lume") };
     paintLayers(seaC, iceC);
 
@@ -441,8 +444,8 @@
 
     // Marine snow in screen space at a coarse pixel size: it drifts on its own and slides past as the camera moves.
     function drawSnow(now) {
+      if (!host.isConnected || host.offsetParent === null) { snowRaf = 0; return; }   // off screen: rest until it is seen again
       snowRaf = requestAnimationFrame(drawSnow);
-      if (!host.isConnected || host.offsetParent === null) return;
       sg.clearRect(0, 0, snow.width, snow.height);
       const X0 = tx(), Y0 = ty(), depth = depthNow(), t = now / 1000;
       for (const f of flakes) {
@@ -453,12 +456,22 @@
       }
     }
 
-    const wait = (ms, r) => new Promise(resolve => { const t0 = performance.now(); const step = now => { if (r.cancelled || now - t0 >= ms) return resolve(); raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step); });
+    // Every wait and move can be stopped part-way; when it is, its promise still settles (stop() settles them all),
+    // so nothing that was waiting on it is left hanging.
+    let settle = [];
+    const hold = resolve => { settle.push(resolve); return () => { settle = settle.filter(f => f !== resolve); resolve(); }; };
+    const wait = (ms, r) => new Promise(res => { const resolve = hold(res), t0 = performance.now(); const step = now => { if (r.cancelled || now - t0 >= ms) return resolve(); raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step); });
+    // r.hurry (set by hurry()): whatever is left of the move plays out over a quarter of a second instead.
     function animate(ms, r, fn) {
-      return new Promise(resolve => {
+      return new Promise(res => {
+        const resolve = hold(res);
         if (ms <= 0) { fn(1); return resolve(); }
-        const t0 = performance.now();
-        const step = now => { if (r.cancelled) return resolve(); const k = Math.min(1, (now - t0) / ms); fn(k); if (k < 1) raf = requestAnimationFrame(step); else resolve(); };
+        let t0 = performance.now(), dur = ms, hurried = false;
+        const step = now => {
+          if (r.cancelled) return resolve();
+          if (r.hurry && !hurried && dur > 300) { hurried = true; const k0 = Math.min(1, (now - t0) / dur); dur = 260; t0 = now - k0 * dur; }
+          const k = Math.min(1, (now - t0) / dur); fn(k); if (k < 1) raf = requestAnimationFrame(step); else resolve();
+        };
         raf = requestAnimationFrame(step);
       });
     }
@@ -467,7 +480,10 @@
       if (Math.abs(to - from) < 0.5) { camY = to; aim = aTo; render(); return wait(Math.min(ms, 250), r); }
       return animate(ms, r, k => { const e = ease(k); camY = from + (to - from) * e; aim = aFrom + (aTo - aFrom) * e; render(); });
     }
-    const stop = () => { run.cancelled = true; cancelAnimationFrame(raf); };
+    // Anything interrupted mid-move is finished off first: a guess sent while the camera is still rising between
+    // questions must not find the last question's answers still on the iceberg.
+    let pendingClear = null;
+    const stop = () => { run.cancelled = true; cancelAnimationFrame(raf); const s = settle; settle = []; s.forEach(f => f()); if (pendingClear) pendingClear(); veil.style.opacity = 0; };
 
     // What the game found, in reading order: the answer, how many players gave it, how deep that puts it, how rare
     // that is, then the small print. No box around it: a hairline, the text, and the water behind.
@@ -530,17 +546,50 @@
       if (!animated) { Z = U; camY = clampCam(tipY()); aim = 0; render(); return; }
       Z = wideZ(); camY = clampCam(WH / 2); aim = 0; render();
       const z0 = Z, y0 = camY;
-      await wait(250 / speed, r);
-      await animate(1100 / speed, r, k => { const e = easeInOut(k); Z = z0 + (U - z0) * e; camY = clampCam(y0 + (tipY() - y0) * e); render(); });
+      await animate(900 / speed, r, k => { const e = easeOutQuart(k); Z = z0 + (U - z0) * e; camY = clampCam(y0 + (tipY() - y0) * e); render(); });
       if (!r.cancelled) { Z = U; camY = clampCam(tipY()); render(); }
     }
+    // Between questions: everything from the last one fades, and the camera rises back to the iceberg's tip while
+    // the frame recomposes for the controls. From beneath the iceberg it doesn't make you watch the whole way up:
+    // the dark closes in, and opens again just under the surface for the last of the rise. Resolves when the tip is
+    // in place. f: the new frame (the free part of the window once the controls are back).
+    async function surface(f, ms = 820) {
+      stop(); const r = run = { cancelled: false }; busy = false; wide = false; nav.hidden = true;
+      const fromY = camY, z0 = Z, axis0 = axis, aim0 = aim, deep = beyondNow() > 0.2 || fromY > BOTTOM;
+      if (frameRun) frameRun.cancelled = true; frameRun = null;
+      if (f) frame = { l: f.l || 0, r: f.r || 0, t: f.t || 0, b: f.b || 0 };
+      host.classList.add("ib-clearing"); host.classList.remove("ib-drawn");
+      let cleared = false;
+      const clear = () => { if (cleared) return; cleared = true; pendingClear = null; layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; leader.setAttribute("d", ""); host.classList.remove("ib-clearing"); };
+      measure(); const axis1 = axisFor(frame);
+      pendingClear = () => { clear(); axis = axis1; Z = U; };
+      if (deep && !reduce) {
+        // out of the deep: the dark closes in over a fifth of a second, the camera is brought up beneath the surface,
+        // and the dark lifts while it rises the rest of the way
+        const mid = W + 120;
+        await animate(200 / speed, r, k => { veil.style.opacity = easeInOut(k).toFixed(3); });
+        if (r.cancelled) return;
+        clear(); Z = U; camY = mid; axis = axis1; aim = 0; render();
+        const to = clampCam(tipY());
+        await animate(Math.max(400, ms - 200) / speed, r, k => { const e = easeOutQuart(k); veil.style.opacity = (1 - e).toFixed(3); camY = mid + (to - mid) * e; render(); });
+        veil.style.opacity = 0;
+        if (r.cancelled) return;
+      } else {
+        const to = () => clampCam(tipY());
+        await animate((reduce ? 0 : ms) / speed, r, k => { const e = easeInOut(k); if (k > 0.25) clear(); Z = z0 + (U - z0) * e; axis = axis0 + (axis1 - axis0) * e; camY = fromY + (to() - fromY) * e; aim = aim0 * (1 - e); render(); });
+        if (r.cancelled) return;   // a guess took over (stop() has already cleared the old answers)
+      }
+      clear();
+      if (!r.cancelled) { Z = U; axis = axis1; camY = clampCam(tipY()); aim = 0; render(); }
+    }
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // One guess: a beat of anticipation, the journey, the landing. Resolves when the marker lands and the annotation
     // starts to draw; the box is ready for the next guess from that moment.
     async function add(a, o = {}) {
       stop(); const r = run = { cancelled: false }; busy = true; Z = U; wide = false;
       const it = build(a), i = items.length - 1;
       showNote(-1);
-      await wait((o.special ? 420 : 280) / speed, r);
+      await wait((o.special ? 140 : 40) / speed, r);   // a breath, so the slot's change reads first; the camera is moving well inside a tenth of a second
       const target = focusY(it), dist = Math.abs(clampCam(target) - camY);
       const deep = isBeyond(it.depth);
       // Beneath the iceberg: a long, unhurried descent past the tip and on into the dark.
@@ -641,8 +690,12 @@
     });
     ro.observe(host);
     measure(); render(); snowRaf = requestAnimationFrame(drawSnow);
+    // Shown again (a screen change): pick the drawing back up.
+    new IntersectionObserver(e => { if (e.some(x => x.isIntersecting) && !snowRaf) snowRaf = requestAnimationFrame(drawSnow); }).observe(host);
     return {
-      enter, add, restore, overview, focus, step, setTag, setSight, setFrame, life, stop,
+      enter, add, restore, overview, focus, step, setTag, setSight, setFrame, surface, life, stop,
+      // Skip ahead: a long move in progress (the descent beneath the iceberg, a slow reveal) finishes quickly.
+      hurry() { if (!run.cancelled) run.hurry = true; },
       get wide() { return wide; },
       get busy() { return busy; }, get focused() { return focusIdx; }, get best() { return bestIdx; }, get count() { return items.length; },
       get depth() { const it = focusIdx >= 0 ? items[focusIdx] : null; return it && !busy && aim === it.y ? it.depth : metres(aim); },

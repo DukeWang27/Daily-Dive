@@ -33,10 +33,13 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
     }
     await p.waitForSelector('[data-screen="end"]:not([hidden])'); await p.waitForTimeout(900); return said;
   };
-  const hub = async (p, tab) => { await p.evaluate(t => Hub.open(t), tab); await p.waitForSelector('[data-screen="hub"]:not([hidden])'); await p.waitForFunction(() => !document.querySelector('#hub-body .wait'), null, { timeout: 8000 }); await p.waitForTimeout(250); };
+  // Every screen visited is also checked for accidental placeholder text ("null", "undefined", "NaN", "[object").
+  const leaks = [];
+  const hub = async (p, tab) => { await p.evaluate(t => Hub.open(t), tab); await p.waitForSelector('[data-screen="hub"]:not([hidden])'); await p.waitForFunction(() => !document.querySelector('#hub-body .wait'), null, { timeout: 8000 }); await p.waitForTimeout(250);
+    const t = await p.evaluate(() => document.querySelector('[data-screen="hub"]').innerText); if (/\bnull\b|\bundefined\b|\bNaN\b|\[object /.test(t)) leaks.push(tab + ': ' + (t.match(/.{0,30}(\bnull\b|\bundefined\b|\bNaN\b|\[object ).{0,20}/) || [''])[0]); };
   const body = p => p.evaluate(() => document.querySelector('#hub-body').innerText.replace(/\n+/g, ' | '));
   const signUp = async (p, email, name, pw = 'secret12') => {
-    await hub(p, 'account'); await p.click('#hub-body >> text=Create an account'); await p.fill('#hub-body input[type=email]', email); await p.fill('#hub-body input[type=password]', pw); await p.click('#hub-body button[type=submit]');
+    await hub(p, 'account'); await p.click('#hub-body .auth-switch >> text=Create account'); await p.fill('#hub-body input[type=email]', email); await p.fill('#hub-body input[type=password]', pw); await p.click('#hub-body button[type=submit]');
     await p.waitForSelector('#hub-body input[autocomplete=username]', { timeout: 8000 });
     if (name) { await p.fill('#hub-body input[autocomplete=username]', name); await p.waitForTimeout(500); await p.click('#hub-body button[type=submit]'); await p.waitForFunction(() => Account.signedIn, null, { timeout: 8000 }); await p.waitForTimeout(600); }
   };
@@ -60,8 +63,9 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
   await hub(ada, 'log');
   ok('guest log: this device\'s own history, labelled as such', /Guest \| Kept on this device only/.test(await body(ada)) && await ada.evaluate(() => document.querySelectorAll('.cal button.l1, .cal button.l2, .cal button.l3, .cal button.l4').length === 1));
   await hub(ada, 'friends'); ok('guest: friends and rankings ask for an account instead of showing anything', /Sign in or create an account/.test(await body(ada)));
-  await hub(ada, 'account'); await ada.click('#hub-body >> text=Create an account'); await ada.fill('#hub-body input[type=email]', 'bea@example.test'); await ada.fill('#hub-body input[type=password]', 'secret12'); await ada.click('#hub-body button[type=submit]'); await ada.waitForTimeout(700);
-  ok('create an account: an email that is already registered is refused, in plain words', /already an account with that email/.test(await body(ada)));
+  await hub(ada, 'account'); await ada.click('#hub-body .auth-switch >> text=Create account'); await ada.fill('#hub-body input[type=email]', 'bea@example.test'); await ada.fill('#hub-body input[type=password]', 'secret12'); await ada.click('#hub-body button[type=submit]'); await ada.waitForTimeout(700);
+  ok('create an account: an email that is already registered is refused, without saying whose it is', /can't be used to create a new account/.test(await body(ada)) && !/already registered/i.test(await body(ada)));
+  ok('create an account: what was typed is kept after a refusal', (await ada.inputValue('#auth-email')) === 'bea@example.test');
   await ada.fill('#hub-body input[type=password]', '123'); await ada.fill('#hub-body input[type=email]', 'ada@example.test'); await ada.click('#hub-body button[type=submit]'); await ada.waitForTimeout(600);
   ok('create an account: a too-short password is refused', /at least 6 characters/.test(await body(ada)));
   await signUp(ada, 'ada@example.test', null);
@@ -91,9 +95,9 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
   ok('sign in: a wrong password is refused without saying which part was wrong', /email and password don't match/.test(await body(ada)));
   await ada.fill('#hub-body input[type=password]', 'secret12'); await ada.click('#hub-body button[type=submit]'); await ada.waitForFunction(() => Account.signedIn); await ada.waitForTimeout(900);
   ok('sign in: works, and nothing is duplicated', await ada.evaluate(() => Account.profile.username === 'Ada' && Account.profile.stats.dives === 1) && (await sql(`select count(*)::int n from public.dives`))[0].n === 1);
-  await ada.evaluate(() => Account.signOut()); await ada.waitForTimeout(300); await hub(ada, 'account'); await ada.click('#hub-body >> text=Forgot password?'); await ada.fill('#hub-body input[type=email]', 'ada@example.test'); await ada.click('#hub-body button[type=submit]'); await ada.waitForTimeout(600);
+  await ada.evaluate(() => Account.signOut()); await ada.waitForTimeout(300); await hub(ada, 'account'); await ada.click('#hub-body >> text=Forgot your password?'); await ada.fill('#hub-body input[type=email]', 'ada@example.test'); await ada.click('#hub-body button[type=submit]'); await ada.waitForTimeout(600);
   const mail = await (await fetch(API + '/__test/mail')).json();
-  ok('password recovery: a reset email is requested, and the page does not reveal whether the address exists', /If there's an account with that email/.test(await body(ada)) && mail.some(x => x.to === 'ada@example.test' && x.kind === 'recover'));
+  ok('password recovery: a reset email is requested, and the page does not reveal whether the address exists', /If there's an account for that address/.test(await body(ada)) && mail.some(x => x.to === 'ada@example.test' && x.kind === 'recover'));
   await ada.evaluate(() => { location.hash = ''; }); await hub(ada, 'account'); await ada.fill('#hub-body input[type=email]', 'ada@example.test'); await ada.fill('#hub-body input[type=password]', 'secret12'); await ada.click('#hub-body button[type=submit]'); await ada.waitForFunction(() => Account.signedIn); await ada.waitForTimeout(600);
 
   // ---------- Friends ----------
@@ -226,10 +230,20 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
   ok('a sent request can be cancelled', (await sql(`select count(*)::int n from public.friendships`))[0].n === 0);
   ok('friends layout: no overlap, clipping or sideways scroll', !(await audit(ada)).length, (await audit(ada)).join('; '));
 
-  // ---------- Google, settings, deleting ----------
-  const goo = await fresh(); await hub(goo, 'account'); await goo.click('#hub-body >> text=Continue with Google'); await goo.waitForFunction(() => window.Account && Account.state === 'new', null, { timeout: 10000 }); await goo.waitForTimeout(500);
-  await goo.evaluate(() => Hub.open('account')); await goo.waitForSelector('#hub-body input[autocomplete=username]');
-  ok('Google sign-in (imitated): comes back signed in and is asked for a username before anything else', /Choose a username/.test(await body(goo)) && await goo.evaluate(() => !location.hash.includes('access_token')));
+  // ---------- A Gmail address, the account screens, settings, deleting ----------
+  const goo = await fresh(); await hub(goo, 'account');
+  const authText = await goo.evaluate(() => document.querySelector('[data-screen="hub"]').innerText + [...document.querySelectorAll('#hub-body button, #hub-body a')].map(x => x.textContent).join(' '));
+  ok('no Google sign-in is offered (email accounts only for now), and nothing on the page mentions it', !/google/i.test(authText));
+  ok('sign-in form: labelled fields that password managers and autofill recognise', await goo.evaluate(() => { const e = document.querySelector('#auth-email'), p = document.querySelector('#auth-password'); return e.autocomplete === 'email' && e.type === 'email' && p.autocomplete === 'current-password' && !!document.querySelector('label[for="auth-email"]') && !!document.querySelector('label[for="auth-password"]'); }));
+  await goo.fill('#auth-password', 'abcdefg'); await goo.click('.pw-toggle');
+  ok('password: the eye button shows and hides it', await goo.evaluate(() => document.querySelector('#auth-password').type === 'text' && document.querySelector('.pw-toggle').getAttribute('aria-pressed') === 'true'));
+  await goo.click('.pw-toggle'); await goo.fill('#auth-email', 'not-an-email'); await goo.click('#hub-body button[type=submit]'); await goo.waitForTimeout(200);
+  ok('sign in: a mistyped email is caught before anything is sent', /doesn't look like an email address/.test(await body(goo)));
+  await goo.click('#hub-body .auth-switch >> text=Create account'); await goo.fill('#auth-email', 'gia.diver@gmail.com'); await goo.fill('#auth-password', 'secret12');
+  const pressed = await goo.evaluate(() => new Promise(res => { const b = document.querySelector('#hub-body button[type=submit]'); b.click(); requestAnimationFrame(() => res({ busy: b.classList.contains('busy') || b.disabled, text: b.textContent })); }));
+  ok('pressing the button: it says what is happening at once, and can\'t be pressed twice', pressed.busy, pressed.text);
+  await goo.waitForSelector('#hub-body input[autocomplete=username]', { timeout: 8000 });
+  ok('a Gmail address signs up like any other, and is then asked for a username', /Choose a username/.test(await body(goo)) && (await sql(`select count(*)::int n from auth.users where email = 'gia.diver@gmail.com'`))[0].n === 1);
   await goo.fill('#hub-body input[autocomplete=username]', 'Gia'); await goo.waitForTimeout(500); await goo.click('#hub-body .avatars button:nth-child(3)'); await goo.click('#hub-body button[type=submit]'); await goo.waitForFunction(() => Account.signedIn); await goo.waitForTimeout(500);
   ok('choosing a picture: one of the game\'s own animals', (await sql(`select avatar from public.profiles where username = 'Gia'`))[0].avatar === 'angler');
   await hub(goo, 'settings'); await goo.fill('#hub-body input[autocomplete=username]', 'Gia_2'); await goo.waitForTimeout(500); await goo.click('#hub-body .form >> text=Save'); await goo.waitForFunction(() => Account.profile.username === 'Gia_2', null, { timeout: 6000 }); await goo.waitForTimeout(400);
@@ -241,12 +255,13 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
   await goo.click('#hub-body .danger summary'); await goo.click('#hub-body .danger >> text=Delete for good'); await goo.waitForTimeout(400);
   ok('delete account: nothing happens until the username is typed to confirm', (await sql(`select count(*)::int n from public.profiles where username = 'Gia_2'`))[0].n === 1);
   await goo.fill('#hub-body .danger input', 'gia_2'); await goo.click('#hub-body .danger >> text=Delete for good'); await goo.waitForFunction(() => Account.state === 'out', null, { timeout: 8000 });
-  ok('delete account: the player is removed from the database and signed out here', (await sql(`select (select count(*) from public.profiles where username = 'Gia_2')::int + (select count(*) from auth.users where email = 'google.user@example.test')::int as n`))[0].n === 0);
+  ok('delete account: the player is removed from the database and signed out here', (await sql(`select (select count(*) from public.profiles where username = 'Gia_2')::int + (select count(*) from auth.users where email = 'gia.diver@gmail.com')::int as n`))[0].n === 0);
   await goo.context().close();
 
   // ---------- Email confirmation switched on ----------
-  const con = await fresh(); await hub(con, 'account'); await con.click('#hub-body >> text=Create an account'); await con.fill('#hub-body input[type=email]', 'new@confirm.test'); await con.fill('#hub-body input[type=password]', 'secret12'); await con.click('#hub-body button[type=submit]'); await con.waitForTimeout(700);
-  ok('if the project asks new players to confirm their email, the page says to check it (and does not sign in)', /Check your email/.test(await body(con)) && await con.evaluate(() => Account.state === 'out'));
+  const con = await fresh(); await hub(con, 'account'); await con.click('#hub-body .auth-switch >> text=Create account'); await con.fill('#hub-body input[type=email]', 'new@confirm.test'); await con.fill('#hub-body input[type=password]', 'secret12'); await con.click('#hub-body button[type=submit]'); await con.waitForTimeout(700);
+  ok('if the project asks new players to confirm their email, the page says to check it, shows the address, and does not sign in', /Check your email/.test(await body(con)) && /new@confirm\.test/.test(await body(con)) && await con.evaluate(() => Account.state === 'out'));
+  ok('the "send it again" button waits a minute before it can be used', await con.evaluate(() => { const b = [...document.querySelectorAll('#hub-body button')].find(x => /Send it again/.test(x.textContent)); return b && b.disabled && /\(\d+ s\)/.test(b.textContent); }));
   await con.context().close();
 
   // ---------- Demonstration data (no database): invented players, labelled on every screen ----------
@@ -312,6 +327,7 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
     ok('best of three: all three guesses stay on the iceberg, with only the deepest marked', all3.marks === 3 && all3.best === 1 && all3.slots.filter(c => /best/.test(c)).length === 1 && /best/.test(all3.slots[2]), JSON.stringify(all3));
     await p.context().close(); }
 
+  ok('no screen showed placeholder text (null, undefined, NaN, [object])', !leaks.length, leaks.slice(0, 3).join(' || '));
   ok('no errors in any browser page during the whole run', !errs.length, errs.slice(0, 3).join(' || '));
   console.log(R.join('\n')); console.log(`\n${R.length - fails} passed, ${fails} failed`);
   await b.close(); site.close(); gw.server.close(); await gw.pool.end(); process.exit(fails ? 1 : 0);

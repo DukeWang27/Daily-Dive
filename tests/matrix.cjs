@@ -10,6 +10,8 @@ const S = p => p.evaluate(() => { const st = ICEBERG_TEST.state, r = st && st.ro
 const settle = async p => { await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 10000 }); await p.waitForTimeout(250); };
 const enter = async (p, text) => { await p.fill('#answer', text); await p.keyboard.press('Enter'); await p.waitForTimeout(60); };
 const guess = async (p, text) => { await enter(p, text); await settle(p); };
+// Where the camera is the moment a guess has landed (the results view takes over shortly after the third).
+const landed = async (p, text) => { await enter(p, text); await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 10000 }); };
 const waitDone = p => p.waitForFunction(() => ICEBERG_TEST.state && ICEBERG_TEST.state.phase === 'done', null, { timeout: 10000 });
 const hint = p => p.textContent('#hint');
 // Nothing on the iceberg overlaps: visible labels, the card and markers.
@@ -64,7 +66,7 @@ async function fullGame(b, vp) {
   await p.waitForFunction(() => ICEBERG_TEST.state.round === 1 && ICEBERG_TEST.state.phase === 'play'); await p.waitForTimeout(500);
   ok(T('q2: other players\' answers are hidden while guessing'), await p.evaluate(() => document.querySelector('#done-panel').hidden && !/banana|Everyone/.test(document.querySelector('[data-screen="play"]').innerText)));
   const d2 = [], h2 = [];
-  for (const a of ['jabuticaba', 'apple', 'kiwi']) { await guess(p, a); await p.waitForTimeout(350); d2.push(await p.evaluate(() => ICEBERG_TEST.berg.depth)); h2.push(await hint(p)); ok(T(`q2 ${a}: nothing overlaps`), !(await overlaps(p)).length, (await overlaps(p)).join('; ')); }
+  for (const a of ['jabuticaba', 'apple', 'kiwi']) { await landed(p, a); d2.push(await p.evaluate(() => ICEBERG_TEST.berg.depth)); await p.waitForTimeout(250); h2.push(await hint(p)); ok(T(`q2 ${a}: nothing overlaps`), !(await overlaps(p)).length, (await overlaps(p)).join('; ')); }
   st = await slots(p);
   ok(T('q2 rarest first: camera rises to the real spot of later guesses (not forced deeper)'), d2[0] > 200 && d2[1] === 0 && d2[2] > 0 && d2[2] < d2[0], d2.join(', '));
   ok(T('q2: first guess stays the deepest; later ones get neutral feedback'), /best/.test(st[0].cls) && !/best/.test(st[1].cls) && !/best/.test(st[2].cls) && /Not deeper\. Your \d+ m still counts\. 1 guess left/.test(h2[1]) && /Not deeper/.test(h2[2]), h2.join(' || '));
@@ -74,7 +76,7 @@ async function fullGame(b, vp) {
 
   // Q3: three progressively more common answers.
   await p.waitForFunction(() => ICEBERG_TEST.state.round === 2 && ICEBERG_TEST.state.phase === 'play'); await p.waitForTimeout(500);
-  const d3 = []; for (const a of ['zester', 'whisk', 'fridge']) { await guess(p, a); await p.waitForTimeout(300); d3.push(await p.evaluate(() => ICEBERG_TEST.berg.depth)); }
+  const d3 = []; for (const a of ['zester', 'whisk', 'fridge']) { await landed(p, a); d3.push(await p.evaluate(() => ICEBERG_TEST.berg.depth)); await p.waitForTimeout(250); }
   ok(T('q3 more common each time: camera climbs back up, best stays first'), d3[0] > d3[1] && d3[1] > d3[2] && /best/.test((await slots(p))[0].cls), d3.join(' > '));
   await waitDone(p); const q3 = await p.textContent('#best-depth'); await p.click('#next');
 
@@ -157,10 +159,8 @@ async function edge(b) {
   await p.keyboard.type('octopus'); await p.keyboard.press('Enter'); await p.keyboard.press('Enter');
   s = await S(p);
   ok('rapid Enter presses during a reveal: exactly one guess is taken', s.n === 1 && s.busy === true, `guesses ${s.n}`);
-  await settle(p);
-  ok('rapid: what was typed during the reveal is kept in the box, ready to send', await p.inputValue('#answer') === 'octopus' && (await S(p)).n === 1);
-  await p.keyboard.press('Enter'); await settle(p);
-  ok('rapid: next Enter sends it', (await S(p)).n === 2 && (await S(p)).names[1] === 'octopus');
+  await p.waitForFunction(() => { const st = ICEBERG_TEST.state; return st.rounds[st.round].guesses.length === 2; }, null, { timeout: 8000 }).catch(() => {}); await settle(p);
+  ok('rapid: a guess typed and sent during the reveal goes in once, straight after', await p.inputValue('#answer') === '' && (await S(p)).n === 2 && (await S(p)).names[1] === 'octopus', (await S(p)).names.join(', '));
   const lat = await p.evaluate(() => { const input = document.querySelector('#answer'), form = document.querySelector('#entry'); const t = []; for (const w of ['zzzz', 'mammal', 'kangaroo', 'pikachu']) { input.value = w; const a = performance.now(); form.requestSubmit(); t.push(performance.now() - a); } return Math.max(...t); });
   ok('a submission is judged in under 5 ms', lat < 5, lat.toFixed(2) + ' ms');
   await p.context().close();
@@ -287,7 +287,7 @@ async function timing(b) {
     if (a === 'axolotl') { await p.waitForFunction(() => ICEBERG_TEST.state.phase === 'done', null, { timeout: 8000 }); await p.click('#next'); await p.waitForFunction(() => ICEBERG_TEST.state.round === 1); await p.waitForTimeout(1700); }
     await p.fill('#answer', a === 'axolotl' ? 'jabuticaba' : a); const t0 = Date.now(); await p.keyboard.press('Enter'); await p.waitForTimeout(50); await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 10000 }); times.push(Date.now() - t0); await p.waitForTimeout(500);
   }
-  ok('reveal length: ordinary guesses take about 1 to 2 seconds', times.slice(0, 3).every(t => t > 800 && t < 2100), times.slice(0, 3).map(t => (t / 1000).toFixed(2) + ' s').join(', '));
+  ok('reveal length: ordinary guesses take under 1.5 seconds (each still visibly lands)', times.slice(0, 3).every(t => t > 500 && t < 1500), times.slice(0, 3).map(t => (t / 1000).toFixed(2) + ' s').join(', '));
   ok('reveal length: an exceptional abyss find takes a little longer, under 3 seconds', times[3] > times[0] && times[3] < 3000, (times[3] / 1000).toFixed(2) + ' s');
   ok('timing runs: no errors', !p.errs.length, p.errs.join(' | '));
   await p.context().close();
@@ -365,7 +365,7 @@ async function scene(b) {
   await p.waitForTimeout(900);
   const top = await life();
   ok('wildlife: the water is populated, drawn on its own layers behind and in front of the iceberg', top.animals >= 15 && await p.evaluate(() => ['back', 'front', 'lume'].every(k => { const c = document.querySelector('.ib-life-' + k); return c && c.width > 50 && getComputedStyle(c).imageRendering === 'pixelated'; })), top.animals + ' animals');
-  ok('wildlife: layer order is sea, animals, ice, animals, darkness, living light, text', await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ').startsWith('ib-sea ib-life-back ib-ice ib-life-front ib-snow ib-shade ib-life-lume ib-glow ib-bestline ib-lines ib-layer')), await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ')));
+  ok('wildlife: layer order is sea, animals, ice, animals, darkness, living light, fade, text', await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ').startsWith('ib-sea ib-life-back ib-ice ib-life-front ib-snow ib-shade ib-life-lume ib-glow ib-veil ib-bestline ib-lines ib-layer')), await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ')));
   ok('wildlife: same pixel size as the iceberg artwork', await p.evaluate(() => { const v = ICEBERG_TEST.berg.view, c = document.querySelector('.ib-life-back'); return Math.abs(c.getBoundingClientRect().width / c.width - v.u) < 0.01; }));
   const surfaceView = top.inView;
   ok('at the surface: only surface animals are in view', surfaceView.length > 0 && surfaceView.every(k => cast.find(s => s.key === k).band === 'surface'), surfaceView.join(', '));

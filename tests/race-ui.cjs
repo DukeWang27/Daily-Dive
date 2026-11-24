@@ -32,7 +32,7 @@ const SHOTS = process.env.SHOTS || '';
   };
   const signUp = async (p, email, name) => {
     await p.evaluate(() => Hub.open('account')); await p.waitForSelector('[data-screen="hub"]:not([hidden])'); await p.waitForTimeout(200);
-    await p.click('#hub-body >> text=Create an account'); await p.fill('#hub-body input[type=email]', email); await p.fill('#hub-body input[type=password]', 'secret12'); await p.click('#hub-body button[type=submit]');
+    await p.click('#hub-body .auth-switch >> text=Create account'); await p.fill('#hub-body input[type=email]', email); await p.fill('#hub-body input[type=password]', 'secret12'); await p.click('#hub-body button[type=submit]');
     await p.waitForSelector('#hub-body input[autocomplete=username]', { timeout: 8000 });
     await p.fill('#hub-body input[autocomplete=username]', name); await p.waitForTimeout(400); await p.click('#hub-body button[type=submit]'); await p.waitForFunction(() => Account.signedIn, null, { timeout: 8000 });
   };

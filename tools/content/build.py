@@ -66,7 +66,8 @@ def quality(q, rows, added):
     words = len(q["prompt"].split())
     rules = q.get("rules", {})
     if n < 40: flags.append("too few answers (under 40)")
-    need = 15 if n >= 90 else max(5, n // 8)          # a closed set (54 African countries) can't have 15 obscure members
+    closed = n < 90 and bool(q.get("kb") or q.get("closed"))   # a small set listed in full, e.g. the 54 countries in Africa
+    need = 15 if n >= 90 else max(5, n // 8)          # a closed set can't have 15 obscure members
     if obscure < need: flags.append(f"thin long tail (under {need} obscure answers)")
     if not (1.6 <= total <= 3.6): flags.append(f"share estimates add up to {total:.2f}")
     if top < 0.05: flags.append("no clear common answer (top share under 5%)")
@@ -83,9 +84,13 @@ def quality(q, rows, added):
         for b in keys[i + 1:i + 6]:
             if abs(len(a) - len(b)) <= 1 and sum(x != y for x, y in zip(a, b)) + abs(len(a) - len(b)) <= 1: close += 1
     confusable = round(close / max(1, min(len(keys), 400)), 3)
-    if confusable > 0.08: flags.append("many near-identical answers")
+    # Distinct answers a letter apart (ship/shop, .xls/.xlt) are a note, not a blocker: an exact match always wins, and the
+    # checker never auto-corrects when two listed answers are about equally close, so the risk is handled at play time.
+    if confusable > 0.08: notes.append("many answers a letter apart (corrections will ask rather than guess)")
     coverage = min(1, math.log10(max(n, 1)) / math.log10(400))       # 400+ answers = full marks
     depth_room = min(1, obscure / 60)
+    if closed:    # every member of a small set is listed (checked against a dataset): complete, and as deep as the set allows
+        coverage, depth_room = 1, min(1, obscure / (2 * need))
     rules_done = sum(bool(rules.get(k)) for k in ("player", "accept", "exclude", "granularity", "synonyms")) / 5
     clarity = 1 if words <= 9 else 0.7 if words <= 12 else 0.4
     score = round(100 * (0.35 * coverage + 0.25 * depth_room + 0.2 * rules_done + 0.1 * clarity + 0.1 * (1 - min(1, confusable * 5))))

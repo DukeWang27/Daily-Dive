@@ -29,6 +29,7 @@ One file per question. This is the source the build reads; players never see the
     { "a": "sphygmomanometer", "al": ["blood pressure cuff"], "p": 0.0006, "tier": "obscure", "src": "ai" }
   ],
   "kb": null,                               // or { "domain": "birds", "filter": "all" }: answers also come from a dataset
+  "closed": false,                          // true when the list holds every member of a small, fixed set (no dataset needed)
   "generation": { "by": "...", "stages": ["common", "uncommon", "obscure", "subcategories", "regional", "historical", "aliases", "gaps", "verify"], "date": "2026-11-25" }
 }
 ```

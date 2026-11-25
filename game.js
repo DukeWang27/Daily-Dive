@@ -747,9 +747,14 @@ async function dayContent(n) {
       const r = await fetch(`${BACKEND.url}/rest/v1/rpc/day_content`, { method: "POST", signal: ctl.signal,
         headers: { apikey: BACKEND.anonKey, Authorization: `Bearer ${BACKEND.anonKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ p_day: n }) });
       clearTimeout(timer);
-      const d = r.ok ? await r.json() : null;
-      if (d && d.questions) { store.set("content:" + n, d); return d; }
-    } catch { /* fall through */ }
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.questions) { store.set("content:" + n, d); return d; }
+        // The database answered: no prepared content for this day. It then uses the original bank in rotation
+        // (private.day_set), so the game does the same and both score the same questions.
+        if (d === null) return fetch(`days/${((n - 1) % LEGACY_DAYS) + 1}.json`).then(x => x.ok ? x.json() : null).catch(() => null);
+      }
+    } catch { /* no answer: never guess a different set, which would be scored against the wrong table */ }
   }
   return fromFile();   // a local preview build may carry the files
 }

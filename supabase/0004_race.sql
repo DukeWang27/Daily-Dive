@@ -393,6 +393,9 @@ revoke all on all functions in schema public from public, anon, authenticated;
 revoke all on all functions in schema private from public, anon, authenticated;
 revoke all on public.race_pool, public.races, public.race_players, public.race_guesses, public.race_results, public.race_invites from anon, authenticated;
 -- (0002's grants are repeated here because the revoke above covers every function.)
+-- 0006_content.sql's day_content, if it exists yet: the blanket revoke above would otherwise remove it on a re-run.
+do $$ begin if to_regprocedure('public.day_content(int)') is not null then grant execute on function public.day_content(int) to anon, authenticated; end if; end $$;
+
 grant execute on function public.round_counts(int, int, text), public.username_check(text), public.leaderboard(int, text, int, int) to anon, authenticated;
 grant execute on function public.claim_profile(text, text), public.me(), public.update_settings(jsonb), public.change_username(text), public.delete_account(),
   public.submit_dive(int, jsonb), public.import_dives(jsonb), public.my_dives(int, int), public.get_dive(text, int), public.profile_of(text), public.search_users(text),

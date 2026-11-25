@@ -66,7 +66,8 @@ def quality(q, rows, added):
     words = len(q["prompt"].split())
     rules = q.get("rules", {})
     if n < 40: flags.append("too few answers (under 40)")
-    if obscure < 15: flags.append("thin long tail (under 15 obscure answers)")
+    need = 15 if n >= 90 else max(5, n // 8)          # a closed set (54 African countries) can't have 15 obscure members
+    if obscure < need: flags.append(f"thin long tail (under {need} obscure answers)")
     if not (1.6 <= total <= 3.6): flags.append(f"share estimates add up to {total:.2f}")
     if top < 0.05: flags.append("no clear common answer (top share under 5%)")
     if words > 12: flags.append("prompt is long")
@@ -99,7 +100,7 @@ def similarity(a, b):
     ta, tb = a["_tok"], b["_tok"]
     pj = len(ta & tb) / max(1, len(ta | tb))
     ka, kb = a["_keys"], b["_keys"]
-    aj = len(ka & kb) / max(1, min(len(ka), len(kb)))
+    aj = len(ka & kb) / max(1, len(ka | kb))      # overlap of both lists together: "a country in Africa" is not a copy of "a country"
     same_topic = a.get("topic") and a.get("topic") == b.get("topic")
     return pj, aj, same_topic
 
@@ -111,7 +112,10 @@ def duplicates(qs, legacy):
     for i, a in enumerate(qs):
         for b in pool[i + 1:]:
             pj, aj, st = similarity(a, b)
-            if st or pj >= 0.6 or aj >= 0.45:
+            # A real copy: the same topic asked the same way or with the same answers, or largely the same answers, or the
+            # same wording with shared answers. Siblings on one template ("an English word from Dutch / German") are not
+            # copies; the scheduler keeps them apart instead.
+            if (st and (aj >= 0.2 or pj >= 0.6)) or aj >= 0.6 or (pj >= 0.6 and aj >= 0.15):
                 pairs.append({"a": a["id"], "b": b["id"], "prompt_overlap": round(pj, 2), "answer_overlap": round(aj, 2), "same_topic": bool(st)})
     return pairs
 
@@ -150,18 +154,25 @@ def schedule(qs=None, reps=None, seed=7):
     pool = [byid[i] for i, r in reps.items() if r["status"] == "ready" and i in byid and i not in used and byid[i].get("approved") is not False]
     rng = random.Random(seed)
     rng.shuffle(pool)
-    for q in pool: q["_keys"] = answer_keys(answers_of(q)[0])
+    for q in pool: q["_keys"] = answer_keys(answers_of(q)[0]); q["_tok"] = prompt_tokens(q["prompt"])
     days, history = dict(fixed), []          # history: list of day question lists, most recent last
-    for d in sorted(fixed, key=int): history.append([byid[i] for i in fixed[d] if i in byid])
+    for d in sorted(fixed, key=int):
+        hist = [byid[i] for i in fixed[d] if i in byid]
+        for q in hist: q["_keys"] = answer_keys(answers_of(q)[0]); q["_tok"] = prompt_tokens(q["prompt"])
+        history.append(hist)
     day = max([FIRST_NEW_DAY - 1] + [int(d) for d in fixed]) + 1
     last_day = FIRST_NEW_DAY + DAYS_WANTED - 1
     def penalty(q, chosen):
         p = 0.0
-        if any(c["category"] == q["category"] for c in chosen): return 1e9                      # one per category a day
-        if sum(c["style"] == q["style"] for c in chosen) >= (2 if q["style"] != "category" else 1): return 1e9
+        same = sum(c["category"] == q["category"] for c in chosen)
+        if same >= 2: return 1e9                                                                # never three from one category
+        if same and any(c["style"] == q["style"] for c in chosen if c["category"] == q["category"]): return 1e9
+        p += 25.0 * same                                                                         # a second one only when nothing else fits
+        if sum(c["style"] == q["style"] for c in chosen) >= 2: return 1e9                         # at most two of any style a day
         for back, past in enumerate(reversed(history[-45:])):
             for c in past:
                 if c["topic"] == q["topic"]: return 1e9                                           # same topic: 45-day cooldown
+                if back < 10 and len(c["_tok"] & q["_tok"]) / max(1, len(c["_tok"] | q["_tok"])) >= 0.6: return 1e9   # same template: 10 days apart
                 overlap = len(c["_keys"] & q["_keys"]) / max(1, min(len(c["_keys"]), len(q["_keys"])))
                 if overlap > 0.2 and back < 21: return 1e9                                      # same answers: 3 weeks apart
                 if c["category"] == q["category"]: p += 3.0 / (back + 1)                         # categories spread across days

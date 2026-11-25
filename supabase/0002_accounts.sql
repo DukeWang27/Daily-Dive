@@ -623,6 +623,9 @@ end $$;
 revoke all on all functions in schema public from public, anon, authenticated;
 revoke all on all functions in schema private from public, anon, authenticated;
 revoke all on all tables in schema public from anon, authenticated;
+-- 0006_content.sql's day_content, if it exists yet: the blanket revoke above would otherwise remove it on a re-run.
+do $$ begin if to_regprocedure('public.day_content(int)') is not null then grant execute on function public.day_content(int) to anon, authenticated; end if; end $$;
+
 grant insert on public.round_plays, public.day_results, public.flags to anon, authenticated;
 grant select on public.score_counts to anon, authenticated;
 grant execute on function public.round_counts(int, int, text), public.username_check(text), public.leaderboard(int, text, int, int) to anon, authenticated;

@@ -49,7 +49,7 @@ def legacy_questions():
         name = os.path.basename(f)[:-5]
         if os.sep + "days" + os.sep in f and name.isdigit() and int(name) >= FIRST_NEW_DAY: continue   # an original day that prepared content replaced: never played
         for q in json.load(open(f))["questions"]:
-            out.append({"id": "legacy:" + q["key"], "prompt": q["prompt"], "topic": q["key"], "answers": [{"a": a["a"], "p": a["s"]} for a in q["answers"]]})
+            out.append({"id": ("race:" if os.sep + "race" + os.sep in f else "legacy:") + q["key"], "prompt": q["prompt"], "topic": q["key"], "answers": [{"a": a["a"], "p": a["s"]} for a in q["answers"]]})
     return out
 
 # ---------- answers: datasets merged, estimates tidied ----------
@@ -143,6 +143,10 @@ def report():
     # The weaker question of a near-duplicate pair (or the new one, against the original bank) is held back.
     for d in dups:
         ra, rb = reps.get(d["a"]), reps.get(d["b"])
+        # The race is a separate mode with its own pool: sharing a question with it is worth knowing, not a reason to hold one back.
+        if d["b"].startswith("race:"):
+            if ra: ra["notes"].append("also asked in the submarine race pool")
+            continue
         ea, eb = bool(byid.get(d["a"], {}).get("set")), bool(byid.get(d["b"], {}).get("set"))   # an edited question beats an unedited one
         loser = d["a"] if rb is None else d["b"] if ea and not eb else d["a"] if eb and not ea else d["a"] if ra["score"] <= rb["score"] else d["b"]
         if loser in reps and reps[loser]["status"] != "reject":
@@ -179,7 +183,10 @@ def schedule(qs=None, reps=None, seed=7):
     # Days already published (today and earlier) never change. Future days are rebuilt from the approved pool.
     fixed = {d: v for d, v in sched["days"].items() if int(d) <= today + 1}
     used = {q for v in fixed.values() for q in v}
-    pool = [byid[i] for i, r in reps.items() if r["status"] == "ready" and i in byid and i not in used and byid[i].get("approved") is not False]
+    # Ready questions, minus any an editor has turned down, plus held-back ones an editor has approved by hand
+    # (cms.py approve). An approval can lift a question with no flags that only missed the score; never a rejected one or a duplicate.
+    ok = lambda i, r: (r["status"] == "ready" and byid[i].get("approved") is not False) or (r["status"] == "review" and byid[i].get("approved") is True and not r["flags"])
+    pool = [byid[i] for i, r in reps.items() if i in byid and i not in used and ok(i, r)]
     rng = random.Random(seed)
     rng.shuffle(pool)
     for q in pool: q["_keys"] = answer_keys(answers_of(q)[0]); q["_tok"] = prompt_tokens(q["prompt"])

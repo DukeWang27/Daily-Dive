@@ -99,7 +99,7 @@ if __name__ == "__main__":
     elif cmd == "upcoming": upcoming(*(a[1:2] or [7]))
     elif cmd == "show": show(a[1])
     elif cmd == "weak": weak()
-    elif cmd == "approve": set_field(a[1], "approved", "true")
+    elif cmd == "approve": set_field(a[1], "approved", "true"); set_field(a[1], "review_note", json.dumps(a[2] if len(a) > 2 else "approved"))   # say why
     elif cmd == "reject": set_field(a[1], "approved", "false"); set_field(a[1], "review_note", json.dumps(a[2] if len(a) > 2 else "rejected"))
     elif cmd == "edit": f, v = a[2].split("=", 1); set_field(a[1], f, v)
     elif cmd == "reschedule": reschedule(a[1], a[2:])

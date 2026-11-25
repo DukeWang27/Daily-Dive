@@ -578,12 +578,12 @@
     const all = [...SPECIES.map(s => ({ s, enc: false })), ...ENCOUNTERS.map(s => ({ s, enc: true }))].filter(x => !o.keys || o.keys.includes(x.s.key));
     const cols = o.cols || 4, cw = o.cw || 150, ch = o.ch || 110, rows = Math.ceil(all.length / cols);
     const small = canvasOf(cols * cw, rows * ch), g = small.getContext("2d"), lume = canvasOf(small.width, small.height), L = lume.getContext("2d");
-    g.fillStyle = "#0a2038"; g.fillRect(0, 0, small.width, small.height);
+    if (!o.clear) { g.fillStyle = "#0a2038"; g.fillRect(0, 0, small.width, small.height); }   // clear: on a transparent ground (a journal picture, a silhouette)
     const E = { lo: 0, hi: cw, calm: 0, avoid: null, t: time };
     let rs = 7; const r = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
     all.forEach(({ s, enc }, i) => {
       const x0 = (i % cols) * cw, y0 = Math.floor(i / cols) * ch;
-      g.fillStyle = i % 2 ? "#0b2540" : "#0a2038"; g.fillRect(x0, y0, cw, ch);
+      if (!o.clear) { g.fillStyle = i % 2 ? "#0b2540" : "#0a2038"; g.fillRect(x0, y0, cw, ch); }
       const c = enc ? { sp: s, ph: 1, oy: 0, pf: 1, age: 9, life: 99, x: 0, y: 0, y0: 0, dir: 1, len: 40 } : s.make(E, r);
       if (enc) s.start(c, E, { x: cw / 2, y: 30, below: 30, top: -99, lo: 0, hi: cw }, 1);
       c.dir = 1; c.x = s.key === "spark" ? 0 : enc ? (s.key === "bigfin" ? cw / 2 : cw / 2 + 24) : cw / 2; c.sp = s;
@@ -597,6 +597,7 @@
     g.globalCompositeOperation = "screen"; g.drawImage(lume, 0, 0); g.globalCompositeOperation = "source-over";
     canvas.width = small.width * zoom; canvas.height = small.height * zoom;
     const G = canvas.getContext("2d"); G.imageSmoothingEnabled = false; G.drawImage(small, 0, 0, canvas.width, canvas.height);
+    if (o.bare) return;   // a picture only, with no name or depth written on it
     G.font = `600 ${Math.max(11, Math.round(zoom * 2.6))}px Inter, system-ui, sans-serif`; G.fillStyle = "#cfe3f5"; G.textBaseline = "top";
     all.forEach(({ s, enc }, i) => G.fillText(s.name + (enc ? `  ·  ${s.min} m+` : `  ·  ${Math.max(0, s.zone[0])}–${s.zone[1]} m`), ((i % cols) * cw + 4) * zoom, (Math.floor(i / cols) * ch + 3) * zoom));
   }

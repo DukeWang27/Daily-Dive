@@ -750,7 +750,7 @@ html.in-play .acct-btn { display: none; }
 :root { --modes-h: 0px; }
 @media (max-width: 760px) {
   html:not(.no-modes) { --modes-h: 46px; }
-  .modes { position: fixed; left: 0; right: 0; top: var(--top-h); transform: none; height: var(--modes-h); gap: 0; z-index: 4; background: rgba(4, 9, 23, .6); border-bottom: 1px solid var(--line); }
+  .modes { position: fixed; left: 0; right: 0; top: var(--top-h); transform: none; height: var(--modes-h); gap: 0; z-index: 4; background: rgba(4, 9, 23, .9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
   .mode { flex: 1; justify-content: center; border-radius: 0; font-size: 14.5px; padding: 0 8px; }
   .mode:hover { background: none; }
   .mode-ink { bottom: -1px; }
@@ -808,6 +808,31 @@ html.in-play .acct-btn { display: none; }
 .race .veil { background: linear-gradient(90deg, rgba(3, 8, 20, .9) 0, rgba(3, 8, 20, .78) 400px, rgba(3, 8, 20, 0) 600px), linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
 .rdock { position: absolute; left: var(--edge); top: calc(var(--top-h) + 22px); bottom: 18px; width: min(392px, 36vw); display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-content: start; overflow-y: auto; scrollbar-width: thin; padding-right: 4px; }
 .r-title { margin: 0; font-size: clamp(24px, 2.4vw, 32px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+/* Field journal (prototype): an expedition log, not a trophy cabinet. Rows like the dive log; pictures in pixel art. */
+.jn-lead .jn-record { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 10px 0 0; color: var(--muted); font-size: 14px; }
+.jn-record b { color: var(--text); font-size: 18px; }
+.jn-record .jn-src { flex-basis: 100%; }
+.jn-region h3 { display: flex; justify-content: space-between; align-items: baseline; }
+.jn-count { color: var(--muted); font-weight: 500; font-size: 13px; }
+.jn-region.beyond h3 { color: var(--t-beyond); }
+.jn-list { list-style: none; margin: 0; padding: 0; }
+.jn-row { display: grid; grid-template-columns: 92px 1fr; gap: 4px 12px; align-items: center; padding: 8px 4px; border-top: 1px solid rgba(143, 208, 245, .1); }
+.jn-row[role=button] { cursor: pointer; }
+.jn-row[role=button]:hover, .jn-row[role=button]:focus-visible { background: rgba(143, 208, 245, .06); outline: none; }
+.jn-pic { image-rendering: pixelated; justify-self: center; max-width: 84px; }
+.jn-pic.dark { opacity: .9; }
+.jn-pic.mystery { display: grid; place-items: center; width: 44px; height: 44px; border: 1px dashed rgba(143, 208, 245, .25); border-radius: 50%; color: var(--muted); font-weight: 700; }
+.jn-name { font-weight: 650; }
+.jn-name i { font-weight: 400; color: var(--muted); }
+.jn-row.great .jn-name { color: var(--t-beyond); }
+.jn-row.unknown .jn-name { color: var(--muted); font-weight: 500; }
+.jn-sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.jn-detail { grid-column: 1 / -1; display: grid; gap: 6px; padding: 6px 0 4px; }
+.jn-detail p { margin: 0; font-size: 14px; }
+.jn-big { width: min(100%, 360px); height: auto; image-rendering: pixelated; justify-self: center; }
+.jn-foot { margin-top: 18px; }
+.e-found { display: block; }
+.e-found b { color: var(--lumen); font-weight: 650; }
 /* Spelling: a corrected answer says so quietly; a "Did you mean" offers one answer and a way to keep what was typed. */
 .hint.fixed { color: var(--lumen); }
 .hint.ask { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--text); }
@@ -948,6 +973,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
       <button type="button" data-go="howto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg>How to play</button>
       <hr>
       <button type="button" data-go="log"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 10h8M8 14h8M8 18h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Dive log</button>
+      <button type="button" data-go="journal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5c2.6-1 5.2-1 8 .8 2.8-1.8 5.4-1.8 8-.8V19c-2.6-1-5.2-1-8 .8-2.8-1.8-5.4-1.8-8-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 6.3v13.5" stroke="currentColor" stroke-width="2"/></svg>Field journal</button>
       <button type="button" data-go="friends"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 6M17.5 14.4c1.8.6 3 2.2 3.5 4.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Friends</button>
       <button type="button" data-go="ranks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V13h4.5v7M9.75 20V8h4.5v12M15.5 20v-9H20v9M3 20h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>Rankings</button>
       <button type="button" data-go="account" id="menu-account"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 15.5 7 12 10.5 8.5 7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M4.5 20c.6-4 3.6-6 7.5-6s6.9 2 7.5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Sign in</span></button>
@@ -1120,6 +1146,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 <script src="iceberg.js"></script>
 <script src="colossal.js"></script>
 <script src="wildlife.js"></script>
+<script src="journal.js"></script>
 <script src="share.js"></script>
 <script>
 // Home: the iceberg drawn straight into the page's sea, no frame. Its waterline is put on the sea's horizon, so the

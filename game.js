@@ -869,8 +869,13 @@ function renderEnd(day, fresh, practice) {
   $("#e-streak").textContent = data.streak ? `${data.streak}-day streak` : "";
   drawStreak(day.day, data.streak, fresh && day.extended);
   if (window.Hub) window.Hub.endOfDay(practice ? null : day);
-  const logged = Object.keys(store.get("sightings", {})).length, cast = Wildlife ? Wildlife.species().length : 0;
-  $("#e-seen").textContent = logged && cast ? `Animals seen so far: ${logged} of ${cast}` : "";
+  // The field journal: what today's answers reached, and what's new (journal.js). Animals only glimpsed don't count.
+  const seenEl = $("#e-seen"); seenEl.textContent = "";
+  if (window.Journal && !practice) {
+    const got = Journal.today(day), fresh = got.filter(f => f.isNew);
+    if (fresh.length) { seenEl.className = "e-found"; seenEl.append("New in your field journal: ", ...fresh.flatMap((f, i) => [i ? ", " : "", Object.assign(document.createElement("b"), { textContent: f.sp.name })])); }
+    else if (got.length) seenEl.textContent = `Your answers reached ${got.length === 1 ? "one animal" : got.length + " animals"} today, all already in your field journal.`;
+  }
   $("#e-note").textContent = practice ? "Practice dive: this doesn't change your daily result or streak." : `A new ${Brand.noun} surfaces tomorrow.`;
   Share.draw($("#share-canvas"), data);
   state = null; show("end");

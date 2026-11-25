@@ -37,7 +37,7 @@
     const raw = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
     if (!raw || raw.includes("=")) return null;                  // empty, or a sign-in link on its way back from Supabase
     const [view, a, b] = raw.split("/");
-    return ["log", "friends", "ranks", "settings", "account", "u", "dive", "vs", "race"].includes(view) ? { view, a, b } : null;
+    return ["log", "journal", "friends", "ranks", "settings", "account", "u", "dive", "vs", "race"].includes(view) ? { view, a, b } : null;
   }
   function show() {
     const r = parse(), game = G(); if (!game) return;
@@ -58,6 +58,7 @@
     const st = A ? A.state : "off", reqs = st === "in" && A.profile.requests ? A.profile.requests : 0, cur = route.view === "u" ? "friends" : route.view;
     const tab = (id, label, n) => h("button", { type: "button", "aria-current": cur === id ? "page" : null, onclick: () => go(id) }, label, n ? h("span.n", String(n)) : null);
     const list = [tab("log", "Dive log")];
+    if (window.Journal) list.push(tab("journal", "Field journal"));
     if (st !== "off") list.push(tab("friends", "Friends", reqs), tab("ranks", "Rankings"), st === "in" ? tab("settings", "Settings") : tab("account", st === "new" ? "Finish signing up" : "Sign in"));
     const nav = $("#hub-tabs"); nav.textContent = ""; add(nav, ...list);
     const flag = $("#hub-demo"); flag.hidden = !(A && A.demo);
@@ -68,7 +69,7 @@
     if (A && A.takeArrival && A.takeArrival() === "signup" && A.state !== "off") setTimeout(() => toast("Email confirmed. Welcome aboard."), 0);
     tabs(); const mine = ++token, box = body(); box.textContent = ""; window.scrollTo(0, 0);
     const st = A ? A.state : "off", v = route.view;
-    const view = v === "account" ? account : st === "new" ? account : v === "u" ? t => log(route.a, t) : v === "friends" ? friends : v === "ranks" ? ranks : v === "settings" ? settings : t => log(null, t);
+    const view = v === "account" ? account : st === "new" ? account : v === "journal" && window.Journal ? () => window.Journal.render(body(), h, add) : v === "u" ? t => log(route.a, t) : v === "friends" ? friends : v === "ranks" ? ranks : v === "settings" ? settings : t => log(null, t);
     Promise.resolve(view(mine)).catch(e => { if (mine === token) { box.textContent = ""; add(box, h("p.note-line", e.message || "Something went wrong."), h("button.btn.ghost.small", { type: "button", onclick: render }, "Try again")); } });
   }
   const stale = t => t !== token;

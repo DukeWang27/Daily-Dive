@@ -61,7 +61,7 @@ def answer_keys(rows, n=250): return {norm(r["a"]) for r in sorted(rows, key=lam
 
 def quality(q, rows, added):
     flags, notes = [], []
-    n = len(rows); tail = sum(1 for r in rows if r["p"] < 0.001); obscure = sum(1 for r in rows if r.get("tier") == "obscure" or r["p"] < 0.0005)
+    n = len(rows); tail = sum(1 for r in rows if r["p"] < 0.001); obscure = sum(1 for r in rows if r["p"] < 0.0005 or (r.get("tier") == "obscure" and r["p"] < 0.001))   # the label alone is not enough
     total = sum(r["p"] for r in rows if not r.get("pv")); top = max(r["p"] for r in rows)
     words = len(q["prompt"].split())
     rules = q.get("rules", {})

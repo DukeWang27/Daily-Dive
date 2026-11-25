@@ -147,10 +147,10 @@ end $$;
 revoke all on function private.set_verdict(text, text, text, text, text, text) from public, anon, authenticated;
 
 -- ---------- 5. No simulated evidence on tables not yet played ----------
--- The original tables let an answer go beneath the iceberg on the strength of a simulated sample. Sets 1 and 2 were
--- played on days 1 and 2 under that rule and stay exactly as they were. Sets 3-15 (not yet played) and the race pool
--- (reused in every race) are capped at 299 m, the share floored to match: the same change tools/content/recap_legacy.py
--- makes to their files, so the game and the database agree.
+-- The original tables let an answer go beneath the iceberg on the strength of a simulated sample. Any day that has
+-- already begun somewhere keeps its table exactly as it was (a day is scored one way from start to finish). Original
+-- sets for days not yet begun, and the race pool (reused in every race), are capped at 299 m with the share floored to
+-- match: the same change tools/content/recap_legacy.py makes to their files, so the game and the database agree.
 update public.set_answers set share = greatest(share, 0.0001023), depth = 299
-where depth >= 300 and not ev and (set_id between 3 and 15 or set_id >= 1001);
+where depth >= 300 and not ev and ((set_id between 1 and 15 and set_id > private.latest_day()) or set_id >= 1001);
 update public.set_answers set prior = share where prior is null;

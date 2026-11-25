@@ -544,9 +544,13 @@ async function reveal(cat, r, g) {
   g.bi = berg.count;
   renderSlots(index);
   // Beneath the iceberg: its own long descent and its own discovery sound, whether or not it is your deepest.
+  // The great squid that comes for an answer this deep sets off while the camera is still on its way down, so it is
+  // already rising beside the answer when the camera arrives.
+  const guest = life && life.encounterFor(d, r.guests || []); let early = 0;
   berg.onTravel((it, dir, ms) => {
     if (beneath && dir > 0) Sound.play("descend", { seconds: ms / 1000 }); else { Sound.play("travel", { dir, seconds: ms / 1000 }); if (special && !beneath) Sound.play("rare", { lead: ms / 1000 }); }
     if (life) life.calm(ms + 2600);
+    if (guest && dir > 0 && it && !early) early = setTimeout(() => { early = -1; if (state && cur() === r) { life.encounter(guest.key, { x: it.x, y: it.y }); Sound.play("encounter", { kind: guest.key }); } }, Math.max(0, ms - 1100));
   });
   // An exceptional find has the stage to itself: the question's column steps aside while it is revealed.
   const col = $(".q-berg"); if (special) col.classList.add("aside");
@@ -555,14 +559,13 @@ async function reveal(cat, r, g) {
   if (!state || cur() !== r) return;
   busy = false; clockStart();
   // An answer this deep does not go unnoticed. Each of the great squid comes once per question, at its own depth.
-  const guest = life && life.encounterFor(d, r.guests || []);
   if (guest) {
     r.guests = (r.guests || []).concat(guest.key); g.sight = guest.key; logSighting(r, guest.key);
-    const at = berg.view.focus;
-    setTimeout(() => {
-      if (!state || cur() !== r || !at) return;
-      life.encounter(guest.key, at); berg.setSight(g.bi, guest.line); Sound.play("encounter", { kind: guest.key });
-    }, 700 / SPEED);   // soon after the answer lands: the squid should be seen before the player moves on
+    setTimeout(() => { if (state && cur() === r) berg.setSight(g.bi, guest.line); }, 700 / SPEED);   // after the label's own reveal
+    // No camera journey (skipped, or reduced motion): it comes now.
+    // No camera journey (reduced motion) or the descent was skipped before it set off: it comes now.
+    if (early > 0) clearTimeout(early);
+    if (early >= 0 && berg.view.focus) { const at = berg.view.focus; life.encounter(guest.key, at); Sound.play("encounter", { kind: guest.key }); }
   }
   // Landed: say what was found, and whether it beat your deepest.
   renderSlots(-1, index); tagBest(cat, r);
@@ -963,7 +966,7 @@ function renderEnd(day, fresh, practice) {
     else if (got.length) seenEl.textContent = `Your answers reached ${got.length === 1 ? "one animal" : got.length + " animals"} today, all already in your field journal.`;
   }
   $("#e-note").textContent = practice ? "Practice dive: this doesn't change your daily result or streak." : `A new ${Brand.noun} surfaces tomorrow.`;
-  Share.draw($("#share-canvas"), data);
+  Share.draw($("#share-canvas"), data); Share.draw($("#end-berg"), data, { only: true });
   state = null; show("end");
   // The total counts up once, as the day's little finale.
   const totalEl = $("#e-total");

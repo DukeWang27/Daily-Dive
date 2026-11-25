@@ -90,10 +90,10 @@
   }
   // The mantle fills slowly and empties fast: each emptying is a push, tail first, and the limbs fall in behind.
   function step(sq, dt) {
-    sq.t += dt;
+    sq.t += dt * (sq.tempo || 1);   // tempo > 1: a livelier squid (arms, fins and strokes all quicken)
     const c = ((sq.t + sq.ph) % sq.cycle) / sq.cycle;
     const contract = c < 0.16 ? Math.sin(c / 0.16 * Math.PI / 2) : Math.max(0, 1 - (c - 0.16) / 0.5);
-    sq.squeeze = 0.075 * contract;
+    sq.squeeze = (sq.kick || 0.075) * contract;
     sq.jet += ((c < 0.22 ? 1 : 0) - sq.jet) * Math.min(1, dt * (c < 0.22 ? 3 : 0.7));
     sq.spread = 0.5 + 0.5 * Math.sin(sq.t * 0.21 + sq.ph);
     // It turns slowly, as a heavy thing does.

@@ -423,20 +423,22 @@
       start: (c, E, at, side) => {
         const sq = window.Colossal.create(7 + Math.floor(Math.abs(at.x * 13 + at.y * 7)) % 97);
         sq.speed = 0; sq.dir = 1; sq.angle = sq.heading = -Math.PI / 2; c.sq = sq; c.side = side; c.mx = at.x; c.my = at.y; c.life = 48; c.len = 220; c.pf = 1;
-        c.x = at.x + side * 44; c.y0 = c.y = at.y + 120;
+        sq.tempo = 1.9; sq.cycle = 2.6; sq.kick = 0.13;   // it has just found something: quick strokes, arms working
+        c.x = at.x + side * 44; c.y0 = c.y = at.y + 70;
       },
       // It rises out of the deep beside the answer, on the side away from the words, tail first as squid swim:
       // the fins and the long mantle come up out of the dark, then the head and the great eye pass the light at the
       // answer's own depth, then the arms and the two long tentacles trail up after it and out of the top of the view.
       step: (c, dt) => {
         const sq = c.sq, a = c.age, sd = c.side, ease = k => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
-        const T = 3.5, k1 = ease(a / T), k2 = ease((a - T) / 32);   // in view within a few seconds: players move on quickly
+        const T = 2.2, k1 = ease(a / T), k2 = ease((a - T - 3) / 32);   // in view at once, beside the answer within about two seconds, and it stays a moment
         const y1 = c.my - 14, y2 = c.my - 330;
-        c.y = a < T ? c.my + 120 + (y1 - c.my - 120) * k1 : y1 + (y2 - y1) * k2;
+        c.y = a < T ? c.my + 70 + (y1 - c.my - 70) * k1 : y1 + (y2 - y1) * k2;
+        if (a > T) sq.tempo = 1.9 - 0.9 * ease((a - T) / 8);   // settling back to a slow, heavy drift
         c.x = c.mx + sd * (44 + 8 * Math.sin(a * 0.15)) + (a > T ? sd * 30 * k2 : 0);
         sq.heading = -Math.PI / 2 - sd * (0.1 * Math.sin(a * 0.11 + 1) + (a > T ? 0.18 * k2 : 0));
-        sq.scale = 0.85 + 0.15 * ease(a / 3);
-        c.fog = a < T ? 0.45 - 0.41 * ease(a / 3) : 0.04 + 0.78 * ease((a - (T + 20)) / 16);
+        sq.scale = 0.9 + 0.1 * ease(a / 2);
+        c.fog = a < T ? 0.2 - 0.16 * ease(a / 1.5) : 0.04 + 0.78 * ease((a - (T + 20)) / 16);
         window.Colossal.step(sq, dt);
       },
       draw: (c, D) => {

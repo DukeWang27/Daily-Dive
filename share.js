@@ -19,7 +19,8 @@
   }
 
   // data: { day, total, rounds: [{ depth, share, tier } | null], deepest: { depth, tierName } | null, streak, sample }
-  async function draw(canvas, data) {
+  // o.only: just the iceberg and its markers (the end screen shows that; the saved image is the full card).
+  async function draw(canvas, data, o = {}) {
     try { await Promise.race([Promise.all([document.fonts.load(`800 100px ${UI}`), document.fonts.load(`600 60px ${UI}`), document.fonts.load(`600 80px ${PIXEL}`)]), new Promise(r => setTimeout(r, 1500))]); } catch { /* fall back to system fonts */ }
     const g = canvas.getContext("2d"), CW = canvas.width, CH = canvas.height;
     if (!art) { art = document.createElement("canvas"); art.width = WW; art.height = SH; I.paint(art); }
@@ -63,6 +64,7 @@
       g.fillStyle = red ? "#c98f88" : "#93a9cc"; g.font = `700 22px ${UI}`; g.textAlign = "left"; g.fillText(String(m.i + 1), lx + 18, m.ly + 1);
       g.fillStyle = ZONE[m.r.tier] || "#eaf3ff"; g.font = `800 30px ${UI}`; g.fillText(m.label, lx + 44, m.ly + 1);
     }
+    if (o.only) return;
     // Right: the numbers.
     const X = AW + 60, RW = CW - X - 60;
     const panel = g.createLinearGradient(0, 0, 0, CH); panel.addColorStop(0, "#0a1a3a"); panel.addColorStop(0.5, "#06102a"); panel.addColorStop(1, "#030713");

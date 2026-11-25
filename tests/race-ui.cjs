@@ -20,6 +20,10 @@ const SHOTS = process.env.SHOTS || '';
   await sql(`truncate auth.users cascade`); await sql(`truncate public.rate_log, public.username_holds, public.races cascade`);
   // Race questions that have answers beneath the iceberg, so the Unfathomable find can be tested on any of them.
   await sql(`update public.race_pool set active = qid in (1023, 1024, 1025, 1028, 1029)`);
+  // Nothing goes beneath the iceberg without real players' evidence (supabase/0006_content.sql). Give the rarest answer of
+  // each of these questions that evidence here, as enough real races would: 5 of 12,000 players gave it.
+  await sql(`update public.set_answers sa set share = 0.00002, ev = true, n_real = 5, depth = private.depth_for(0.00002, false, true)
+    where (set_id, answer) in (select set_id, answer from (select set_id, answer, row_number() over (partition by set_id order by share, answer) rn from public.set_answers where set_id in (1023, 1024, 1025, 1028, 1029)) x where rn = 1)`);
   await sql(`create or replace function private.race_t(k text) returns interval language sql immutable as $$
     select case k when 'countdown' then interval '1.5 seconds' when 'between' then interval '3 seconds' when 'grace' then interval '1.5 seconds'
       when 'lobby_wait' then interval '4 seconds' when 'away' then interval '8 seconds' when 'abandon' then interval '30 seconds' end $$`);
@@ -122,7 +126,7 @@ const SHOTS = process.env.SHOTS || '';
     const [x, y] = await Promise.all([answer(ann, 0.6), answer(bo, 0.6)]);
     if (q === 2) {
       // Bo finds something Unfathomable (one answer beneath the iceberg). Ann sees it happen, but not the answer.
-      const deepA = await bo.evaluate(async () => { const q = await fetch(`race/${Race.state.qid}.json`).then(r => r.json()).then(j => j.questions[0]); const a = q.answers.filter(x => Iceberg.isBeyond(Iceberg.depthOf(x.s))).sort((x, y) => y.s - x.s)[0]; return a && a.a; });
+      const deepA = ((await sql('select answer from public.set_answers where set_id = $1 and ev order by share limit 1', [await bo.evaluate(() => Race.state.qid)]))[0] || {}).answer;
       ok('race: this question has an Unfathomable answer to find', !!deepA, deepA);
       const gd = await guess(bo, deepA);
       ok('race: an Unfathomable find says so, in red, and lights the finder\'s submarine red', gd.mine.depth >= 300 && /Unfathomable/.test(gd.hint) && await bo.evaluate(() => document.querySelector('#r-hint').classList.contains('beyond') && Race.scene.subs.find(s => s.me).beneath), gd.hint);

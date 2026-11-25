@@ -116,7 +116,9 @@ declare v int;
 begin
   select set_id into v from public.days where day = n;
   if v is null then
-    v := ((n - 1) % (select value::int from public.game_config where key = 'set_count')) + 1;
+    -- A day with prepared content (0006_content.sql) uses its own question set; other days keep the original rotation.
+    if to_regclass('public.content_days') is not null then execute 'select set_id from public.content_days where day = $1' into v using n; end if;
+    v := coalesce(v, ((n - 1) % (select value::int from public.game_config where key = 'set_count')) + 1);
     insert into public.days values (n, v) on conflict (day) do nothing;
     select set_id into v from public.days where day = n;
   end if;

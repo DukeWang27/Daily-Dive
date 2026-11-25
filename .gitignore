@@ -3,3 +3,11 @@ node_modules/
 __pycache__/
 tests/shot-*.png
 game.zip
+
+# Upcoming questions, answers, schedules and their build output are private: this repository is public.
+# Keep them in a private store (see CONTENT.md, "Where the content lives"), never in a public commit.
+content/questions/
+content/build/
+content/report/
+content/schedule.json
+content/candidates/

@@ -535,7 +535,10 @@
             h("button.link#r-leave", { type: "button", onclick: () => { if (confirm("Leave this race? You can't rejoin it once you leave.")) leave(); } }, "Leave race"))));
       ice = window.IceTimer.create($("#r-ice"));
       if (qinfo) window.IcebergIcons.put($("#r-qicon"), qinfo.icon);
-      $("#r-answer").oninput = () => { if (unknownKey && window.IcebergValidate.normalize($("#r-answer").value) !== unknownKey) { unknownKey = ""; say(""); } };
+      $("#r-answer").oninput = () => { const v = window.IcebergValidate.normalize($("#r-answer").value);
+        if (rConfirm && v !== rConfirm.key) { rConfirm = null; say(""); } if (rKeep && v !== rKeep) rKeep = "";
+        if (unknownKey && v !== unknownKey) { unknownKey = ""; say(""); } };
+      $("#r-answer").onkeydown = e => { if (e.key === "Escape" && rConfirm) { e.preventDefault(); rKeep = rConfirm.key; unknownKey = rConfirm.key; rConfirm = null; submit(); } };
       if (catQid !== r.qid) { cat = null; P = null; catQid = r.qid; loadQ(r.qid).then(c => { if (catQid === r.qid) { cat = c; P = window.IcebergValidate.prepare(c); } }); }
       window.Sound.play("question");
       cancelAnimationFrame(iceFrame); const step = () => { if (view !== "question") return; clockDraw(); iceFrame = requestAnimationFrame(step); }; step();
@@ -584,11 +587,22 @@
     const mine = myRound();
     if (mine.length >= 3) { say("That's all three guesses for this question.", "warn"); return; }
     const V = window.IcebergValidate, given = { rows: new Map(mine.filter(g => g.answer).map(g => [g.answer, g])), texts: new Set(mine.filter(g => !g.answer).map(g => V.normalize(g.typed))) };
+    if (rConfirm && V.normalize(text) === rConfirm.key) { const c = rConfirm; rConfirm = null; return send(c.raw, { status: "ok", row: c.row, via: "confirmed" }); }
+    if (rKeep && V.normalize(text) === rKeep) given.noCorrect = true;
     const j = V.judge(text, P, given); if (!j) return;
+    // A likely spelling mistake: one answer offered (the race clock keeps running, as for everyone).
+    if (j.status === "confirm") { rConfirm = { key: j.key, row: j.row, raw: j.text }; window.Sound.play("pending"); say(`Did you mean ${j.row.d || j.row.a}? Enter for yes, Escape to keep “${j.text}”.`); input.select(); return; }
     if (j.status === "dup") { say(`Already tried. No guess used.`, "warn"); window.Sound.play("duplicate"); input.select(); return; }
     if (j.status === "invalid") { say(`${j.reason}. No guess used.`, "warn"); window.Sound.play("invalid"); const f = $("#r-entry"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); input.select(); return; }
     if (j.status === "pending" && unknownKey !== j.key) { unknownKey = j.key; window.Sound.play("pending"); say(j.suggest ? `Did you mean ${j.suggest.join(" or ")}? Enter again to send “${j.text}” anyway (no depth).` : `“${j.text}” isn't one we know. Enter again uses a guess for no depth.`, "warn"); input.select(); return; }
-    unknownKey = ""; busy = true; input.value = "";
+    return send(text, j);
+  }
+  let rConfirm = null, rKeep = "";
+  async function send(text, j) {
+    const r = race, input = $("#r-answer"), mine = myRound();
+    // A corrected spelling goes to the server as the answer's own name, so its check matches exactly.
+    if (j.status === "ok" && j.row && (j.via === "typo" || j.via === "confirmed" || j.via === "joined")) text = j.row.d || j.row.a;
+    unknownKey = ""; rKeep = ""; rConfirm = null; busy = true; input.value = "";
     window.Sound.play(mine.length === 2 ? "final" : "submit", { step: mine.length });
     try {
       const res = await call("race_guess", { p_race: r.id, p_round: r.round, p_typed: text, p_answer: j.status === "ok" && j.row ? j.row.a : null });

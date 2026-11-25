@@ -98,13 +98,15 @@ const live = {
   },
 };
 // Review of unknown answers. Never blocks play: the guess is already placed as "pending" when this runs.
-// Contract: POST verifyUrl { category, title, rules, answers: [text] } -> { results: [{ text, status: "ok"|"invalid", canonical?, reason? }] }
+// Contract (api/verify.js): POST { category, title, rules, criteria, known, answers } -> { results: [{ text, status: "ok"|"invalid"|"uncertain", ... }] }
+// "uncertain" changes nothing: the guess stays pending for a person to review.
 async function requestReview(cat, texts) {
   if (!BACKEND.verifyUrl || !texts.length) return null;
   try {
     const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 8000);
     const res = await fetch(BACKEND.verifyUrl, { method: "POST", headers: { "Content-Type": "application/json" }, signal: ctl.signal,
-      body: JSON.stringify({ category: cat.key, title: cat.prompt || cat.title, rules: cat.rules || [], answers: texts.slice(0, 6) }) });
+      body: JSON.stringify({ category: cat.key, title: cat.prompt || cat.title, rules: cat.rules || [], criteria: cat.criteria || null,
+        known: (state && cur() ? cur().guesses.filter(g => g.name).map(g => g.name) : []).slice(0, 3), answers: texts.slice(0, 6) }) });
     clearTimeout(timer);
     if (!res.ok) return null;
     const data = await res.json();
@@ -283,12 +285,34 @@ function logSighting(r, key) {
   const all = store.get("sightings", {}); all[key] = all[key] || { n: 0, first: state.day }; all[key].n++; store.set("sightings", all);
 }
 function setHint(text, kind) { const h = $("#hint"); h.className = "hint" + (kind ? " " + kind : ""); h.textContent = text || ""; }
+// "Did you mean Raven?" in the hint line: Enter (or the button) for yes, Escape (or the other button) to keep it as typed.
+let confirmFor = null, keepTyped = "";
+function askCorrection(name, raw) {
+  const h = $("#hint"); h.className = "hint ask"; h.textContent = "";
+  const yes = el("button", "ask-yes", name), no = el("button", "ask-no", "Keep \u201c" + raw + "\u201d");
+  yes.type = no.type = "button"; yes.onpointerdown = no.onpointerdown = e => e.preventDefault();
+  yes.onclick = acceptCorrection; no.onclick = declineCorrection;
+  h.append(el("span", null, "Did you mean "), yes, el("span", null, "?"), no);
+  $("#answer").select();
+}
+function acceptCorrection() {
+  if (!confirmFor || !state || busy) return;
+  const cat = CATS[state.round], r = cur(), c = confirmFor;
+  if (r.guesses.length >= GUESSES) return;
+  if (r.guesses.some(g => g.name === c.row.a)) { confirmFor = null; setHint(`You've already tried ${display(c.row)}. No guess used.`, "warn"); Sound.play("duplicate"); $("#answer").select(); return; }
+  place(cat, r, c.row, c.raw, "confirmed");
+}
+function declineCorrection() {
+  if (!confirmFor) return;
+  keepTyped = confirmFor.key; unknownKey = confirmFor.key; confirmFor = null;   // kept as typed: it goes for review (one press)
+  submit();
+}
 
 // animated: true for the first question (the push in to the tip), "surface" between questions (rise to the tip).
 async function startQuestion(animated) {
   const cat = CATS[state.round], r = cur(), rising = animated === "surface" && berg && berg.count > 0 && screen === "play";
   ensureBerg(); prep(cat); // build the lookup now, so the first guess is judged instantly
-  clearTimeout(autoFinish); busy = false; unknownKey = ""; queued = false;
+  clearTimeout(autoFinish); busy = false; unknownKey = ""; queued = false; confirmFor = null; keepTyped = "";
   $("#q-num").textContent = `Question ${state.round + 1} of ${CATS.length}`;
   Icons.put($("#q-icon"), cat.icon);
   $("#q-title").textContent = cat.prompt || cat.title;
@@ -398,6 +422,9 @@ function submit() {
   if (!text || r.guesses.length >= GUESSES) return;
   const given = { rows: new Map(), texts: new Set() };
   r.guesses.forEach(g => { if (g.name) given.rows.set(g.name, g); else given.texts.add(g.key); });
+  // A "Did you mean ...?" is waiting and the box still holds what was typed: Enter means yes.
+  if (confirmFor && V.normalize(text) === confirmFor.key) return acceptCorrection();
+  if (keepTyped && V.normalize(text) === keepTyped) given.noCorrect = true;
   const j = V.judge(text, P, given);
   if (!j) return;
   const shake = () => { form.classList.remove("shake"); void form.offsetWidth; form.classList.add("shake"); };
@@ -422,6 +449,15 @@ function submit() {
     }
     return;
   }
+  if (j.status === "confirm") {
+    // Medium confidence: one plausible answer, offered once. The clock keeps running, so asking gives no free thinking
+    // time, and only two offers are made per question, so it can't be used to fish for answers.
+    r.checks = (r.checks || 0) + 1;
+    if (r.checks > 2) { keepTyped = j.key; return submit(); }
+    confirmFor = { key: j.key, row: j.row, raw: j.text };
+    Sound.play("pending"); askCorrection(display(j.row), j.text);
+    return;
+  }
   if (j.status === "pending") {
     if (unknownKey !== j.key) { // first press: a chance to fix a typo before it costs anything
       unknownKey = j.key; Sound.play("pending"); input.select();
@@ -439,12 +475,18 @@ function submit() {
     return;
   }
   // A recognised answer: place it, then go and find it.
-  unknownKey = "";
-  const share = j.row ? shareOf(j.row) : REVIEWED_SHARE;
-  const g = { status: "ok", typed: j.text, key: j.key, name: j.row ? j.row.a : null, share, via: j.via, rank: rankText(cat, r, share) };
+  place(cat, r, j.row, j.text, j.via);
+}
+// Puts a recognised answer in the next slot. A corrected spelling is sent to the server as the answer's own name (so
+// the server's check matches exactly) and what was typed is kept to show beside it.
+function place(cat, r, row, raw, via) {
+  const input = $("#answer"); unknownKey = ""; confirmFor = null; keepTyped = "";
+  const share = row ? shareOf(row) : REVIEWED_SHARE, corrected = via === "typo" || via === "confirmed" || via === "joined";
+  const g = { status: "ok", typed: corrected && row ? display(row) : raw, key: V.normalize(corrected && row ? display(row) : raw), name: row ? row.a : null, share, via, rank: rankText(cat, r, share) };
+  if (corrected && V.normalize(raw) !== V.normalize(g.typed)) g.raw = raw;
   r.guesses.push(g); input.value = "";
   const name = guessName(cat, g);
-  setHint(j.via === "typo" || (j.via !== "exact" && V.normalize(j.text) !== V.normalize(name)) ? `Counted as ${name}.` : "");
+  setHint(via === "typo" ? `Spelling corrected: ${name}.` : via === "confirmed" ? "" : (via !== "exact" && V.normalize(raw) !== V.normalize(name)) ? `Counted as ${name}.` : "", via === "typo" ? "fixed" : "");
   Sound.play(r.guesses.length === GUESSES ? "final" : "submit", { step: r.guesses.length - 1 });
   save(); reveal(cat, r, g);
 }
@@ -477,7 +519,7 @@ async function reveal(cat, r, g) {
   renderSlots(-1, index); tagBest(cat, r);
   if (beneath) Sound.play("unfathomable"); else if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260), m: d });
   const left = GUESSES - r.guesses.length, more = left ? ` ${plural(left, "guess")} left.` : "";
-  const counted = $("#hint").textContent.startsWith("Counted as") ? $("#hint").textContent + " " : "";
+  const counted = /^(Counted as|Spelling corrected)/.test($("#hint").textContent) ? $("#hint").textContent + " " : "";
   setTimeout(() => {
     if (!state || cur() !== r || state.phase !== "play") return;
     if (!prevBest) setHint(counted + (d === 0 ? `On the tip: ${pctText(g.share)} of players said this. Can you go rarer?` : `${d} m down. Can you go deeper?`) + more, d >= 100 ? "good" : "");
@@ -596,9 +638,11 @@ function renderDone(cat, r) {
       li.className = "tier-" + tier.key + (g === best ? " best" : ""); li.dataset.bi = g.bi;
       const b = el("button", "sum-row"); b.type = "button";
       const n = el("span", "sum-n"); n.append(el("span", null, String(i + 1)));
-      const sub = el("span", "sum-sub"); sub.append(el("span", "zone", tier.name), el("span", null, `${pctText(g.share)} of players`));
-      const typed = V.normalize(g.typed) !== V.normalize(guessName(cat, g));
-      if (g.note) sub.append(el("span", null, g.note)); else if (typed) sub.append(el("span", null, `you typed “${g.typed}”`));
+      // An answer from a reference list that nobody had estimated: its rarity is a cautious first guess until players give it.
+      const row = g.name && cat.answers.find(a => a.a === g.name), provisional = row && row.pv;
+      const sub = el("span", "sum-sub"); sub.append(el("span", "zone", tier.name), el("span", null, provisional ? "rarity still being measured" : `${pctText(g.share)} of players`));
+      const shown = g.raw || g.typed, typed = V.normalize(shown) !== V.normalize(guessName(cat, g));
+      if (g.note) sub.append(el("span", null, g.note)); else if (typed) sub.append(el("span", null, `you typed “${shown}”`));
       const dep = el("span", "sum-depth"); dep.textContent = `${d} m`;
       b.append(n, el("span", "sum-name", guessName(cat, g)), dep, sub);
       b.onclick = () => berg.focus(g.bi);
@@ -686,8 +730,29 @@ function bumpStreak(day) {
 }
 // Which set of five questions a day uses, and its file.
 let DAY_COUNT = 1; const setCache = new Map();
-const setOf = day => ((day - 1) % DAY_COUNT) + 1;
-const loadSet = id => { if (!setCache.has(id)) setCache.set(id, fetch(`days/${id}.json`).then(r => r.json()).then(d => d.questions || [])); return setCache.get(id); };
+const setOf = day => day > LEGACY_DAYS && BACKEND.url ? day : ((day - 1) % (LEGACY_DAYS || DAY_COUNT)) + 1;   // a prepared day is its own set
+const loadSet = id => { if (!setCache.has(id)) setCache.set(id, dayContent(id).then(d => (d && d.questions) || [])); return setCache.get(id); };
+// A day's five questions. Days 1-15 (the original bank) ship as files. Later days are prepared in advance but kept off
+// the public site: the database hands each one out only once that day has begun somewhere (day_content in
+// supabase/0006_content.sql), and this device keeps a copy so a reload or a lost connection doesn't lose the day.
+let LEGACY_DAYS = 15;
+async function dayContent(n) {
+  const fromFile = () => fetch(`days/${n}.json`).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (n <= LEGACY_DAYS) return fromFile();
+  const cached = store.get("content:" + n, null);
+  if (cached && cached.questions) return cached;
+  if (BACKEND.url && BACKEND.anonKey) {
+    try {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 8000);
+      const r = await fetch(`${BACKEND.url}/rest/v1/rpc/day_content`, { method: "POST", signal: ctl.signal,
+        headers: { apikey: BACKEND.anonKey, Authorization: `Bearer ${BACKEND.anonKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ p_day: n }) });
+      clearTimeout(timer);
+      const d = r.ok ? await r.json() : null;
+      if (d && d.questions) { store.set("content:" + n, d); return d; }
+    } catch { /* fall through */ }
+  }
+  return fromFile();   // a local preview build may carry the files
+}
 const dateOf = day => new Date(LAUNCH[0], LAUNCH[1] - 1, LAUNCH[2] + day - 1);
 // A finished day on this device, as the guesses the database scores: what was typed and what it counted as.
 function guessesOf(game) {
@@ -837,7 +902,8 @@ function wireSound() {
   btn.onclick = e => { e.stopPropagation(); open(panel.hidden); };
   panel.onclick = e => e.stopPropagation();
   document.addEventListener("click", () => open(false));
-  document.addEventListener("keydown", e => { if (e.key === "Escape") open(false); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && confirmFor && screen === "play") { e.preventDefault(); declineCorrection(); return; } if (e.key === "Escape") open(false); });
   on.onchange = () => { Sound.set({ muted: !on.checked }); if (on.checked) Sound.play("click"); };
   sfx.oninput = () => Sound.set({ sfx: sfx.value / 100 });
   sfx.onchange = () => Sound.play("submit");
@@ -873,10 +939,13 @@ async function boot() {
   // runs out it starts again from day 1. (Day 0 is a fixed set used by the automated tests.)
   try {
     const index = await (await fetch("days/index.json")).json();
-    const n = PARAMS.has("test") && PARAMS.has("day") ? +PARAMS.get("day") : ((dayNumber() - 1) % index.count) + 1;
+    LEGACY_DAYS = index.count || 15;
+    // From day 16 on, each day has its own prepared questions; without them (no database here), the original bank repeats.
+    const want = PARAMS.has("test") && PARAMS.has("day") ? +PARAMS.get("day") : dayNumber();
     // The common-word list only sharpens the typo check, so the game doesn't wait for it.
     fetch("words.json").then(r => r.json()).then(words => { if (words && words.commonWords) V.setCommonWords(words.commonWords); }).catch(() => {});
-    const day = await fetch(`days/${n}.json`).then(r => r.json());
+    let day = await dayContent(want);
+    if (!day && !BACKEND.url) day = await dayContent(((want - 1) % LEGACY_DAYS) + 1);
     CATS = day.questions || []; DAY_COUNT = index.count || 1;
     SAMPLE_PLAYERS = day.samplePlayers || index.samplePlayers || SAMPLE_PLAYERS;
   } catch { CATS = []; }
@@ -887,7 +956,12 @@ async function boot() {
 
   $("#entry").onsubmit = e => { e.preventDefault(); submit(); };
   $("#add").onpointerdown = e => e.preventDefault(); // tapping the button never takes focus (or the phone keyboard) away
-  $("#answer").oninput = () => { if (unknownKey && V.normalize($("#answer").value) !== unknownKey) { unknownKey = ""; setHint(""); } };
+  $("#answer").oninput = () => {
+    const v = V.normalize($("#answer").value);
+    if (confirmFor && v !== confirmFor.key) { confirmFor = null; setHint(""); }
+    if (keepTyped && v !== keepTyped) keepTyped = "";
+    if (unknownKey && v !== unknownKey) { unknownKey = ""; setHint(""); }
+  };
   $("#finish").onclick = () => { if (!busy) finishQuestion(); };
   $("#next").onclick = nextQuestion;
   $("#play").onclick = () => {

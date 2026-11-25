@@ -14,7 +14,7 @@ const SHOTS = process.env.SHOTS || '';
   for (const vp of ['desk', 'phone']) {
     const ctx = await b.newContext({ viewport: VPS[vp], hasTouch: vp === 'phone' }), p = await ctx.newPage(), errs = [];
     p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-    await p.goto('http://localhost:8797/?test&reset'); await p.waitForSelector('#play');
+    await p.goto('http://localhost:8797/?test&reset&day=1'); await p.waitForSelector('#play');   // day 1: its first question has answers beneath the iceberg (played under the original evidence rule)
     const shot = async name => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/beneath-${vp}-${name}.png` }); };
 
     if (vp === 'desk') {

@@ -83,17 +83,20 @@ async function fullGame(b, vp) {
   // Q4: typo, duplicate, invalid, pending.
   await p.waitForFunction(() => ICEBERG_TEST.state.round === 3 && ICEBERG_TEST.state.phase === 'play'); await p.waitForTimeout(500);
   await enter(p, 'snaek'); let s4 = await S(p);
-  ok(T('q4 unclear typo "snaek": asks which answer was meant, no guess used'), s4.n === 0 && /Did you mean snake, snack or sneak\?|Did you mean (snake|snack|sneak)/.test(await hint(p)), await hint(p));
+  ok(T('q4 unclear typo "snaek" (snake? sneak? snack?): no guess used, and never a list of possible answers'), s4.n === 0 && !/,.* or /.test(await hint(p)) && /isn't on today's list|Did you mean (snake|snack|sneak)\?/.test(await hint(p)), await hint(p));
   await guess(p, 'snorkle');
-  ok(T('q4 typo "snorkle": corrected to snorkel and placed'), (await S(p)).names[0] === 'snorkel' && /Counted as snorkel/.test(await hint(p)), await hint(p));
+  ok(T('q4 typo "snorkle": corrected to snorkel and placed'), (await S(p)).names[0] === 'snorkel' && /Spelling corrected: snorkel|Counted as snorkel/.test(await hint(p)), await hint(p));
   await enter(p, 'Snorkels'); s4 = await S(p);
   ok(T('q4 duplicate "Snorkels": no guess used, no rarity shown again'), s4.n === 1 && /counts as snorkel, which you've already tried/.test(await hint(p)), await hint(p));
   await enter(p, 'apple'); s4 = await S(p);
   ok(T('q4 invalid "apple": reason given, no guess used'), s4.n === 1 && s4.misses === 1 && /Doesn't start with SN\. No guess used/.test(await hint(p)), await hint(p));
   await enter(p, 'snorlax'); s4 = await S(p);
-  ok(T('q4 unknown "snorlax": first Enter only warns'), s4.n === 1 && /isn't on today's list\. Enter again sends it for review and uses a guess/.test(await hint(p)), await hint(p));
-  await p.keyboard.press('Enter'); await p.waitForTimeout(150); s4 = await S(p); st = await slots(p);
-  ok(T('q4 pending: second Enter uses a guess, slot shows pending with no depth or rarity'), s4.n === 2 && s4.status[1] === 'pending' && /pending/.test(st[1].cls) && /Waiting for review/.test(st[1].text) && !/%|\d+m/.test(st[1].text), st[1].text);
+  // Unknown to the list: either a warning, or (here, close to "snarls") one "Did you mean ...?". Neither uses a guess.
+  const asked = /Did you mean/.test(await hint(p));
+  ok(T('q4 unknown "snorlax": first Enter uses no guess (a warning, or one spelling question)'), s4.n === 1 && (asked || /isn't on today's list\. Enter again sends it for review and uses a guess/.test(await hint(p))), await hint(p));
+  // Keeping it as typed (Escape after a spelling question, or a second Enter after the warning) sends it for review.
+  await p.keyboard.press(asked ? 'Escape' : 'Enter'); await p.waitForTimeout(150); s4 = await S(p); st = await slots(p);
+  ok(T('q4 pending: keeping it as typed uses a guess, slot shows pending with no depth or rarity'), s4.n === 2 && s4.status[1] === 'pending' && /pending/.test(st[1].cls) && /Waiting for review/.test(st[1].text) && !/%|\d+m/.test(st[1].text), st[1].text);
   await guess(p, 'snafu');
   await waitDone(p); await p.waitForTimeout(300);
   d = await p.evaluate(() => ({ best: document.querySelector('#best-name').textContent, rows: [...document.querySelectorAll('#sum li')].map(l => l.innerText.replace(/\n/g, ' | ')), note: document.querySelector('#review-note').textContent }));

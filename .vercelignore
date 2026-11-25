@@ -1,0 +1,10 @@
+# Never deployed: upcoming questions and answers, imported datasets, quality reports, content tools and tests.
+# (content/ holds future days' answers: the game gets each day from the database once that day has begun.)
+content/
+tools/
+tests/
+supabase/
+screenshots/
+node_modules/
+*.md
+!README.md

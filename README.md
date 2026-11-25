@@ -1,4 +1,6 @@
-# Iceberg
+# Deeple
+
+(Formerly called Iceberg. The name lives in `brand.js`; see BRAND.md.)
 
 **Three guesses. How deep can you go?**
 

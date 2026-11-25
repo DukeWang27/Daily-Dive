@@ -1,4 +1,24 @@
-# The name: Nero Deep
+# The name: Deeple
+
+**Status:** chosen by the owner on 25 November 2026. `brand.js` now defaults to `deeple`; the earlier candidates
+(Iceberg, Nero Deep and the rest) stay available as previews with `?brand=<key>`. Nothing has been bought or
+registered: check the name and a web address are free before launch.
+
+- **Why:** Deep, plus the "-le" ending of daily puzzle games, so people read "daily guessing game" at a glance. One
+  word, easy to say and spell. The game is still a dive down an iceberg, so the scene, the iceberg artwork and the
+  word "iceberg" inside the game are unchanged.
+- **The deepest level** is called Challenger Deep (the owner's choice, also 25 November 2026).
+- **Mark and icons:** the game's own faceted iceberg in miniature, in the artwork's colours (`iceberg.js`), lit from the
+  moon side, with a waterline and the larger mass below tapering to a point. Smooth edges at every size. The tab and
+  home-screen icon put it on night sky over the sea, as in the game. `tools/icons.cjs` writes `favicon.svg` and
+  `apple-touch-icon.png` from `brand.js`; `tools/og.cjs deeple` writes the link preview `og/deeple.png`.
+- **Saved progress** is stored under a fixed internal key, so the rename keeps everyone's streaks.
+
+---
+
+Earlier research, kept for the record:
+
+## Earlier recommendation: Nero Deep
 
 **Status:** recommended on 24 November 2026, waiting for the owner's approval. The live game is still called Iceberg.
 Nothing has been bought or registered.

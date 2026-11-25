@@ -123,10 +123,10 @@ async function fullGame(b, vp) {
   ok(T('end: total is the sum of the five deepest answers'), +end.total.replace(/,/g, '') === sum, `${end.total} = ${sum}`);
   ok(T('end: five rows, deepest find named, custom icons, no emoji'), end.rows.length === 5 && /Deepest find: (axolotl|jabuticaba|zester)/.test(end.deepest) && end.icons === 5 && !end.emoji, end.deepest);
   ok(T('end: no ranking is invented without real players'), end.rank === '');
-  ok(T('end: share text is spoiler-free (depths only)'), /^Iceberg #\d+ · [\d,]+ m\n1 [▓░]{10} \d+ m/.test(end.text) && !/axolotl|jabuticaba|zester|snorkel|ferrari|animal|fruit/i.test(end.text), end.text.replace(/\n/g, ' / '));
+  ok(T('end: share text is spoiler-free (depths only)'), /^Deeple #\d+ · [\d,]+ m\n1 [▓░]{10} \d+ m/.test(end.text) && !/axolotl|jabuticaba|zester|snorkel|ferrari|animal|fruit/i.test(end.text), end.text.replace(/\n/g, ' / '));
   ok(T('end: share card image is drawn'), end.lit > 100, `${end.lit} sampled bright pixels`);
   const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 8000 }).catch(() => null), p.click('#save-card')]);
-  ok(T('end: image saves as a PNG'), !!dl && /iceberg-\d+\.png/.test(dl.suggestedFilename()), dl ? dl.suggestedFilename() : 'no download');
+  ok(T('end: image saves as a PNG'), !!dl && /deeple-\d+\.png/.test(dl.suggestedFilename()), dl ? dl.suggestedFilename() : 'no download');
   if (dl) await dl.saveAs(`tests/shot-${vp}-card.png`);
   ok(T('end layout'), !(await audit(p)).length, (await audit(p)).join('; '));
   await p.screenshot({ path: `tests/shot-${vp}-end.png` });
@@ -595,7 +595,8 @@ async function timer(b) {
 // The name lives in one place and can be previewed without changing the game.
 async function brand(b) {
   let p = await fresh(b, 'desk');
-  ok('name: the game is still called Iceberg by default', (await p.title()) === 'Iceberg' && (await p.textContent('#brand')).trim() === 'Iceberg' && (await p.textContent('.wordmark')) === 'Iceberg');
+  ok('name: the game is called Deeple by default', (await p.title()) === 'Deeple' && (await p.textContent('#brand')).trim() === 'Deeple' && (await p.textContent('.wordmark')) === 'Deeple');
+  ok('name: the old name appears nowhere a player would read it', !/Iceberg/.test((await p.evaluate(() => document.body.innerText + ' ' + document.title + ' ' + document.querySelector('meta[property="og:title"]').content)).replace(/today's iceberg/gi, '')));
   ok('name: the tab has an icon', await p.evaluate(() => /^data:image\/svg\+xml/.test(document.querySelector('link[rel=icon]').href)));
   await p.context().close();
   p = await fresh(b, 'desk', '&brand=oddfish');
@@ -604,7 +605,7 @@ async function brand(b) {
   ok('preview: the old name appears nowhere a player would read it', !/Iceberg/.test(o.body.replace(/today's iceberg/gi, '')));
   await p.context().close();
   p = await fresh(b, 'desk', '&brand=nonsense');
-  ok('an unknown name falls back to the default', (await p.title()) === 'Iceberg');
+  ok('an unknown name falls back to the default', (await p.title()) === 'Deeple');
   await p.context().close();
   for (const vp of ['desk', 'phone', 'small']) {
     const { VPS } = require('./lib.cjs'), ctx = await b.newContext({ viewport: VPS[vp] }), q = await ctx.newPage(), errs = [];

@@ -6,7 +6,7 @@
 // Saved progress is stored under a fixed internal key, so renaming never loses anyone's streak.
 (function () {
   "use strict";
-  const DEFAULT = "iceberg";
+  const DEFAULT = "deeple";
 
   // Colours every mark is drawn in.
   const INK = { ice: "#eaf6ff", accent: "#8fd0f5", lumen: "#7df0df", deep: "#06112a" };
@@ -80,6 +80,35 @@
       concept: "Lines of equal depth on a sea chart, each one lower.",
     },
     // The first round.
+    // The chosen name (25 November 2026): Deep + the "-le" of daily puzzle games. Still a dive down an iceberg.
+    deeple: {
+      name: "Deeple", parts: ["Deep", "le"], noun: "iceberg",
+      tagline: ["Three guesses.", "How deep can you go?"],
+      title: "Deeple: the daily game where rare answers go deeper",
+      description: "Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sits. How deep can you go?",
+      // The game's own iceberg in miniature: faceted ice in the artwork's colours (iceberg.js), lit from the moon on the
+      // right, a waterline, and the larger mass below darkening with depth. Smooth edges, not pixel-snapped.
+      crisp: false,
+      mark: [
+        // Below the water (iceberg.js underwater tones): wider than the tip, tapering to a deep point, lighter near the
+        // surface and on the moon side, darker with depth.
+        { d: "M2 7 1.1 9 5.2 9.6Z", fill: "#5096c9" }, { d: "M2 7 5.2 9.6 7.6 7Z", fill: "#67acdc" },
+        { d: "M7.6 7 5.2 9.6 10 9.8Z", fill: "#5096c9" }, { d: "M7.6 7 10 9.8 14 7Z", fill: "#86c4ea" },
+        { d: "M14 7 10 9.8 14.9 8.8Z", fill: "#67acdc" }, { d: "M14.9 8.8 10 9.8 13.2 11.2Z", fill: "#5096c9" },
+        { d: "M1.1 9 2.4 11.8 5.2 9.6Z", fill: "#3f7fb4" }, { d: "M2.4 11.8 7.4 12.2 5.2 9.6Z", fill: "#3f7fb4" },
+        { d: "M5.2 9.6 7.4 12.2 10 9.8Z", fill: "#31699c" }, { d: "M10 9.8 7.4 12.2 13.2 11.2Z", fill: "#3f7fb4" },
+        { d: "M13.2 11.2 7.4 12.2 10.4 14Z", fill: "#31699c" }, { d: "M2.4 11.8 5 14 7.4 12.2Z", fill: "#31699c" },
+        { d: "M5 14 7.6 15.7 7.4 12.2Z", fill: "#255583" }, { d: "M7.4 12.2 7.6 15.7 10.4 14Z", fill: "#255583" },
+        // Above the water (iceberg.js above-water tones): a lower peak on the left, the main peak on the right.
+        { d: "M2 7 3.6 4.8 5.2 3.4 5.8 7Z", fill: "#a9d4f1" }, { d: "M5.2 3.4 6.7 4.5 7.6 7 5.8 7Z", fill: "#e2f2fd" },
+        { d: "M6.7 4.5 9.5 1 10.4 7 7.6 7Z", fill: "#c9e6f8" }, { d: "M9.5 1 11.7 4.1 14 7 10.4 7Z", fill: "#f7fcff" },
+        // The waterline, only across the ice.
+        { d: "M2 6.82h12v.36H2z", fill: "rgba(196,232,255,.9)" },
+      ],
+      // The tab and home-screen icon: night sky over the sea, as in the game.
+      icon: { sky: "#071433", sea: "#0b2a55" },
+      concept: "The game's faceted iceberg: the tip above the water, the mass below.",
+    },
     iceberg: {
       name: "Iceberg", parts: ["Ice", "berg"], noun: "iceberg",
       tagline: ["Three guesses.", "How deep can you go?"],
@@ -134,13 +163,20 @@
   const key = asked && BRANDS[asked] ? asked : DEFAULT;
   const B = { key, ...BRANDS[key], INK };
 
-  const markSvg = (b, size) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"${size ? ` width="${size}" height="${size}"` : ""} shape-rendering="crispEdges" aria-hidden="true">${b.mark.map(p => `<path d="${p.d}" fill="${INK[p.fill]}"/>`).join("")}</svg>`;
-  // A square icon on the night-sea background: the browser tab, a phone's home screen.
-  const iconSvg = (b, size = 64) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}"><rect width="24" height="24" rx="5" fill="#071433"/><g transform="translate(4 4)" shape-rendering="crispEdges">${b.mark.map(p => `<path d="${p.d}" fill="${INK[p.fill]}"/>`).join("")}</g></svg>`;
+  // A fill is a colour name from INK or a colour itself. Pixel marks keep crisp edges; a mark with crisp: false is smooth.
+  const ink = f => INK[f] || f;
+  const paths = b => b.mark.map(p => `<path d="${p.d}" fill="${ink(p.fill)}"/>`).join("");
+  const edges = b => b.crisp === false ? "" : ` shape-rendering="crispEdges"`;
+  const markSvg = (b, size) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"${size ? ` width="${size}" height="${size}"` : ""}${edges(b)} aria-hidden="true">${paths(b)}</svg>`;
+  // A square icon on the night-sea background: the browser tab, a phone's home screen. A mark with its own icon colours
+  // gets the sky above its waterline and the sea below, filling the square so it reads at tab size.
+  const iconSvg = (b, size = 64) => b.icon
+    ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}"><defs><clipPath id="r"><rect width="24" height="24" rx="5"/></clipPath></defs><g clip-path="url(#r)"><rect width="24" height="24" fill="${b.icon.sky}"/><rect y="11.2" width="24" height="12.8" fill="${b.icon.sea}"/><rect y="11" width="24" height=".4" fill="#c4e8ff" opacity=".35"/><g transform="translate(1.5 2) scale(1.3125)">${paths(b)}</g></g></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}"><rect width="24" height="24" rx="5" fill="#071433"/><g transform="translate(4 4)"${edges(b)}>${paths(b)}</g></svg>`;
   // The same mark on a canvas (the share card).
   function drawMark(g, b, x, y, size) {
     g.save(); g.translate(x, y); g.scale(size / 16, size / 16);
-    for (const p of b.mark) { g.fillStyle = INK[p.fill]; g.fill(new Path2D(p.d)); }
+    for (const p of b.mark) { g.fillStyle = ink(p.fill); g.fill(new Path2D(p.d)); }
     g.restore();
   }
 

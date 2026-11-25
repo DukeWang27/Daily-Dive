@@ -23,6 +23,9 @@ const BOARD_MIN_COUNT = 5;        // a rare answer needs this many real players 
 const RANK_MIN_PLAYERS = 30;      // a ranking is only shown once this many real players have finished the day
 const REVIEWED_SHARE = 0.03;      // approved by review but not yet counted: sits in Midwater (52 m), never the maximum
 const PARAMS = new URLSearchParams(location.search);
+// Playtest (a private build for trying every day; tools/playtest): no database, no accounts, any day, replay at will.
+const PLAYTEST = !!window.PLAYTEST || PARAMS.has("playtest");
+if (PLAYTEST) { BACKEND.url = ""; BACKEND.anonKey = ""; BACKEND.verifyUrl = ""; }
 const SPEED = PARAMS.has("fast") ? 4 : 1;
 // The automated tests run untimed unless they ask for a clock (?test&time=20).
 const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : QUESTION_SECONDS);
@@ -39,13 +42,16 @@ let SAMPLE_PLAYERS = 50000;       // only used to rank estimated answers on the 
 // ---------- Small helpers ----------
 const $ = sel => document.querySelector(sel);
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const STORE_PREFIX = PLAYTEST ? "iceberg-pt:" : "iceberg:";
 const store = {
-  get(k, d) { try { const v = localStorage.getItem("iceberg:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem("iceberg:" + k, JSON.stringify(v)); } catch { /* private mode: fine */ } },
-  del(k) { try { localStorage.removeItem("iceberg:" + k); } catch { /* fine */ } },
+  get(k, d) { try { const v = localStorage.getItem(STORE_PREFIX + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(STORE_PREFIX + k, JSON.stringify(v)); } catch { /* private mode: fine */ } },
+  del(k) { try { localStorage.removeItem(STORE_PREFIX + k); } catch { /* fine */ } },
 };
 const localMidnight = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
-const dayNumber = () => Math.max(1, Math.round((localMidnight() - new Date(LAUNCH[0], LAUNCH[1] - 1, LAUNCH[2])) / 86400000) + 1);
+if (PLAYTEST && +PARAMS.get("day") > 0) store.set("pt-day", +PARAMS.get("day"));
+const PT_DAY = PLAYTEST ? store.get("pt-day", 1) : 0;
+const dayNumber = () => PT_DAY || Math.max(1, Math.round((localMidnight() - new Date(LAUNCH[0], LAUNCH[1] - 1, LAUNCH[2])) / 86400000) + 1);
 // Today's finished result, if there is one. Results saved by the earlier timed version of the game are ignored.
 const todayResult = () => { const d = store.get("day:" + dayNumber(), null); return d && d.v === 3 ? d : null; };
 const playerId = (() => { let id = store.get("pid", null); if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); store.set("pid", id); } return id; })();
@@ -186,9 +192,9 @@ function renderHome() {
   const today = todayResult(), n = streakNow().count;
   $("#home-day").textContent = today ? `Daily #${dayNumber()} done · ${fmt(today.total)} m` : `Daily #${dayNumber()} · ${CATS.length || 5} questions${TIME_MS ? ` · ${TIME_MS / 1000} s each` : ""}`;
   $("#home-streak").textContent = n ? `${n}-day streak` : "";
-  if (!$("#play").disabled) $("#play").textContent = today ? "See today's results" : "Play today's Icebreaker";
+  if (!$("#play").disabled) $("#play").textContent = PLAYTEST ? (today ? `Play day ${dayNumber()} again` : `Play day ${dayNumber()}`) : today ? "See today's results" : "Play today's Icebreaker";
   const tick = () => {
-    if (!today) { $("#home-next").textContent = ""; return; }
+    if (!today || PLAYTEST) { $("#home-next").textContent = ""; return; }
     const left = Math.max(0, localMidnight().getTime() + 86400000 - Date.now()), h = Math.floor(left / 3600000), m = Math.floor(left % 3600000 / 60000);
     $("#home-next").textContent = `Next dive in ${h}h ${String(m).padStart(2, "0")}m`;
   };
@@ -825,6 +831,7 @@ const loadSet = id => { if (!setCache.has(id)) setCache.set(id, dayContent(id).t
 // reload or a lost connection doesn't lose the day. With no database (tests, previews) the files are used in rotation.
 let LEGACY_DAYS = 15, STATIC_DAYS = 15;
 async function dayContent(n) {
+  if (PLAYTEST) return fetch(`pt/${n}.json`).then(r => r.ok ? r.json() : null).catch(() => null);
   const fromFile = () => fetch(`days/${n}.json`).then(r => r.ok ? r.json() : null).catch(() => null);
   const online = !!(BACKEND.url && BACKEND.anonKey);
   if (n <= STATIC_DAYS || (!online && n <= LEGACY_DAYS)) return fromFile();
@@ -1070,8 +1077,9 @@ async function boot() {
   $("#play").onclick = () => {
     const today = todayResult();
     // A practice dive (today's questions, not counted) is kept for testing and recordings only: ?practice in the address.
-    if (today && PARAMS.has("practice")) { newGame(true); Sound.unlock(); Sound.play("start"); startQuestion(true); return; }
-    if (today) { state = null; return renderEnd(today, false, false); }
+    if (today && PLAYTEST) { store.del("game:" + dayNumber()); store.del("day:" + dayNumber()); }   // playtest: always a fresh run
+    else if (today && PARAMS.has("practice")) { newGame(true); Sound.unlock(); Sound.play("start"); startQuestion(true); return; }
+    else if (today) { state = null; return renderEnd(today, false, false); }
     newGame(false); Sound.unlock(); Sound.play("start"); startQuestion(true);
   };
   for (const id of ["#race-btn", "#end-race"]) $(id).onclick = e => { e.preventDefault(); Sound.unlock(); location.hash = "#race"; };
@@ -1132,6 +1140,7 @@ async function boot() {
   }
   // What the other screens (account, log, friends, rankings, the dive viewer) may use.
   window.Game = { LAUNCH, GUESSES, today: dayNumber, dateOf, setOf, loadSet, store, fmt, pctText, display, streak: streakNow, finishedGame, syncProgress, handIn,
+    playtest: PLAYTEST, get cats() { return CATS; }, get round() { return state ? state.round : -1; },
     get screen() { return screen; }, get playing() { return !!state; }, show, home: renderHome, modes, backend: () => live.on(),
     days: () => { const out = []; for (let d = Math.max(1, dayNumber() - 380); d <= dayNumber(); d++) { const r = store.get("day:" + d, null); if (r && r.v === 3) out.push(r); } return out; },
     openEnd: () => { const t = todayResult(); if (t && cameFrom === "end") renderEnd(t, false, false); else renderHome(); } };

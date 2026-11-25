@@ -122,9 +122,11 @@ const jsDepth = s => { if (s >= 0.1) return 0; const d = Math.max(1, Math.round(
   // ---------- Guest progress ----------
   const dee = await user('Dee');
   const imp = await rpc(dee, 'import_dives', { p_dives: [{ day: 19, guesses: [G(1, 1, 'raven')] }, { day: 20, guesses: [G(1, 1, 'partridge')] }, { day: 21, guesses: await some(21) }, { day: 22, guesses: [] }, { day: 46, guesses: [] }, { day: 0, guesses: [] }] });
-  ok('guest progress: earlier days on the device move to the new account; days that cannot exist are refused', imp.map(x => x.state).join() === 'saved,saved,saved,saved,refused,refused', JSON.stringify(imp));
+  // Day 22 already exists somewhere in the world only from 10:00 UTC (UTC+14), so whether it is accepted depends on the hour.
+  const open22 = (await admin(`select private.latest_day() >= 22 as o`))[0].o;
+  ok('guest progress: earlier days on the device move to the new account; days that cannot exist are refused', imp.map(x => x.state).join() === `saved,saved,saved,${open22 ? 'saved' : 'refused'},refused,refused`, JSON.stringify(imp));
   const sd = await st(dee), ddives = await admin(`select day, source, ranked, total from public.dives where user_id = $1 order by day`, [dee]);
-  ok('guest progress: the streak and totals follow from those days', sd.streak === 4 && sd.dives === 4 && ddives[2].total === await worth(21, await some(21)) && ddives[2].total > 100);
+  ok('guest progress: the streak and totals follow from those days', sd.dives === (open22 ? 4 : 3) && sd.streak === (open22 ? 4 : 3) && ddives[2].total === await worth(21, await some(21)) && ddives[2].total > 100);
   ok('guest progress: a day that had already closed is history only, and does not enter its ranking afterwards', ddives[0].ranked === false && ddives[2].ranked === true && ddives.every(d => d.source === 'guest'));
   const imp2 = await rpc(dee, 'import_dives', { p_dives: [{ day: 21, guesses: [G(1, 1, 'lyrebird'), G(4, 1, 'sepak takraw')] }] });
   ok('guest progress: a day already on the account is kept as it is (no second score)', imp2[0].state === 'kept' && (await admin(`select total from public.dives where user_id = $1 and day = 21`, [dee]))[0].total === await worth(21, await some(21)));
@@ -225,7 +227,8 @@ const jsDepth = s => { if (s >= 0.1) return 0; const d = Math.max(1, Math.round(
   ok('ranking: says how many are ranked, where I am, and my percentile', lb.players === 4 && lb.me.rank === 2 && +lb.me.top === 50 && lb.rows.find(r => r.me).username === 'Ada');
   ok('ranking: a player who opted out is not listed or counted, but still gets their own place among the rest', !lb.rows.some(r => r.username === 'Ben_2') && (await rpc(ben, 'day_summary', { p_day: 36 })).rank === 2 && (await rpc(ben, 'day_summary', { p_day: 36 })).ranked === false);
   // Tie on total, different deepest answer.
-  const t1 = a36.filter(x => x.round === 4 && x.depth > 100)[0], t2 = a36.find(x => x.round === 5 && x.depth > 20 && x.depth < t1.depth), t3 = a36.find(x => x.round === 4 && x.depth === t1.depth - t2.depth + 0) || null;
+  const t1 = a36.filter(x => x.round === 4 && x.depth > 100 && x.depth < 280)[0],   // below the 299 m cap, so other pairs can reach the same total
+         t2 = a36.find(x => x.round === 5 && x.depth > 20 && x.depth < t1.depth), t3 = a36.find(x => x.round === 4 && x.depth === t1.depth - t2.depth + 0) || null;
   const iris = await user('Iris'), jon = await user('Jon');
   await rpc(iris, 'submit_dive', { p_day: 36, p_guesses: [G(5, 1, t2.answer), G(4, 1, a36.find(x => x.round === 4 && x.depth === t1.depth).answer)] });
   const total = t1.depth + t2.depth, pair = (() => { for (const x of a36.filter(y => y.round === 4 && y.depth > 0)) { const y = a36.find(z => z.round === 5 && z.depth === total - x.depth && z.depth > 0); if (y && Math.max(x.depth, y.depth) !== t1.depth) return [x, y]; } })();

@@ -36,6 +36,8 @@ def items_of(kb, flt=None):
         for x in kb["species"]:
             if flt.get("extinct") is False and x["extinct"]: continue
             if flt.get("regions") and not any(r in x["region"] for r in flt["regions"]): continue
+            if flt.get("families") and x["family"] not in flt["families"]: continue
+            if flt.get("name_any") and not any(w in x["a"].split() for w in flt["name_any"]): continue
             out.append({"a": x["a"], "al": [x["sci"]], "kind": "species"})
         if flt.get("groups", True): out += [{"a": g, "al": [], "kind": "group"} for g in kb["groups"]]
         return out

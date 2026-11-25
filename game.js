@@ -738,6 +738,7 @@ const loadSet = id => { if (!setCache.has(id)) setCache.set(id, dayContent(id).t
 let LEGACY_DAYS = 15;
 async function dayContent(n) {
   const fromFile = () => fetch(`days/${n}.json`).then(r => r.ok ? r.json() : null).catch(() => null);
+  const rotation = () => fetch(`days/${((n - 1) % LEGACY_DAYS) + 1}.json`).then(x => x.ok ? x.json() : null).catch(() => null);
   if (n <= LEGACY_DAYS) return fromFile();
   const cached = store.get("content:" + n, null);
   if (cached && cached.questions) return cached;
@@ -752,8 +753,9 @@ async function dayContent(n) {
         if (d && d.questions) { store.set("content:" + n, d); return d; }
         // The database answered: no prepared content for this day. It then uses the original bank in rotation
         // (private.day_set), so the game does the same and both score the same questions.
-        if (d === null) return fetch(`days/${((n - 1) % LEGACY_DAYS) + 1}.json`).then(x => x.ok ? x.json() : null).catch(() => null);
-      }
+        if (d === null) return rotation();
+      } else if (r.status === 404) return rotation();   // no day_content function: a database from before 0006, which always rotates
+
     } catch { /* no answer: never guess a different set, which would be scored against the wrong table */ }
   }
   return fromFile();   // a local preview build may carry the files

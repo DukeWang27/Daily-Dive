@@ -714,5 +714,5 @@
     };
   }
 
-  window.Iceberg = { create, paint, TIERS, tierFor, tierOfDepth, depthOf, depthY, yOfDepth, metres, iceSpan, iceEdge, isBeyond, evidenced, SURFACE_SHARE, MAX_M, BEYOND_M, EVIDENCE, WORLD: { WW, WH, W, PEAK, CX, BOTTOM, TOP_Y, PXM, SH, BEYOND_Y, PXD } };
+  window.Iceberg = { create, paint, paintIce: canvas => { const g = canvas.getContext("2d"); g.clearRect(0, 0, canvas.width, canvas.height); paintIce(g); }, TIERS, tierFor, tierOfDepth, depthOf, depthY, yOfDepth, metres, iceSpan, iceEdge, isBeyond, evidenced, SURFACE_SHARE, MAX_M, BEYOND_M, EVIDENCE, WORLD: { WW, WH, W, PEAK, CX, BOTTOM, TOP_Y, PXM, SH, BEYOND_Y, PXD } };
 })();

@@ -105,7 +105,8 @@
       // While playing, the surface sits just under the header: everything you do happens underwater.
       const top = document.querySelector(".top");
       if (top && (name === "play" || name === "end")) MOODS[name] = (top.getBoundingClientRect().bottom + 2) / innerHeight;
-      target = MOODS[name] ?? 0.4; if (reduce) { horizon = target; draw(performance.now()); }
+      // On the title screen the iceberg is drawn on this horizon, so it is there at once rather than easing in under it.
+      target = MOODS[name] ?? 0.4; if (reduce || name === "home") { horizon = target; draw(performance.now()); }
     },
   };
 })();

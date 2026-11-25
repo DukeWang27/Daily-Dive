@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Social preview image</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600&family=Inter:wght@500;700;800&display=swap">
+<style>html, body { margin: 0; background: #040917; } canvas { display: block; }</style>
+</head>
+<body>
+<!-- The image shown when a link to the game is shared (1200 x 630). Open with ?brand=<key>; tools/og.cjs saves one per name. -->
+<canvas id="og" width="1200" height="630"></canvas>
+<script src="../brand.js"></script>
+<script src="../iceberg.js"></script>
+<script>
+(async function () {
+  await document.fonts.load('600 120px "Pixelify Sans"'); await document.fonts.load('800 40px Inter'); await document.fonts.load('500 24px Inter');
+  const B = window.Brand, I = window.Iceberg, W = I.WORLD, c = document.getElementById("og"), g = c.getContext("2d");
+  // The same night ocean and iceberg as the game, drawn at twice its pixel size, the iceberg standing right.
+  const art = document.createElement("canvas"); art.width = W.WW; art.height = Math.max(W.WH, 900); I.paint(art);
+  g.imageSmoothingEnabled = false;
+  const s = 2, sx = W.WW / 2 - 390, sy = W.W - 190;
+  g.drawImage(art, sx, sy, 1200 / s, 630 / s, 0, 0, 1200, 630);
+  // Shade on the left, where the name sits.
+  const sh = g.createLinearGradient(0, 0, 760, 0); sh.addColorStop(0, "rgba(4,9,23,.92)"); sh.addColorStop(.55, "rgba(4,9,23,.66)"); sh.addColorStop(1, "rgba(4,9,23,0)");
+  g.fillStyle = sh; g.fillRect(0, 0, 1200, 630);
+  // Mark, wordmark, tagline, the two ways to play.
+  B.drawMark(g, 84, 118, 64);
+  g.textBaseline = "alphabetic"; g.font = '600 112px "Pixelify Sans"';
+  const x0 = 80, y0 = 300; g.fillStyle = B.INK.ice; g.fillText(B.parts[0], x0, y0);
+  g.fillStyle = B.INK.accent; g.fillText(B.parts[1], x0 + g.measureText(B.parts[0]).width, y0);
+  g.font = '800 44px Inter'; g.fillStyle = B.INK.ice; g.fillText(B.tagline[0], x0 + 4, y0 + 78);
+  g.fillStyle = B.INK.accent; g.fillText(B.tagline[1], x0 + 4, y0 + 132);
+  g.font = '500 26px Inter'; g.fillStyle = "#93a9cc"; g.fillText("Daily Dive  ·  Submarine Race", x0 + 4, y0 + 212);
+  document.body.dataset.ready = "1";
+})();
+</script>
+</body>
+</html>

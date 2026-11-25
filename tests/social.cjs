@@ -181,7 +181,7 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
 
   // ---------- Days pass: streaks and the calendar ----------
   await setDay(2); await reload(ada); await ada.evaluate(() => { location.hash = ''; }); await ada.waitForTimeout(300);
-  ok('a new day: the home screen offers a fresh iceberg', (await ada.textContent('#play')) === "Play today's iceberg" && await ada.evaluate(() => Game.today() === 2));
+  ok('a new day: the home screen offers a fresh dive', (await ada.textContent('#play')) === "Play today's dive" && await ada.evaluate(() => Game.today() === 2));
   await play(ada, 0.5); await ada.waitForFunction(() => /Ranked #/.test(document.querySelector('#e-social').innerText), null, { timeout: 9000 }); await ada.waitForTimeout(400);
   const e2 = await ada.evaluate(() => ({ streak: document.querySelector('#e-streak').textContent, on: document.querySelectorAll('#e-days i.on').length, pop: !!document.querySelector('#e-days i.today.pop'), server: Account.profile.stats.streak }));
   ok('streak: a second day in a row makes it 2, with a small celebration on the day\'s marker', e2.streak === '2-day streak' && e2.server === 2 && e2.on >= 2 && e2.pop, JSON.stringify(e2));

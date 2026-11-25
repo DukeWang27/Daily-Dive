@@ -167,6 +167,7 @@
   function cameraTarget() {
     const me = [...S.subs.values()].find(s => s.me), [a, b] = seats(), mid = (laneX(a) + laneX(b)) / 2, f = S.free;
     S.fx = (f.l + f.r) / 2; S.fy = f.t + (f.b - f.t) * (phone() ? 0.4 : 0.42);
+    if (S.showcase && S.subs.size) { const ys = [...S.subs.values()].map(s => s.y); return { x: mid, y: (Math.min(...ys) + Math.max(...ys)) / 2 + 14 }; }
     if (!me) return { x: mid, y: yOf(0) };
     const fits = ((b - a) * LANE_W + 44) * S.u <= f.r - f.l;
     return { x: fits ? mid : me.x, y: me.y };
@@ -324,7 +325,7 @@
   // Signing in (or the account finishing loading) while on the race screen: show what this player can now do.
   if (A) A.onChange(() => { const g = G(); if (g && g.screen === "race" && view === "home" && !busyOpen) open(); });
   let busyOpen = false;
-  function close() { stopPolling(); document.documentElement.classList.remove("in-race"); if (channel) { try { channel.unsubscribe(); } catch { /* fine */ } channel = null; } }
+  function close() { stopPolling(); fleet(false); live(false); document.documentElement.classList.remove("in-race"); if (channel) { try { channel.unsubscribe(); } catch { /* fine */ } channel = null; } }
   function stopPolling() { clearTimeout(poll); poll = 0; }
   function schedule(ms) { clearTimeout(poll); poll = setTimeout(tick, ms); }
   async function tick() {
@@ -340,38 +341,75 @@
   }
   const nudge = () => { try { if (channel) channel.send({ type: "broadcast", event: "poke", payload: {} }); } catch { /* polling covers it */ } };
 
-  // ----- The race home: quick race, private race, join, practice -----
+  // ----- The race landing: what a race is, and the ways in -----
+  // Behind it, a small fleet dives and resurfaces on its own, so the mode explains itself before a word is read.
+  const ICONS = {
+    fleet: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5c0-1.6 1.7-2.8 4.5-2.8h2C11.6 6.7 13 8 13 9.5s-1.4 2.8-3.5 2.8h-2C4.7 12.3 3 11.1 3 9.5zM11 15.5c0-1.6 1.7-2.8 4.5-2.8h2c2.1 0 3.5 1.3 3.5 2.8s-1.4 2.8-3.5 2.8h-2c-2.8 0-4.5-1.2-4.5-2.8z" fill="currentColor"/></svg>',
+    depth: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v14M6.5 12 12 17.5 17.5 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    win: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0zM12 13v4M8.5 20h7M7 6H4.5a2.5 2.5 0 0 0 2.6 3M17 6h2.5a2.5 2.5 0 0 1-2.6 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
+  const icon = k => { const i = h("i.r-ic"); i.innerHTML = ICONS[k]; return i; };
+  let fleetTimer = 0;
+  function fleet(on) {
+    clearInterval(fleetTimer); S.showcase = !!on; document.querySelector('[data-screen="race"]').classList.toggle("showcase", !!on);
+    if (!on) return;
+    const crew = [0, 1, 2, 3].map(seat => ({ username: "\u2060" + seat, seat, distance: 0, here: true }));
+    syncSubs(crew, true);
+    const dive = () => {
+      if (!S.showcase) return;
+      const deepest = Math.max(...crew.map(c => c.distance));
+      if (deepest > 230) crew.forEach(c => { c.distance = 0; });   // the race is over: everyone surfaces for the next
+      else crew.forEach(c => { c.distance += Math.round(14 + Math.random() * 46); });
+      syncSubs(crew, false);
+    };
+    if (!reduce) { setTimeout(dive, 500); fleetTimer = setInterval(dive, 2300); }
+  }
   async function showHome(error) {
-    view = "home"; stopPolling(); race = null; syncSubs([], true); lastStatus = ""; { const meta = $("#top-meta"); if (meta) meta.textContent = "Submarine race"; }
-    const box = dock(); box.textContent = ""; box.className = "rdock home";
-    add(box, h("div.q", h("p.eyebrow", "Submarine race"), h("h2.r-title", "Race to the bottom"),
-      h("p.q-hint", "Live races against real players. Same questions, same clock, three guesses each. Your rarest answer on each question takes your sub deeper. Deepest at the end wins.")));
-    if (!A || A.state === "off") { add(box, h("p.note-line", "Races need the game's database, which isn't connected to this copy.")); return; }
-    if (!A.signedIn) { add(box, h("p.note-line", "Races are for players with an account, so everyone in a race is a real person."), h("div.row", h("button.btn", { type: "button", onclick: () => window.Hub.open("account") }, "Sign in or create an account"))); return; }
-    const waiting = h("span.r-wait", "…");
-    const code = h("input", { type: "text", maxLength: 6, placeholder: "CODE", autocapitalize: "characters", autocomplete: "off", spellcheck: false, "aria-label": "Race code" });
+    view = "home"; stopPolling(); race = null; lastStatus = ""; live(false); { const meta = $("#top-meta"); if (meta) meta.textContent = ""; }
+    fleet(true);
+    const box = dock(); box.textContent = ""; box.className = "rdock home landing";
+    add(box, h("div.q", h("p.eyebrow.r-live", h("i"), "Submarine Race"), h("h2.r-title", "Race to the bottom"),
+      h("p.q-hint", "Real-time races against other players. Everyone dives on the same questions, on the same clock.")),
+      h("ol.r-how",
+        h("li", icon("fleet"), h("span", h("b", "Up to 8 subs."), " 10 questions, 30 seconds each, three guesses a question.")),
+        h("li", icon("depth"), h("span", h("b", "Rare answers dive."), " Your rarest answer each question takes your sub deeper.")),
+        h("li", icon("win"), h("span", h("b", "Deepest wins."), " Whoever is furthest down after the last question."))));
+    if (!A || A.state === "off") { add(box, h("p.note-line", "Races need the game's online service, which this copy isn't connected to.")); return; }
+    if (!A.signedIn) {
+      add(box, h("div.r-choices",
+        h("button.btn.wide", { type: "button", id: "r-signup", onclick: () => window.Hub.open("account") }, "Create a free account to race"),
+        h("p.fine.center", "Races are for players with an account, so everyone you race is a real person.")));
+      return;
+    }
+    const waiting = h("span.r-wait", "\u00a0");
+    const code = h("input", { type: "text", maxLength: 6, placeholder: "CODE", autocapitalize: "characters", autocomplete: "off", spellcheck: false, "aria-label": "Race code", enterkeyhint: "go" });
     const err = h("p.msg.bad", { role: "status" }, error || "");
-    add(box, 
+    add(box,
       h("div.r-choices",
         h("button.btn.wide", { type: "button", id: "r-quick", onclick: e => act(e.currentTarget, async () => { race = await call("race_quick"); enter(); }, err) }, "Quick race"),
-        h("p.fine.center", waiting),
-        h("button.btn.ghost.wide", { type: "button", id: "r-private", onclick: e => act(e.currentTarget, async () => { race = await call("race_create", { p_kind: "private" }); enter(); }, err) }, "Race with friends"),
-        h("form.r-join", { onsubmit: e => { e.preventDefault(); act(e.submitter, async () => { race = await call("race_join", { p_code: code.value.trim() }); enter(); }, err); } }, code, h("button.btn.ghost.small", { type: "submit" }, "Join")),
-        h("button.link", { type: "button", id: "r-practice", onclick: e => act(e.currentTarget, async () => { race = await call("race_create", { p_kind: "practice", p_questions: 5, p_seconds: 30 }); enter(); }, err) }, "Practice alone")),
+        h("p.fine.center.r-waiting", waiting),
+        h("div.r-pair",
+          h("button.btn.ghost", { type: "button", id: "r-private", onclick: e => act(e.currentTarget, async () => { race = await call("race_create", { p_kind: "private" }); enter(); }, err) }, "Race friends"),
+          h("form.r-join", { onsubmit: e => { e.preventDefault(); act(e.submitter, async () => { race = await call("race_join", { p_code: code.value.trim() }); enter(); }, err); } }, code, h("button.btn.ghost.small", { type: "submit" }, "Join"))),
+        h("p.fine.r-pair-note", "Race friends gives you a code to share. Have a code? Type it to join."),
+        h("button.link", { type: "button", id: "r-practice", onclick: e => act(e.currentTarget, async () => { race = await call("race_create", { p_kind: "practice", p_questions: 5, p_seconds: 30 }); enter(); }, err) }, "Warm up alone", h("span.r-aside", " · not counted"))),
       err);
     // Friends' invitations, and your race record.
     try {
       const [n, inv, rec] = await Promise.all([A.rpc("race_waiting"), A.rpc("race_invites"), A.rpc("race_record", { p_username: A.profile.username })]);
-      waiting.textContent = n ? `${n} ${n === 1 ? "player is" : "players are"} waiting for a race` : "Nobody is waiting right now: you'll open a new race and others can join.";
+      waiting.textContent = n ? `${n} ${n === 1 ? "player is" : "players are"} waiting. A race starts as soon as two are in.` : "Nobody is waiting yet. Start one and others can join.";
       if (inv.length) box.insertBefore(h("div.r-invites", h("h3", "Invitations"), inv.map(x => h("div.r-inv", h("span", h("b", x.from), ` · ${x.players} in the lobby`), h("button.btn.small.solid", { type: "button", onclick: e => act(e.currentTarget, async () => { race = await call("race_join", { p_code: x.code }); enter(); }, err) }, "Join")))), box.querySelector(".r-choices"));
       if (rec.races) add(box, h("p.r-record", h("span", h("b", fmt(rec.races)), rec.races === 1 ? " race" : " races"), h("span", h("b", fmt(rec.wins)), rec.wins === 1 ? " win" : " wins"), h("span", "best ", h("b", m(rec.best)))));
     } catch { waiting.textContent = ""; }
   }
+  // While a question is being answered, the header's mode switch steps aside (as it does in the daily game).
+  function live(on) { document.documentElement.classList.toggle("race-live", !!on); const g = G(); if (g && g.modes) g.modes(); }
   async function act(btn, fn, err) { if (btn) btn.disabled = true; try { await fn(); } catch (e) { if (err) err.textContent = e.message; if (btn) btn.disabled = false; } }
 
   // ----- In a race -----
   function enter() {
     if (!race) return showHome();
+    fleet(false);
     if (race.code && location.hash !== "#race/" + race.code) history.replaceState(null, "", location.pathname + location.search + "#race/" + race.code);
     remember(race.code); syncSubs(race.players, true); listen(); lastStatus = ""; lastRound = 0; update(); schedule(900);
   }
@@ -419,7 +457,7 @@
 
   // ----- Lobby -----
   function lobby(changed) {
-    view = "lobby";
+    view = "lobby"; live(false);
     const r = race, meHost = r.host === r.me, box = dock();
     if (changed || !box.querySelector(".r-lobby")) {
       box.textContent = ""; box.className = "rdock lobby";
@@ -477,7 +515,7 @@
   // ----- A question -----
   let ice = null, iceFrame = 0;
   async function question(changed) {
-    view = "question";
+    view = "question"; live(true);
     const r = race, box = dock();
     if (changed) {
       box.textContent = ""; box.className = "rdock playing";
@@ -580,7 +618,7 @@
 
   // ----- Between questions: everyone's best answer, then on to the next -----
   async function between(changed) {
-    view = "between";
+    view = "between"; live(true);
     const r = race, box = dock();
     if (!changed) { const n = $("#r-next"); if (n) n.textContent = `Next question in ${Math.max(0, Math.ceil((new Date(r.between_until).getTime() - serverNow()) / 1000))} s`; return; }
     box.textContent = ""; box.className = "rdock between";
@@ -602,7 +640,7 @@
 
   // ----- Results -----
   async function results(changed) {
-    view = "results";
+    view = "results"; live(false);
     if (!changed) return;
     const r = race, box = dock(); box.textContent = ""; box.className = "rdock results";
     const res = r.results || [], me = res.find(x => x.username === r.me), win = res[0];
@@ -615,7 +653,7 @@
     });
     const playerOf = n => r.players.find(p => p.username === n) || { seat: 0 };
     add(box, h("div.r-results",
-      h("p.eyebrow", `${r.kind === "practice" ? "Practice" : "Race"} over · ${r.q_count} questions`),
+      h("p.eyebrow", `${r.kind === "practice" ? "Warm-up" : "Race"} over · ${r.q_count} questions`),
       h("h2.r-title", res.length > 1 ? (win && win.username === r.me ? "You won" : `${win ? win.username : ""} wins`) : "Your expedition"),
       me ? h("p.r-sum", h("b", m(me.distance)), ` · deepest ${me.deepest} m · ${me.rounds_won} question${me.rounds_won === 1 ? "" : "s"} won${res.length > 1 ? ` · place ${me.place} of ${res.length}` : ""}`) : null,
       h("ol.r-final", res.map(x => { const p = playerOf(x.username); return h("li" + (x.username === r.me ? ".me" : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` },
@@ -632,7 +670,7 @@
 
   // Tests only: put submarines at chosen depths to look at the deeper water (never reachable from the game itself).
   const preview = PARAMS.has("test") ? (list, o = {}) => {
-    const g = G(); g.show("race"); mount(); view = "preview"; dock().textContent = ""; syncSubs(list.map((d, i) => ({ username: i ? "Racer" + i : "You", seat: i, distance: d, me: !i, here: true })), true); S.camY = yOf(list[0]);
+    const g = G(); g.show("race"); mount(); view = "preview"; fleet(false); dock().textContent = ""; syncSubs(list.map((d, i) => ({ username: i ? "Racer" + i : "You", seat: i, distance: d, me: !i, here: true })), true); S.camY = yOf(list[0]);
     if (o.squid && S.life) { const me = [...S.subs.values()].find(s => s.me); me.beneath = 1; setTimeout(() => S.life.encounter("colossal", { x: me.x, y: wildY(mOf(S.camY)) }), 50); }
   } : undefined;
   window.Race = { open, close, preview, get state() { return race; }, get view() { return view; }, get scene() { return { subs: [...S.subs.values()].map(s => ({ name: s.name, dist: s.dist, y: s.y, me: s.me, beneath: !!s.beneath })), camY: S.camY, u: S.u, zone: ZONES[zoneAt(mOf(S.camY))].name, guests: S.life ? S.life.guests : [], flash: ($("#r-flash") || {}).textContent || "" }; }, ZONES, walls, yOf };

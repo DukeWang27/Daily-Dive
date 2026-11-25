@@ -131,7 +131,7 @@ async function fullGame(b, vp) {
   ok(T('every moment has its sound; no countdown sounds remain'), need.every(n => snd.includes(n)) && !snd.includes('tick') && !snd.includes('timeup'), need.filter(n => !snd.includes(n)).join(',') || `${snd.length} sound calls`);
   ok(T('no console or page errors'), !p.errs.length, p.errs.join(' | '));
   await p.goto(URL + '?test&day=0&fast'); await p.waitForSelector('#play');
-  ok(T('coming back: results button, practice, streak'), await p.evaluate(() => /See today/.test(document.querySelector('#play').textContent) && !document.querySelector('#practice').hidden && /1-day streak/.test(document.querySelector('#home-streak').textContent)));
+  ok(T('coming back: results button, streak and status; no practice dive offered'), await p.evaluate(() => /See today/.test(document.querySelector('#play').textContent) && !document.querySelector('#practice') && !/practice/i.test(document.querySelector('[data-screen="home"]').innerText) && /1-day streak/.test(document.querySelector('#home-streak').textContent) && /done/.test(document.querySelector('#home-day').textContent)));
   await p.context().close();
 }
 
@@ -300,7 +300,7 @@ async function daily(b) {
   const seen = new Map(), keys = new Set(); let bad = [], small = [], icons = [];
   for (let d = 0; d < index.count; d++) {
     const p = await at(d);
-    const meta = await p.textContent('#top-meta');
+    await p.waitForFunction(() => !document.querySelector('#play').disabled); const meta = (await p.textContent('#home-day')).split(' · ')[0];
     await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(150);
     const info = await p.evaluate(async n => { const day = await (await fetch(`days/${n}.json`)).json(); return { title: document.querySelector('#q-title').textContent, qs: day.questions.map(q => ({ key: q.key, prompt: q.prompt, n: q.answers.length, tip: q.answers.filter(a => a.s >= 0.1).length, icon: document.createElement('i').innerHTML = IcebergIcons.svg(q.icon), rules: q.rules.length, hint: !!q.hint })) }; }, d + 1);
     if (meta !== `Daily #${d + 1}` || info.title !== info.qs[0].prompt) bad.push(`day ${d + 1}: header "${meta}", shows "${info.title}"`);

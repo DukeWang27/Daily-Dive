@@ -1,5 +1,5 @@
 // How the game feels, measured: plays real questions in a real browser and times what a player waits for.
-//   node tests/perf.cjs [--url=URL] [--vp=desk|phone] [--cpu=4] [--net=slow] [--questions=5] [--deep] [--json=out.json]
+//   node tests/perf.cjs [--url=URL] [--vp=desk|phone] [--cpu=4] [--net=slow] [--questions=5] [--deep] [--reduce] [--json=out.json]
 // For each question it records, from the moment the key or button is pressed:
 //   feedback   until something on screen changes (the guess slot, the button)
 //   landed     until the answer's reveal has finished and the box is usable again
@@ -16,7 +16,7 @@ const r0 = n => Math.round(n);
 
 (async () => {
   const site = URL0 ? null : serve(8810), b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: VPS[VP], hasTouch: VP !== 'desk' }), p = await ctx.newPage();
+  const ctx = await b.newContext({ viewport: VPS[VP], hasTouch: VP !== 'desk', reducedMotion: arg('reduce', false) ? 'reduce' : 'no-preference' }), p = await ctx.newPage();
   const cdp = await ctx.newCDPSession(p);
   if (CPU > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU });
   if (NET === 'slow') { await cdp.send('Network.enable'); await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 300, downloadThroughput: 1.6 * 1024 * 1024 / 8, uploadThroughput: 750 * 1024 / 8 }); }
@@ -87,7 +87,7 @@ const r0 = n => Math.round(n);
   const perf = await p.evaluate(() => ({ frames: window.__perf.frames.map(f => f[1]), long: window.__perf.long, mem: performance.memory ? performance.memory.usedJSHeapSize : 0 }));
   const fr = perf.frames.filter(x => x < 1000);
   const out = {
-    url: base, vp: VP, cpu: CPU, net: NET || 'normal', deep: DEEP, api: !!API, delay: +(process.env.GATEWAY_DELAY || 0), auth, loadMs, startToTyping: r0(startT),
+    url: base, vp: VP, reduce: !!arg('reduce', false), cpu: CPU, net: NET || 'normal', deep: DEEP, api: !!API, delay: +(process.env.GATEWAY_DELAY || 0), auth, loadMs, startToTyping: r0(startT),
     perQuestion: rows.map(r => ({ q: r.q, feedback: r.guesses.map(g => r0(g.feedback)), landed: r.guesses.map(g => r0(g.landed)), thirdToResults: r0(r.results || 0), next: r.next ? Object.fromEntries(Object.entries(r.next).map(([k, v]) => [k, r0(v)])) : null })),
     frames: { n: fr.length, p50: +pct(fr, 50).toFixed(1), p95: +pct(fr, 95).toFixed(1), over33: fr.filter(x => x > 33.4).length, fps: +(1000 / (fr.reduce((a, b) => a + b, 0) / fr.length)).toFixed(1) },
     longTasks: { n: perf.long.length, total: r0(perf.long.reduce((a, b) => a + b[1], 0)), max: r0(Math.max(0, ...perf.long.map(x => x[1]))) },

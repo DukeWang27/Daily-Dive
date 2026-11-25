@@ -144,6 +144,8 @@ function show(id) {
   Sea.mood(id); Sound.setAmbience(id, 0);
   if (id !== "play") { clock.on = false; clearInterval(clock.timer); cancelAnimationFrame(clock.raf); }
   document.documentElement.classList.toggle("in-play", id === "play" || id === "dive" || id === "race"); // the scene takes the whole window: nothing scrolls behind it
+  document.documentElement.classList.toggle("on-home", id === "home");
+  modes();
   const playing = !!state && id === "play";
   $("#steps").hidden = !playing;
   updateHeader();
@@ -155,19 +157,37 @@ function updateHeader() {
   $("#top-meta").textContent = playing && totalSoFar() > 0 ? `${fmt(totalSoFar())} m` : `Daily #${dayNumber()}`;
 }
 
+// ---------- The two modes, and the menu ----------
+// Daily Dive and Submarine Race sit in the header. They give way while a question is being answered (in either mode),
+// so nothing pulls you out mid-guess; everywhere else one tap switches.
+function modes() {
+  const raceLive = document.documentElement.classList.contains("race-live");
+  const hide = screen === "play" || screen === "dive" || (screen === "race" && raceLive);
+  document.documentElement.classList.toggle("no-modes", hide);
+  const on = screen === "race" ? "race" : "daily";
+  document.querySelectorAll("#modes .mode").forEach(b => { if (b.dataset.mode === on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+  const ink = () => { const b = document.querySelector(`#modes .mode[data-mode="${on}"]`), nav = $("#modes"); if (!b || !nav.offsetWidth) return;
+    nav.style.setProperty("--ink-x", b.offsetLeft + 12 + "px"); nav.style.setProperty("--ink-w", b.offsetWidth - 24 + "px"); };
+  requestAnimationFrame(ink);
+}
+function openHowTo() { const d = $("#howto"); if (!d.open) { d.showModal(); store.set("seen-howto", true); $("#howto-btn").classList.remove("fresh"); $("#howto-label").textContent = "How to play"; } }
+
 // ---------- Home ----------
 let nextTimer = 0;
 function renderHome() {
   const today = todayResult(), n = streakNow().count;
+  $("#home-day").textContent = today ? `Daily #${dayNumber()} done · ${fmt(today.total)} m` : `Daily #${dayNumber()} · ${CATS.length || 5} questions${TIME_MS ? ` · ${TIME_MS / 1000} s each` : ""}`;
   $("#home-streak").textContent = n ? `${n}-day streak` : "";
-  $("#play").textContent = today ? "See today's results" : `Play today's ${Brand.noun}`;
-  $("#practice").hidden = !today;
+  if (!$("#play").disabled) $("#play").textContent = today ? "See today's results" : "Play today's dive";
   const tick = () => {
     if (!today) { $("#home-next").textContent = ""; return; }
     const left = Math.max(0, localMidnight().getTime() + 86400000 - Date.now()), h = Math.floor(left / 3600000), m = Math.floor(left % 3600000 / 60000);
-    $("#home-next").textContent = `Next ${Brand.noun} in ${h}h ${String(m).padStart(2, "0")}m`;
+    $("#home-next").textContent = `Next dive in ${h}h ${String(m).padStart(2, "0")}m`;
   };
   clearInterval(nextTimer); tick(); nextTimer = setInterval(tick, 30000);
+  // First visit: the How to play link says so, gently. Never a pop-up, and gone once anything has been played.
+  const fresh = !store.get("seen-howto", false) && !today && !n && !store.get("game:" + dayNumber(), null);
+  $("#howto-btn").classList.toggle("fresh", fresh); $("#howto-label").textContent = fresh ? "New here? How to play" : "How to play";
   state = null; show("home");
 }
 
@@ -862,7 +882,7 @@ async function boot() {
   } catch { CATS = []; }
   if (!CATS.length) { $("#play").textContent = "Couldn't load today's questions"; $("#home-streak").textContent = "Check your connection, then refresh the page to try again."; show("home"); return; }
   { const b = $("#play"); b.disabled = false; b.classList.remove("busy"); b.removeAttribute("aria-busy"); }   // ready: Play works from here
-  $("#rules-time").textContent = TIME_MS ? `, ${TIME_MS / 1000} seconds a question` : "";
+  $("#howto-time").textContent = TIME_MS ? `You have ${TIME_MS / 1000} seconds a question. The clock only runs while you can type.` : "There's no clock: take your time.";
   if (PARAMS.has("reset")) { store.del("game:" + dayNumber()); store.del("game:practice"); store.del("day:" + dayNumber()); }
 
   $("#entry").onsubmit = e => { e.preventDefault(); submit(); };
@@ -872,14 +892,39 @@ async function boot() {
   $("#next").onclick = nextQuestion;
   $("#play").onclick = () => {
     const today = todayResult();
+    // A practice dive (today's questions, not counted) is kept for testing and recordings only: ?practice in the address.
+    if (today && PARAMS.has("practice")) { newGame(true); Sound.unlock(); Sound.play("start"); startQuestion(true); return; }
     if (today) { state = null; return renderEnd(today, false, false); }
     newGame(false); Sound.unlock(); Sound.play("start"); startQuestion(true);
   };
-  $("#practice").onclick = () => { newGame(true); Sound.play("start"); startQuestion(true); };
-  $("#race-btn").onclick = () => { Sound.unlock(); location.hash = "#race"; };
+  for (const id of ["#race-btn", "#end-race"]) $(id).onclick = e => { e.preventDefault(); Sound.unlock(); location.hash = "#race"; };
+  // The two modes.
+  document.querySelectorAll("#modes .mode").forEach(b => b.onclick = () => {
+    Sound.unlock();
+    if (b.dataset.mode === "race") { if (screen !== "race") location.hash = "#race"; return; }
+    if (screen === "race" || screen === "hub" || location.hash) { history.replaceState(null, "", location.pathname + location.search); if (window.Race) window.Race.close(); if (window.Viewer) window.Viewer.close(); }
+    if (screen !== "play") renderHome();
+  });
+  addEventListener("resize", () => modes());
+  // The menu: everything that isn't one of the two ways to play.
+  const menu = $("#menu-panel"), menuBtn = $("#menu-btn");
+  const closeMenu = () => { menu.hidden = true; menuBtn.setAttribute("aria-expanded", "false"); };
+  menuBtn.onclick = e => { e.stopPropagation(); const open = menu.hidden; $("#sound-panel").hidden = true; menu.hidden = !open; menuBtn.setAttribute("aria-expanded", String(open));
+    if (open) { const signedIn = Account && Account.signedIn; $("#menu-account span").textContent = signedIn ? "Profile" : "Sign in"; menu.querySelector("button").focus(); } };
+  menu.addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (!b) return; closeMenu();
+    if (b.dataset.go === "howto") return openHowTo();
+    if (!window.Hub) return;
+    if (b.dataset.go === "account" && Account && Account.signedIn) { location.hash = "#u/" + encodeURIComponent(Account.profile.username); return; }
+    window.Hub.open(b.dataset.go); });
+  document.addEventListener("click", e => { if (!menu.hidden && !e.target.closest("#menu-panel, #menu-btn")) closeMenu(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !menu.hidden) { closeMenu(); menuBtn.focus(); } });
+  $("#howto-btn").onclick = openHowTo;
+
   $("#home").onclick = renderHome;
   $("#brand").onclick = () => { if (screen === "race") { if (window.Race) window.Race.close(); history.replaceState(null, "", location.pathname + location.search); renderHome(); return; } if (screen === "hub" || screen === "dive") { if (window.Hub) window.Hub.leave(); return; } if (screen === "end" || screen === "home") renderHome(); };
-  $("#acct-btn").onclick = () => { if (!window.Hub) return; if (screen === "hub") window.Hub.leave(); else window.Hub.open("log"); };
+  // The profile button opens your dive log; pressed again while you're on it, it takes you back. From any other page
+  // (rankings, friends) it goes to the log rather than closing.
+  $("#acct-btn").onclick = () => { if (!window.Hub) return; if (screen === "hub" && location.hash === "#log") window.Hub.leave(); else window.Hub.open("log"); };
   $("#save-card").onclick = saveCard;
   $("#copy").onclick = async () => {
     const text = $("#e-card").textContent;
@@ -909,7 +954,7 @@ async function boot() {
   }
   // What the other screens (account, log, friends, rankings, the dive viewer) may use.
   window.Game = { LAUNCH, GUESSES, today: dayNumber, dateOf, setOf, loadSet, store, fmt, pctText, display, streak: streakNow, finishedGame, syncProgress, handIn,
-    get screen() { return screen; }, get playing() { return !!state; }, show, home: renderHome, backend: () => live.on(),
+    get screen() { return screen; }, get playing() { return !!state; }, show, home: renderHome, modes, backend: () => live.on(),
     days: () => { const out = []; for (let d = Math.max(1, dayNumber() - 380); d <= dayNumber(); d++) { const r = store.get("day:" + d, null); if (r && r.v === 3) out.push(r); } return out; },
     openEnd: () => { const t = todayResult(); if (t && cameFrom === "end") renderEnd(t, false, false); else renderHome(); } };
   if (Account) {
@@ -929,7 +974,9 @@ async function boot() {
     startQuestion(false);
     return;
   }
-  renderHome();
+  renderHome(); if (window.HomeArt) window.HomeArt.fit();
+  // The submarine beside "Submarine Race" on the title screen: the race's own artwork, one craft, drawn once.
+  if (window.SubArt) document.querySelectorAll("canvas.sub-art").forEach(c => { const g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height); SubArt.draw(g, 20, 13, SubArt.look(0), 0, { dir: 1 }); });
   // While the home screen is up and nothing else is happening, build the scene and work out the sound's raw
   // material, so pressing Play doesn't have to wait for either.
   idle(() => { if (screen === "home") ensureBerg(); });

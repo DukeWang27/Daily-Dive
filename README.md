@@ -6,6 +6,12 @@ A daily guessing game. Five questions a day, three guesses each, 20 seconds a qu
 the fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts, and a
 later, shallower guess never takes it away. Your score is depth in metres, added up over the five questions.
 
+Two ways to play, side by side in the header: **Daily Dive** (the five questions above, the same for everyone each
+day) and **Submarine Race** (live races against other players). Everything else, from the dive log, friends,
+rankings and settings to sign-in and How to play, is in the menu at the top right. The title screen keeps to the essentials: the name,
+the premise in two lines, Play, and today's status (day, streak, time to the next dive). The six depth zones and the
+full rules are in How to play.
+
 There are 15 days of questions in the bank (75 questions). Everyone gets the same five on the same day, a new set
 appears at each player's local midnight, and after day 15 the calendar starts again from day 1 until more are added.
 
@@ -105,7 +111,8 @@ python3 -m http.server 8000
 Then open http://localhost:8000. Opening `index.html` directly as a file won't load the question files.
 
 Handy while testing: add `?reset` to the address to clear today's game on this device and play again, and `?fast`
-to speed the camera up. After finishing the day, a "Practice dive" button also lets you replay.
+to speed the camera up. There is no practice mode for players; for testing or recording, add `?practice` and Play
+starts an uncounted dive with today's questions even after the day is done.
 To preview another day's questions, use `?test&day=7` (any number from 1 to 15).
 
 ## Put it online (Vercel)
@@ -352,8 +359,8 @@ screen. It needs the database and an account (so everyone in a race is a real pe
 - **Ways in.** *Quick race* matches you with whoever is waiting (2 to 8 players; it starts by itself 15 seconds
   after a second racer arrives, and shows how many are waiting). *Race with friends* makes a private room with a
   six-letter code and an invite link; the host picks Sprint (5), Standard (10) or Expedition (15) questions, the
-  time per question and the number of racers, invites friends, and starts once everyone is ready. *Practice
-  alone* is a 5-question race on your own.
+  time per question and the number of racers, invites friends, and starts once everyone is ready. *Warm up
+  alone* is a 5-question race on your own that isn't counted.
 - **Between questions** everyone's deepest answer is shown for a few seconds. **Results** show the winner, places,
   distances, deepest answers and questions won, a table of everyone's best answer per question, **Explore** (each
   racer's expedition opens in the dive viewer), rematch, play again, leave and add friend.
@@ -375,13 +382,14 @@ screen. It needs the database and an account (so everyone in a race is a real pe
 
 ## The name
 
-The game is still called Iceberg. Everything that names it (header, home page, browser tab and icon, search-engine
+**Recommended: Nero Deep** (see `BRAND.md` for the research and the identity). Until that is approved, the game is still called Iceberg. Everything that names it (header, home page, browser tab and icon, search-engine
 text, share card, share message) reads from `brand.js`, so renaming is one line: change `DEFAULT` at the top of
 that file to another entry, or add an entry of your own.
 
 To see a name in the real game without changing anything, add `?brand=` and its key to the address:
-`?brand=nerodeep`, `mariana`, `marianadeep`, `sirenadeep`, `isobath`, `oddfish`, `brinicle`, `dropstone`, `thirddive` or `hadal`. `brand.html` shows all five side by side with
-the research on each. Saved progress uses a fixed internal key, so renaming never loses anyone's streak.
+`?brand=nerodeep`, `meteordeep`, `fathomfive`, `trieste`, `sirenadeep` (this round's finalists), or the earlier
+`mariana`, `marianadeep`, `isobath`, `oddfish`, `brinicle`, `dropstone`, `thirddive`, `hadal`. Each name has its own
+link preview image in `og/` (redraw them with `node tools/og.cjs`). Saved progress uses a fixed internal key, so renaming never loses anyone's streak.
 
 ## Sound
 
@@ -404,7 +412,13 @@ depths and zones only, never answers or questions.
 
 ## Tests
 
-Eight sets of checks, all run against the real code:
+Nine sets of checks, all run against the real code:
+
+- **`tests/home.cjs`** checks the title screen and navigation at five screen sizes: 127 checks. Everything on one
+  screen without scrolling, no frame round the iceberg, its tip clear of the words, both modes in the header, no
+  Practice Dive in view (but `?practice` still works), How to play (all six zones, Escape closes it), the menu and
+  where each item goes, the race landing and its fleet, switching modes, the modes stepping aside during a
+  question, reduced motion, and no "null" or "undefined" anywhere.
 
 - **`tests/matrix.cjs`** plays the game in a real browser: 255 checks. Three rarer answers in a row, the
   rarest first, duplicates, typos, invalid and pending answers, review verdicts, finishing early, all five
@@ -438,7 +452,7 @@ Eight sets of checks, all run against the real code:
 - **`tests/race-ui.cjs`** runs races in several browsers at once against that database: 53 checks. A private race
   from link to rematch (desktop and phone), a three-player quick race that starts by itself, a player who closes
   the tab mid-race, a reload mid-race, simultaneous guesses, the same guess sent twice at once, answer secrecy,
-  explore, leaving, the race record, practice, the camera, and layout. To keep it short it shortens the fixed
+  explore, leaving, the race record, warming up alone, the camera, and layout. To keep it short it shortens the fixed
   pauses (countdown, break between questions, quick-race wait) in the test database only.
 
 The browser suites talk to `tests/gateway.cjs`, a local stand-in for Supabase's web service: the database rules

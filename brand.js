@@ -13,14 +13,39 @@
 
   // Each mark is drawn on a 16 x 16 grid from a few flat shapes, so it stays crisp at tab size and scales up cleanly.
   const BRANDS = {
-    // The second round, in the Mariana direction.
+    // The recommendation (third round, November 2026): see BRAND.md for the research behind it.
     nerodeep: {
-      name: "Nero Deep", parts: ["Nero", " Deep"], noun: "iceberg",
-      tagline: ["Three guesses.", "The rarer, the deeper."],
-      title: "Nero Deep: the daily game where rare answers go deeper",
-      description: "Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sinks. A free daily game in your browser.",
+      name: "Nero Deep", parts: ["Nero", " Deep"], noun: "dive",
+      tagline: ["Three guesses.", "How deep can you go?"],
+      title: "Nero Deep: the daily dive where rare answers sink deepest",
+      description: "Five questions a day, three guesses each. The fewer players who give your answer, the deeper it sinks. Race other players in live submarine races. Free, in your browser.",
       mark: [{ d: "M1 1h14v2H1z", fill: "accent" }, { d: "M7.3 3h1.4v8.4H7.3z", fill: "ice" }, { d: "M9.6 5h2v1.2h-2zM9.6 8h2v1.2h-2z", fill: "accent" }, { d: "M8 10.2l2.4 2.4L8 15l-2.4-2.4z", fill: "lumen" }],
-      concept: "A sounding line with its marks and its weight: how the Nero Deep was found.",
+      concept: "A sounding line with its depth marks and its lead weight: how the Nero Deep was found in 1899.",
+    },
+    // The other finalists, kept so each can be tried in the real game with ?brand=<key>.
+    meteordeep: {
+      name: "Meteor Deep", parts: ["Meteor", " Deep"], noun: "dive",
+      tagline: ["Three guesses.", "How deep can you go?"],
+      title: "Meteor Deep: the daily dive where rare answers sink deepest",
+      description: "Five questions a day, three guesses each. The fewer players who give your answer, the deeper it sinks. Free, in your browser.",
+      mark: [{ d: "M2 1h2.4l6 6H8z", fill: "accent" }, { d: "M8 7l3.6 3.6L8 14.2l-3.6-3.6z", fill: "ice" }, { d: "M1 15h14v-1H1z", fill: "lumen" }],
+      concept: "Something bright falling into the trench.",
+    },
+    fathomfive: {
+      name: "Fathom Five", parts: ["Fathom", " Five"], noun: "dive",
+      tagline: ["Three guesses.", "How deep can you go?"],
+      title: "Fathom Five: five questions, three guesses, one deep answer",
+      description: "Five questions a day, three guesses each. The fewer players who give your answer, the deeper it sinks. Free, in your browser.",
+      mark: [{ d: "M1 2h14v1.6H1z", fill: "ice" }, { d: "M1 5.4h11v1.4H1zM1 8.4h8v1.4H1zM1 11.4h5v1.4H1z", fill: "accent" }, { d: "M11.6 11l2 2-2 2-2-2z", fill: "lumen" }],
+      concept: "Five fathom marks, each shorter, and an answer below them.",
+    },
+    trieste: {
+      name: "Trieste", parts: ["Tri", "este"], noun: "dive",
+      tagline: ["Three guesses.", "How deep can you go?"],
+      title: "Trieste: the daily dive where rare answers sink deepest",
+      description: "Five questions a day, three guesses each. The fewer players who give your answer, the deeper it sinks. Free, in your browser.",
+      mark: [{ d: "M3 3h10v6.4H3z", fill: "accent" }, { d: "M6.6 1h2.8v2H6.6z", fill: "ice" }, { d: "M8 9.4l2.6 2.6L8 14.6 5.4 12z", fill: "ice" }],
+      concept: "The bathyscaphe's float and the crew sphere beneath it.",
     },
     mariana: {
       name: "Mariana", parts: ["Mari", "ana"], noun: "iceberg",
@@ -105,7 +130,7 @@
     },
   };
 
-  const asked = new URLSearchParams(location.search).get("brand");
+  const asked = new URLSearchParams(location.search).get("brand") || window.BRAND_PREVIEW;
   const key = asked && BRANDS[asked] ? asked : DEFAULT;
   const B = { key, ...BRANDS[key], INK };
 
@@ -125,6 +150,7 @@
     const set = (sel, attr, val) => { const n = document.head.querySelector(sel); if (n) n.setAttribute(attr, val); };
     set('meta[name="description"]', "content", B.description);
     set('meta[property="og:title"]', "content", B.title); set('meta[property="og:description"]', "content", B.description);
+    set('meta[property="og:image"]', "content", new URL(`og/${key}.png`, location.href).href); set('meta[name="twitter:image"]', "content", new URL(`og/${key}.png`, location.href).href);
     let icon = document.head.querySelector('link[rel="icon"]');
     if (!icon) { icon = document.createElement("link"); icon.rel = "icon"; document.head.append(icon); }
     icon.type = "image/svg+xml"; icon.href = "data:image/svg+xml," + encodeURIComponent(iconSvg(B));

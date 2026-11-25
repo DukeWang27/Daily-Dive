@@ -7,6 +7,11 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sits. How deep can you go?">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://iceberg-eight-silk.vercel.app/og/iceberg.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://iceberg-eight-silk.vercel.app/og/iceberg.png">
 <meta property="og:title" content="Iceberg: the daily game where rare answers go deeper">
 <meta property="og:description" content="Five questions a day, three guesses each. The fewer players who share your answer, the deeper it sits. How deep can you go?">
 <meta name="theme-color" content="#040917">
@@ -86,25 +91,94 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .btn.ghost:hover { background: rgba(143, 208, 245, .08); }
 .btn.wide { width: 100%; }
 
-/* Home */
-.home { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(28px, 5vw, 72px); align-items: center; min-height: calc(var(--vvh) - var(--top-h) - 60px); }
-.wordmark { font-family: var(--pixel); font-weight: 600; font-size: clamp(56px, 8.5vw, 96px); line-height: .9; letter-spacing: .01em; margin: 0; }
+/* Home: a title screen. The page's own sea is the backdrop; the iceberg is drawn into it at the same horizon, with no frame. */
+html.on-home, html.on-home body { overflow: hidden; height: 100%; }
+section.home { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.title-art { position: absolute; inset: 0; pointer-events: none; }
+.title-art canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; transform-origin: 0 0; animation: art-in .9s var(--ease-out) both; }
+@keyframes art-in { from { opacity: 0; translate: 0 18px; } }
+/* Shade where the words sit, so stars and light shafts never compete with them. */
+section.home::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(ellipse 52% 62% at 18% 42%, rgba(4, 9, 23, .62), rgba(4, 9, 23, 0) 70%), linear-gradient(0deg, rgba(3, 8, 20, .7), rgba(3, 8, 20, 0) 34%); }
+.title-block { position: absolute; z-index: 2; left: max(var(--edge), calc(50vw - 590px + var(--gutter))); top: calc(var(--top-h) + clamp(24px, 9vh, 110px)); width: min(520px, 44vw);
+  display: grid; justify-items: start; animation: title-in .7s var(--ease-out) both; }
+@keyframes title-in { from { opacity: 0; translate: 0 10px; } }
+.wordmark { font-family: var(--pixel); font-weight: 600; font-size: clamp(56px, 7.6vw, 104px); line-height: .9; letter-spacing: .01em; margin: 0; text-shadow: 0 6px 30px rgba(3, 8, 20, .6); }
 .wordmark span { color: var(--accent); }
-.tagline { font-size: clamp(22px, 2.6vw, 30px); line-height: 1.25; font-weight: 800; margin: 22px 0 10px; letter-spacing: -.015em; }
+.tagline { font-size: clamp(22px, 2.3vw, 30px); line-height: 1.22; font-weight: 800; margin: 20px 0 8px; letter-spacing: -.015em; }
 .tagline span { color: var(--accent); display: block; }
-.rules { color: var(--muted); margin: 0 0 24px; max-width: 46ch; }
-.depths { list-style: none; margin: 0 0 28px; padding: 0; max-width: 440px; }
+.premise { color: var(--muted); margin: 0 0 26px; font-size: 17px; font-weight: 500; max-width: 40ch; }
+.title-cta { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+.title-cta .btn { padding: 16px 28px; font-size: 17px; }
+.link-btn { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 8px 2px; color: var(--muted); font-weight: 600; font-size: 15px; border-radius: 8px; transition: color var(--t-quick); }
+.link-btn:hover { color: var(--text); } .link-btn svg { width: 19px; height: 19px; color: var(--accent); }
+.link-btn.fresh { color: var(--text); } .link-btn.fresh svg { animation: nudge 2.4s var(--ease-in-out) 1.2s 2; }
+@keyframes nudge { 0%, 100% { transform: none; } 50% { transform: scale(1.18); } }
+.title-status { display: flex; flex-wrap: wrap; gap: 4px 0; margin: 18px 0 0; font-size: 14px; color: var(--muted); min-height: 21px; font-variant-numeric: tabular-nums; }
+.title-status > span:empty { display: none; }
+.title-status > span:not(:empty) ~ span:not(:empty)::before { content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 11px 2px; transform: rotate(45deg); background: var(--line-2); }
+.streak { color: var(--accent); font-weight: 700; }
+.next-in { font-variant-numeric: tabular-nums; }
+/* Submarine race, in the water below the title: a way in that belongs to the scene rather than another button. */
+.race-teaser { position: absolute; z-index: 2; left: max(var(--edge), calc(50vw - 590px + var(--gutter))); bottom: clamp(28px, 7vh, 72px); display: flex; align-items: center; gap: 14px;
+  padding: 10px 16px 10px 12px; border-radius: 14px; color: var(--text); text-decoration: none; background: rgba(4, 12, 30, .5); box-shadow: inset 0 0 0 1px var(--line);
+  transition: background var(--t-quick), box-shadow var(--t-quick), transform var(--t-quick) var(--ease-out); animation: title-in .7s var(--ease-out) .25s both; }
+.end .race-teaser { position: static; justify-self: start; animation: none; }
+.race-teaser:hover { background: rgba(8, 22, 48, .7); box-shadow: inset 0 0 0 1px var(--line-2); }
+.race-teaser:active { transform: translateY(1px); }
+.race-teaser > span { display: grid; gap: 1px; } .race-teaser b { font-size: 15.5px; } .race-teaser .eyebrow { font-size: 11px; color: var(--accent); }
+.race-teaser canvas { width: 60px; height: 36px; image-rendering: pixelated; animation: bob 3.2s var(--ease-in-out) infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
+.race-teaser .go { width: 20px; height: 20px; color: var(--accent); margin-left: 6px; transition: transform var(--t-quick) var(--ease-out); }
+.race-teaser:hover .go { transform: translateX(3px); }
+/* The depth zones, named down the right edge of the water: the premise in one glance. */
+.depth-ruler { position: absolute; z-index: 2; right: max(var(--edge), calc(50vw - 590px + var(--gutter))); top: var(--ruler-top, 60%); bottom: clamp(28px, 6vh, 64px); margin: 0; padding: 0 0 0 16px; list-style: none;
+  display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
+  border-left: 1px solid var(--line); animation: title-in .7s var(--ease-out) .35s both; }
+.depth-ruler li { display: flex; align-items: center; gap: 9px; margin-left: -20.5px; }
+.depth-ruler li::before { content: ""; width: 8px; height: 8px; transform: rotate(45deg); background: var(--tier); opacity: .85; }
+.depth-ruler .tier-tip { margin-top: -6px; }
+.depth-ruler .tier-beyond { color: var(--beyond-soft); }
+
+/* Game modes in the header: the two ways to play, always one tap away. The ink slides to the one you're in. */
+.modes { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; gap: 4px; padding: 0; }
+.mode { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 10px 14px; border-radius: 10px; color: var(--muted); font-weight: 700; font-size: 15px; white-space: nowrap; transition: color var(--t-quick), background var(--t-quick); }
+.mode svg { width: 18px; height: 18px; opacity: .8; transition: opacity var(--t-quick); }
+.mode:hover { color: var(--text); background: rgba(143, 208, 245, .07); }
+.mode[aria-current] { color: var(--text); } .mode[aria-current] svg { opacity: 1; color: var(--accent); }
+.mode-ink { position: absolute; bottom: 2px; left: 0; height: 2px; width: var(--ink-w, 0); transform: translateX(var(--ink-x, 0)); background: var(--accent); border-radius: 2px; transition: transform var(--t-move) var(--ease-out), width var(--t-move) var(--ease-out); }
+html.no-modes .modes { display: none; }
+/* The menu: everything that isn't one of the two ways to play. */
+.menu-panel { position: absolute; top: 48px; right: 0; width: 230px; padding: 8px; border-radius: 14px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: 0 16px 40px rgba(0,0,0,.5); display: grid; gap: 2px; z-index: 20; animation: pop-in var(--t-quick) var(--ease-out); }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px); } }
+.menu-panel button, .menu-panel a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 9px; background: none; color: var(--text); font-weight: 600; font-size: 15px; text-align: left; text-decoration: none; }
+.menu-panel button:hover, .menu-panel a:hover { background: rgba(143, 208, 245, .09); }
+.menu-panel svg { width: 19px; height: 19px; color: var(--accent); flex: none; }
+.menu-panel hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+.menu-panel .menu-fine { color: var(--muted); font-size: 13.5px; font-weight: 500; padding: 8px 12px; }
+html.in-play .menu-btn, html.in-play .menu-panel { display: none; }
+html.on-home .top-meta { display: none; }
+/* How to play: one quiet sheet, opened when asked for, never forced. */
+.howto { width: min(560px, calc(100vw - 32px)); max-height: min(86vh, 860px); padding: 30px 32px 26px; border: 1px solid var(--line-2); border-radius: 18px; background: var(--panel-solid); color: var(--text); box-shadow: 0 30px 80px rgba(0,0,0,.6); overflow-y: auto; }
+.howto[open] { display: grid; gap: 24px; animation: sheet-up var(--t-move) var(--ease-out); }
+@keyframes sheet-up { from { opacity: 0; transform: translateY(14px); } }
+.howto::backdrop { background: rgba(2, 6, 16, .62); backdrop-filter: blur(2px); }
+.howto h2 { font-size: 26px; letter-spacing: -.01em; }
+.howto h3 { display: flex; align-items: center; gap: 10px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+.howto h3 svg { width: 20px; height: 20px; }
+.howto section p { margin: 0; color: var(--muted); }
+.howto-close { position: absolute; top: 14px; right: 14px; }
+.howto-steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 12px; }
+.howto-steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 12px; color: var(--muted); }
+.howto-steps li::before { content: counter(s); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: rgba(143, 208, 245, .12); color: var(--ice); font-weight: 800; font-size: 14px; }
+.howto-steps b { color: var(--text); }
+.howto .howto-fine { margin-top: 12px; font-size: 13.5px; color: var(--faint); }
+.depths { list-style: none; margin: 0; padding: 0; }
 .depths li { display: grid; grid-template-columns: 14px auto 1fr; gap: 12px; align-items: baseline; padding: 7px 0; font-size: 15px; border-bottom: 1px solid var(--line); }
 .depths li:last-child { border: 0; }
 .depths i { width: 9px; height: 9px; transform: rotate(45deg); background: var(--tier); align-self: center; }
-.depths b { font-weight: 600; } .depths span { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; text-align: right; }
-.home-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-.home-foot { margin-top: 18px; display: grid; gap: 8px; font-size: 14px; color: var(--muted); min-height: 22px; }
+.depths b { font-weight: 600; } .depths span { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13.5px; text-align: right; }
 .foot-link { color: var(--faint); font-size: 13px; text-decoration: none; width: max-content; } .foot-link:hover { color: var(--muted); text-decoration: underline; }
-.streak { color: var(--accent); font-weight: 700; }
-.scene { position: relative; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 5; background: #060c22; box-shadow: 0 30px 80px rgba(0,0,0,.45), 0 0 0 1px var(--line); }
-.scene canvas { position: absolute; left: 50%; image-rendering: pixelated; }
-.next-in { font-variant-numeric: tabular-nums; }
 
 /* Play: the scene fills the window. The question, the box and the three guesses float over the water (to the left on
    wide screens; question above and box below on phones). Nothing sits in a card: soft shade behind the text only. */
@@ -617,8 +691,6 @@ html.in-play .acct-btn { display: none; }
 
 /* Small screens */
 @media (max-width: 920px) {
-  .home { grid-template-columns: 1fr; gap: 26px; min-height: 0; padding-top: 4px; }
-  .scene { aspect-ratio: 16 / 10; order: -1; }
   /* Playing: the question sits at the top of the water, the box and the three guesses at the bottom, by your thumbs. */
   .veil { background: linear-gradient(180deg, rgba(3, 8, 20, .82) 0, rgba(3, 8, 20, .6) calc(var(--q-bottom, 120px) - 16px), rgba(3, 8, 20, 0) calc(var(--q-bottom, 120px) + 34px)), linear-gradient(0deg, rgba(3, 8, 20, .95) 0, rgba(3, 8, 20, .86) calc(var(--p-height, 200px) - 10px), rgba(3, 8, 20, 0) calc(var(--p-height, 200px) + 46px)); }
   .play.done .veil { background: linear-gradient(180deg, rgba(3, 8, 20, .6), rgba(3, 8, 20, 0) 90px); }
@@ -672,6 +744,30 @@ html.in-play .acct-btn { display: none; }
   .bars li, .axis { grid-template-columns: minmax(74px, 38%) minmax(30px, 1fr) auto; gap: 8px; }
   .axis .ticks span:nth-last-child(even) { color: transparent; } /* narrow: label every other mark, always keeping the last */
 }
+/* Narrow: the two modes get their own row under the header, full width, so neither is ever squeezed or hidden. */
+:root { --modes-h: 0px; }
+@media (max-width: 760px) {
+  html:not(.no-modes) { --modes-h: 46px; }
+  .modes { position: fixed; left: 0; right: 0; top: var(--top-h); transform: none; height: var(--modes-h); gap: 0; z-index: 4; background: rgba(4, 9, 23, .6); border-bottom: 1px solid var(--line); }
+  .mode { flex: 1; justify-content: center; border-radius: 0; font-size: 14.5px; padding: 0 8px; }
+  .mode:hover { background: none; }
+  .mode-ink { bottom: -1px; }
+  main { padding-top: calc(8px + var(--modes-h)); }
+  section.home::before { background: radial-gradient(ellipse 90% 40% at 50% 26%, rgba(4, 9, 23, .5), rgba(4, 9, 23, 0) 75%), linear-gradient(0deg, rgba(3, 8, 20, .92), rgba(3, 8, 20, .55) 26%, rgba(3, 8, 20, 0) 42%); }
+  .title-block { left: 0; right: 0; width: auto; top: calc(var(--top-h) + var(--modes-h) + clamp(14px, 4vh, 40px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); padding: 0 var(--gutter);
+    display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .wordmark { font-size: clamp(48px, 15vw, 72px); }
+  .tagline { font-size: 21px; margin: 14px 0 6px; }
+  .premise { font-size: 15px; margin: 0; max-width: 32ch; }
+  .title-cta { margin-top: auto; flex-direction: column; width: 100%; max-width: 420px; gap: 4px; }
+  .title-cta .btn { width: 100%; }
+  .title-status { justify-content: center; margin-top: 8px; }
+  section.home .race-teaser, .depth-ruler { display: none; }
+  .rdock { top: calc(var(--top-h) + var(--modes-h) + 14px); }
+}
+@media (max-width: 760px) and (max-height: 700px) { .premise { display: none; } }
+@media (max-width: 520px) { .howto { padding: 24px 20px 20px; } .howto .depths li { grid-template-columns: 14px 1fr; gap: 0 12px; } .howto .depths span { grid-column: 2; text-align: left; } }
+@media (max-width: 760px) and (max-height: 560px) { .tagline span { display: inline; } }
 @media (max-width: 920px) and (max-height: 520px) { /* a phone with its keyboard open */
   .play.playing .finish-row { display: none; }
   .q-title h2 { font-size: 17px; } .q-icon { font-size: 22px; }
@@ -710,6 +806,27 @@ html.in-play .acct-btn { display: none; }
 .race .veil { background: linear-gradient(90deg, rgba(3, 8, 20, .9) 0, rgba(3, 8, 20, .78) 400px, rgba(3, 8, 20, 0) 600px), linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
 .rdock { position: absolute; left: var(--edge); top: calc(var(--top-h) + 22px); bottom: 18px; width: min(392px, 36vw); display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-content: start; overflow-y: auto; scrollbar-width: thin; padding-right: 4px; }
 .r-title { margin: 0; font-size: clamp(24px, 2.4vw, 32px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+/* Race landing: the fleet dives behind; the rules and the ways in sit to the left (bottom on a phone). */
+.race.showcase .rc-tag, .race.showcase .rc-edge, .race.showcase .rc-map, .race.showcase .r-flash { display: none !important; }
+.rdock.landing { gap: 22px; }
+.rdock.landing .r-title { font-size: clamp(30px, 3vw, 40px); letter-spacing: -.02em; }
+.r-live { display: flex !important; align-items: center; gap: 8px; color: var(--accent); }
+.r-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--lumen); box-shadow: 0 0 0 0 rgba(125, 240, 223, .6); animation: live 2s ease-out infinite; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 rgba(125, 240, 223, .55); } 70%, 100% { box-shadow: 0 0 0 8px rgba(125, 240, 223, 0); } }
+.r-how { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.r-how li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; color: var(--muted); font-size: 15px; line-height: 1.42; }
+.r-how b { color: var(--text); }
+.r-ic { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: rgba(143, 208, 245, .1); color: var(--accent); }
+.r-ic svg { width: 19px; height: 19px; }
+.r-pair { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; min-width: 0; }
+.r-pair > .btn { padding: 11px 16px; font-size: 15px; white-space: nowrap; }
+.r-pair .r-join { min-width: 0; } .r-pair .r-join .btn { white-space: nowrap; flex: none; }
+.r-choices { min-width: 0; }
+.r-choices .link .r-aside { color: var(--faint); text-decoration: none; display: inline-block; }
+.r-choices .r-pair-note { margin: -4px 0 0; text-align: left; color: var(--faint); font-size: 13px; }
+.r-waiting { min-height: 20px; }
+/* Full-screen scenes: a soft shade behind the header so its words stay readable over bright ice. */
+html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z-index: -1; pointer-events: none; background: linear-gradient(180deg, rgba(3, 8, 20, .72), rgba(3, 8, 20, 0)); }
 .r-choices { display: grid; gap: 12px; justify-items: stretch; }
 .r-choices .fine { margin: -4px 0 4px; text-align: center; }
 .r-choices .link { justify-self: center; margin-top: 2px; }
@@ -731,6 +848,7 @@ html.in-play .acct-btn { display: none; }
 .r-set select { font-size: 14px; letter-spacing: 0; text-transform: none; padding: 8px 10px; border-radius: 9px; border: 0; color: var(--text); background: rgba(3, 8, 20, .75); box-shadow: inset 0 0 0 1px var(--line-2); }
 .r-actions { gap: 12px 18px; }
 .rdock .q .eyebrow { display: flex; justify-content: space-between; gap: 10px; }
+.rdock .q .eyebrow.r-live { justify-content: flex-start; gap: 8px; }
 .r-mydepth { color: var(--lumen); letter-spacing: .08em; }
 #r-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .rdock > *, .r-lobby > *, .r-between > *, .r-results > * { min-width: 0; }
@@ -796,10 +914,15 @@ html.in-play .acct-btn { display: none; }
 <div class="app">
 <header class="top">
   <button class="brand" id="brand" type="button" aria-label="Iceberg home" data-brand-label="{name} home"><span class="brand-mark" data-brand="mark" aria-hidden="true"></span><span data-brand="name">Iceberg</span></button>
+  <nav class="modes" id="modes" aria-label="Game modes">
+    <button type="button" class="mode" data-mode="daily" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 17 11H7z" fill="currentColor"/><path d="M5 13h14l-3.5 7h-7z" fill="currentColor" opacity=".55"/></svg><span>Daily Dive</span></button>
+    <button type="button" class="mode" data-mode="race"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c0-2.5 2.6-4.5 7-4.5h3c3.3 0 6 2 6 4.5S17.3 18 14 18h-3c-4.4 0-7-2-7-4.5z" fill="currentColor"/><path d="M10 9V6h4v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 11v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="13.5" r="1.6" fill="#06112a"/></svg><span>Submarine Race</span></button>
+    <i class="mode-ink" aria-hidden="true"></i>
+  </nav>
   <div class="steps" id="steps" aria-hidden="true" hidden><i></i><i></i><i></i><i></i><i></i></div>
   <div class="top-right">
     <span class="top-meta" id="top-meta">Daily #1</span>
-    <button class="icon-btn acct-btn" id="acct-btn" type="button" aria-label="Dive log, friends and rankings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 15.500 7 12 10.500 8.500 7z"/><path d="M4.500 20c.6-4 3.600-6 7.500-6s6.900 2 7.500 6"/></svg></button>
+    <button class="icon-btn acct-btn" id="acct-btn" type="button" aria-label="Your dive log and profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 15.500 7 12 10.500 8.500 7z"/><path d="M4.500 20c.6-4 3.600-6 7.500-6s6.900 2 7.500 6"/></svg></button>
     <button class="icon-btn" id="sound-btn" type="button" aria-label="Sound and display settings" aria-expanded="false" aria-controls="sound-panel">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path class="wave" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="wave" d="M18.5 5.5a9 9 0 0 1 0 13"/><path class="cross" d="m16 9 6 6m0-6-6 6" hidden/></svg>
     </button>
@@ -811,35 +934,38 @@ html.in-play .acct-btn { display: none; }
       <label class="switch">Calmer water <input type="checkbox" id="fx-low" role="switch"></label>
       <p class="note">Fewer animals and lights. Easier on older laptops.</p>
     </div>
+    <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="menu-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+    <nav class="menu-panel" id="menu-panel" aria-label="Menu" hidden>
+      <button type="button" data-go="howto"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg>How to play</button>
+      <hr>
+      <button type="button" data-go="log"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 10h8M8 14h8M8 18h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Dive log</button>
+      <button type="button" data-go="friends"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 6M17.5 14.4c1.8.6 3 2.2 3.5 4.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Friends</button>
+      <button type="button" data-go="ranks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V13h4.5v7M9.75 20V8h4.5v12M15.5 20v-9H20v9M3 20h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>Rankings</button>
+      <button type="button" data-go="account" id="menu-account"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 15.5 7 12 10.5 8.5 7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M4.5 20c.6-4 3.6-6 7.5-6s6.9 2 7.5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Sign in</span></button>
+      <button type="button" data-go="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Settings</button>
+      <hr>
+      <a href="privacy.html" class="menu-fine">Privacy</a>
+    </nav>
   </div>
 </header>
 <main>
-  <!-- Home -->
+  <!-- Home: a title screen. One night ocean; the iceberg sits in it, the name and the way in float over the sky. -->
   <section data-screen="home" class="home">
-    <div>
+    <div class="title-art" id="scene" aria-hidden="true"><canvas id="scene-art"></canvas></div>
+    <div class="title-block">
       <h1 class="wordmark" data-brand="wordmark">Ice<span>berg</span></h1>
       <p class="tagline" data-brand="tagline">Three guesses. <span>How deep can you go?</span></p>
-      <p class="rules">Five questions a day, three guesses each<span id="rules-time">, 20 seconds a question</span>. The fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts.</p>
-      <ul class="depths" aria-label="Depth zones">
-        <li class="tier-tip"><i></i><b>The Tip</b><span>above water · 1 in 10 players or more</span></li>
-        <li class="tier-shallows"><i></i><b>Shallows</b><span>0 to 50 m · 1 in 10 to 1 in 30</span></li>
-        <li class="tier-mid"><i></i><b>Midwater</b><span>50 to 100 m · 1 in 30 to 1 in 100</span></li>
-        <li class="tier-deep"><i></i><b>The Deep</b><span>100 to 200 m · 1 in 100 to 1 in 1,000</span></li>
-        <li class="tier-abyss"><i></i><b>The Abyss</b><span>200 to 299 m · 1 in 1,000 to 1 in 10,000</span></li>
-        <li class="tier-beyond"><i></i><b>Unfathomable</b><span>beneath the iceberg · rarer than 1 in 10,000</span></li>
-      </ul>
-      <div class="home-actions">
+      <p class="premise">Five questions a day. Find the answers nobody else gives.</p>
+      <div class="title-cta">
         <button class="btn busy" id="play" type="button" disabled aria-busy="true">Loading today's questions</button>
-        <button class="btn ghost" id="practice" type="button" hidden>Practice dive</button>
-        <button class="btn ghost" id="race-btn" type="button">Submarine race</button>
+        <button class="link-btn" id="howto-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg><span id="howto-label">How to play</span></button>
       </div>
-      <div class="home-foot">
-        <span class="streak" id="home-streak"></span>
-        <span class="next-in" id="home-next"></span>
-        <a class="foot-link" href="privacy.html">Privacy</a>
-      </div>
+      <p class="title-status" id="home-status"><span id="home-day"></span><span class="streak" id="home-streak"></span><span class="next-in" id="home-next"></span></p>
     </div>
-    <div class="scene" id="scene" aria-hidden="true"><canvas id="scene-art"></canvas></div>
+    <a class="race-teaser" id="race-btn" href="#race"><canvas class="sub-art" id="home-sub" width="40" height="24" aria-hidden="true"></canvas><span><span class="eyebrow">Submarine Race</span><b>Race other players, live</b></span><svg class="go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    <ol class="depth-ruler" aria-hidden="true">
+      <li class="tier-tip">The Tip</li><li class="tier-shallows">Shallows</li><li class="tier-mid">Midwater</li><li class="tier-deep">The Deep</li><li class="tier-abyss">The Abyss</li><li class="tier-beyond">Unfathomable</li>
+    </ol>
   </section>
 
   <!-- A question: one scene for guessing and results. The controls float over it. -->
@@ -932,6 +1058,7 @@ html.in-play .acct-btn { display: none; }
       <div><p class="eyebrow">Today's total depth</p><div class="total"><span id="e-total">0</span><small>m</small></div></div>
       <div class="end-facts"><span id="e-deepest"></span><span id="e-rank"></span><span class="streak" id="e-streak"></span><span class="e-days" id="e-days" role="img" hidden></span><span id="e-seen"></span></div>
       <div class="e-social" id="e-social" hidden></div>
+      <a class="race-teaser end-race" id="end-race" href="#race"><canvas class="sub-art" width="40" height="24" aria-hidden="true"></canvas><span><span class="eyebrow">Done for today?</span><b>Race other players, live</b></span><svg class="go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       <ul id="e-rounds"></ul>
       <div>
         <p class="eyebrow" style="margin-bottom:10px">Share without spoilers</p>
@@ -943,6 +1070,37 @@ html.in-play .acct-btn { display: none; }
   </section>
 </main>
 </div>
+
+<dialog class="howto" id="howto" aria-labelledby="howto-title">
+  <form method="dialog" class="howto-close"><button class="icon-btn" type="submit" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></form>
+  <h2 id="howto-title">How to play</h2>
+  <section>
+    <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 17 11H7z" fill="currentColor"/><path d="M5 13h14l-3.5 7h-7z" fill="currentColor" opacity=".55"/></svg>Daily Dive</h3>
+    <ol class="howto-steps">
+      <li><span><b>Five questions a day.</b> Things like <i>Name a bird</i>. Everyone gets the same five.</span></li>
+      <li><span><b>Three guesses each.</b> The fewer players who give your answer, the deeper it sinks.</span></li>
+      <li><span><b>Your deepest guess counts.</b> Add up all five for today's depth. Come back tomorrow to keep your streak.</span></li>
+    </ol>
+    <p class="howto-fine" id="howto-time">You have 20 seconds a question. The clock only runs while you can type.</p>
+  </section>
+  <section>
+    <h3>Depth zones</h3>
+    <ul class="depths">
+      <li class="tier-tip"><i></i><b>The Tip</b><span>above water · 1 in 10 players or more</span></li>
+      <li class="tier-shallows"><i></i><b>Shallows</b><span>0 to 50 m · 1 in 10 to 1 in 30</span></li>
+      <li class="tier-mid"><i></i><b>Midwater</b><span>50 to 100 m · 1 in 30 to 1 in 100</span></li>
+      <li class="tier-deep"><i></i><b>The Deep</b><span>100 to 200 m · 1 in 100 to 1 in 1,000</span></li>
+      <li class="tier-abyss"><i></i><b>The Abyss</b><span>200 to 299 m · 1 in 1,000 to 1 in 10,000</span></li>
+      <li class="tier-beyond"><i></i><b>Unfathomable</b><span>beneath the iceberg · rarer than 1 in 10,000</span></li>
+    </ul>
+    <p class="howto-fine">An answer only goes beneath the iceberg once enough players have given it for its rarity to be trusted.</p>
+  </section>
+  <section>
+    <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c0-2.5 2.6-4.5 7-4.5h3c3.3 0 6 2 6 4.5S17.3 18 14 18h-3c-4.4 0-7-2-7-4.5z" fill="currentColor"/><path d="M10 9V6h4v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Submarine Race</h3>
+    <p>Live races against other players. Everyone gets the same questions on the same clock. Your rarest answer on each question takes your submarine deeper, and the deepest sub at the end wins. Races need a free account.</p>
+  </section>
+  <form method="dialog"><button class="btn wide" type="submit">Got it</button></form>
+</dialog>
 <script src="brand.js"></script>
 <script>Brand.apply();</script>
 <script src="icons.js"></script>
@@ -955,20 +1113,30 @@ html.in-play .acct-btn { display: none; }
 <script src="wildlife.js"></script>
 <script src="share.js"></script>
 <script>
-// Home illustration: the same artwork as the reveal, cropped to the tip and the shallows.
+// Home: the iceberg drawn straight into the page's sea, no frame. Its waterline is put on the sea's horizon, so the
+// two read as one ocean; on a wide screen it stands right of the title, on a phone behind it.
 (function () {
-  const c = document.getElementById("scene-art"), box = document.getElementById("scene"), I = window.Iceberg;
-  c.width = I.WORLD.WW; c.height = I.WORLD.WH; I.paint(c);
+  const c = document.getElementById("scene-art"), I = window.Iceberg, W = I.WORLD, ruler = document.querySelector(".depth-ruler");
+  c.width = W.WW; c.height = W.WH; I.paintIce(c);
+  let last = "";
   const fit = () => {
-    const s = Math.max(1, Math.floor(box.clientWidth / 200));
-    c.style.width = I.WORLD.WW * s + "px"; c.style.height = I.WORLD.WH * s + "px";
-    c.style.transform = `translate(-50%, ${Math.round(box.clientHeight * 0.6 - I.WORLD.W * s)}px)`;
-    // The page's sea meets the picture's waterline, so the picture reads as a close-up of the same ocean.
-    const r = box.getBoundingClientRect();
-    if (window.Sea && r.height) window.Sea.homeLine((r.top + window.scrollY + r.height * 0.6) / window.innerHeight);
+    const vw = innerWidth, vh = innerHeight, narrow = vw <= 760;
+    const tipH = W.W - 42, horizon = Math.round(vh * (narrow ? 0.6 : 0.6));
+    // Scale: whole pixels where there's room (crisp), the tip about a third of the height, never wider than the screen.
+    let s = (narrow ? vh * 0.27 : vh * 0.4) / tipH; s = Math.min(s, (vw * (narrow ? 0.92 : 0.5)) / 200);
+    // On a phone the tip rises behind the words: keep it clear of the last line of text.
+    if (narrow) { const t = document.querySelector(".premise:not([hidden])"), words = t && t.offsetParent ? t : document.querySelector(".tagline"); if (words && words.offsetParent) s = Math.min(s, (horizon - words.getBoundingClientRect().bottom - 18) / tipH); }
+    s = s >= 2 ? Math.round(s) : Math.max(1, Math.round(s * 4) / 4);
+    const cx = narrow ? vw / 2 : Math.min(vw * 0.66, vw / 2 + 330);
+    if (s < 0.75) s = 0.75;
+    const key = [vw, vh, s].join(); if (key === last) return; last = key;
+    c.style.transform = `translate(${Math.round(cx - W.WW / 2 * s)}px, ${Math.round(horizon - W.W * s)}px) scale(${s})`;
+    if (ruler) ruler.style.setProperty("--ruler-top", (horizon - 34) + "px");
+    if (window.Sea) window.Sea.homeLine(horizon / vh);
   };
-  window.addEventListener("resize", fit);
-  new ResizeObserver(fit).observe(box); fit();
+  addEventListener("resize", fit); fit();
+  if (document.fonts) document.fonts.ready.then(() => { last = ""; fit(); });
+  window.HomeArt = { fit: () => { last = ""; fit(); } };
 })();
 </script>
 <script src="account.js"></script>

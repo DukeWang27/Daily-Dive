@@ -36,7 +36,7 @@ const SHOTS = process.env.SHOTS || '';
     await p.waitForSelector('#hub-body input[autocomplete=username]', { timeout: 8000 });
     await p.fill('#hub-body input[autocomplete=username]', name); await p.waitForTimeout(400); await p.click('#hub-body button[type=submit]'); await p.waitForFunction(() => Account.signedIn, null, { timeout: 8000 });
   };
-  const toRace = async p => { await p.evaluate(() => { location.hash = '#race'; }); await p.waitForSelector('[data-screen="race"]:not([hidden])'); await p.waitForSelector('#r-quick, #r-players, .rdock .note-line', { timeout: 8000 }); };
+  const toRace = async p => { await p.evaluate(() => { location.hash = '#race'; }); await p.waitForSelector('[data-screen="race"]:not([hidden])'); await p.waitForSelector('#r-quick, #r-players, #r-signup, .rdock .note-line', { timeout: 8000 }); };
   const view = p => p.evaluate(() => Race.view);
   const waitView = (p, v, timeout = 20000) => p.waitForFunction(v => Race.view === v, v, { timeout });
   const st = p => p.evaluate(() => Race.state && { status: Race.state.status, round: Race.state.round, qid: Race.state.qid, players: Race.state.players.map(x => ({ n: x.username, d: x.distance, used: x.used })), mine: Race.state.mine, revealed: Race.state.revealed });
@@ -49,7 +49,7 @@ const SHOTS = process.env.SHOTS || '';
   // ---------- Signed out: the race screen explains, offers sign-in, and invents nobody ----------
   { const p = await fresh(); await toRace(p);
     const t = await p.evaluate(() => document.querySelector('#rdock').innerText);
-    ok('signed out: the race screen asks for an account and shows no racers', /account/i.test(t) && !/Quick race/.test(t), t.replace(/\n/g, ' ').slice(0, 120));
+    ok('signed out: the race screen asks for an account, offers no race, and labels no one as a racer', /account/i.test(t) && !/Quick race/.test(t) && await p.evaluate(() => [...document.querySelectorAll('.rc-tag')].every(n => n.getClientRects().length === 0)), t.replace(/\n/g, ' ').slice(0, 120));
     await p.context().close(); }
 
   // ---------- Two players, a private race ----------

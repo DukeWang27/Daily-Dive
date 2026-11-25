@@ -76,7 +76,7 @@ const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${na
   await p.context().close();
 
   // ---------- Animation loops don't pile up over repeated questions ----------
-  { const q = await open('desk', '&fast'); await q.click('#practice').catch(() => {}); await q.click('#play'); await q.waitForFunction(() => ICEBERG_TEST.screen === 'play');
+  { const q = await open('desk', '&fast'); await q.click('#play'); await q.waitForFunction(() => ICEBERG_TEST.screen === 'play');
     const rate = async () => { const a0 = await q.evaluate(() => window.__rafCalls()); await q.waitForTimeout(1000); return (await q.evaluate(() => window.__rafCalls())) - a0; };
     const heap = () => q.evaluate(() => performance.memory ? performance.memory.usedJSHeapSize / 1048576 : 0);
     await q.waitForTimeout(800); const r1 = await rate(), h1 = await heap();
@@ -90,7 +90,7 @@ const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${na
     await q.context().close(); }
 
   // ---------- Beneath the iceberg: the long descent can be cut short; the way back up is quick ----------
-  { const q = await open(); await q.click('#play'); await q.waitForFunction(() => ICEBERG_TEST.clock.on, null, { timeout: 4000 });
+  { const q = await open('desk', '&day=1'); await q.click('#play'); await q.waitForFunction(() => ICEBERG_TEST.clock.on, null, { timeout: 4000 });   // day 1's first question has answers beneath the iceberg
     const deep = await q.evaluate(() => ICEBERG_TEST.cats[0].answers.filter(a => Iceberg.isBeyond(Iceberg.depthOf(a.s)))[0].a);
     await q.fill('#answer', deep);
     const skip = await q.evaluate(() => new Promise(res => { const t = performance.now(); document.querySelector('#entry').requestSubmit();

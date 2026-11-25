@@ -53,7 +53,7 @@ async function fullGame(b, vp) {
   await waitDone(p); await p.waitForTimeout(400);
   let d = await p.evaluate(() => ({ best: document.querySelector('#best-name').textContent, depth: document.querySelector('#best-depth').textContent, rows: document.querySelectorAll('#sum li').length, bars: [...document.querySelectorAll('#common li, #rare li')].map(l => l.innerText.replace(/\n/g, ' ')), players: document.querySelector('#players').textContent, sample: !document.querySelector('#sample-note').hidden, meta: document.querySelector('#top-meta').textContent }));
   ok(T('q1 results: deepest answer and its depth are the score'), d.best === 'axolotl' && d.depth === depths[2] + 'm' && d.meta === depths[2] + ' m', `${d.best} ${d.depth} / header ${d.meta}`);
-  ok(T('q1 results: 5 common + 5 rare with % and player counts, labelled sample data'), d.bars.length === 10 && d.bars.every(x => /%\s*·\s*[\d,]+/.test(x)) && /Sample data · 50,000 simulated players/.test(d.players) && d.sample, d.bars[0] + ' ... ' + d.bars[9]);
+  ok(T('q1 results: 5 common + 5 rare with %, labelled as estimates, and no invented head-counts'), d.bars.length === 10 && d.bars.every(x => /%/.test(x) && !/·\s*[\d,]+/.test(x)) && /^Estimated/.test(d.players) && !/simulated/.test(d.players) && d.sample, d.bars[0] + ' ... ' + d.bars[9]);
   ok(T('q1 results layout'), !(await audit(p)).length, (await audit(p)).join('; '));
   await p.screenshot({ path: `tests/shot-${vp}-done.png` });
   // Compare guesses without replaying.
@@ -84,10 +84,12 @@ async function fullGame(b, vp) {
   await p.waitForFunction(() => ICEBERG_TEST.state.round === 3 && ICEBERG_TEST.state.phase === 'play'); await p.waitForTimeout(500);
   await enter(p, 'snaek'); let s4 = await S(p);
   ok(T('q4 unclear typo "snaek" (snake? sneak? snack?): no guess used, and never a list of possible answers'), s4.n === 0 && !/,.* or /.test(await hint(p)) && /isn't on today's list|Did you mean (snake|snack|sneak)\?/.test(await hint(p)), await hint(p));
-  await guess(p, 'snorkle');
-  ok(T('q4 typo "snorkle": corrected to snorkel and placed'), (await S(p)).names[0] === 'snorkel' && /Spelling corrected: snorkel|Counted as snorkel/.test(await hint(p)), await hint(p));
+  await enter(p, 'snorkle');
+  ok(T('q4 typo "snorkle": asked "Did you mean snorkel?" first, nothing placed and no rarity shown'), (await S(p)).n === 0 && /Did you mean snorkel\?/.test(await hint(p)) && !/%|players/.test(await hint(p)), await hint(p));
+  await p.click('#hint .ask-yes'); await settle(p);
+  ok(T('q4 typo confirmed: placed as snorkel'), (await S(p)).names[0] === 'snorkel', JSON.stringify(await S(p)));
   await enter(p, 'Snorkels'); s4 = await S(p);
-  ok(T('q4 duplicate "Snorkels": no guess used, no rarity shown again'), s4.n === 1 && /counts as snorkel, which you've already tried/.test(await hint(p)), await hint(p));
+  ok(T('q4 duplicate "Snorkels": no guess used, no rarity shown again'), s4.n === 1 && /already tried snorkel|already discovered this answer/.test(await hint(p)), await hint(p));
   await enter(p, 'apple'); s4 = await S(p);
   ok(T('q4 invalid "apple": reason given, no guess used'), s4.n === 1 && s4.misses === 1 && /Doesn't start with SN\. No guess used/.test(await hint(p)), await hint(p));
   await enter(p, 'snorlax'); s4 = await S(p);

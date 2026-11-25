@@ -102,7 +102,7 @@
       if (d.max_depth >= BENEATH) add(head, h("span.cd-beyond", "Challenger Deep find")); else if (d.max_depth >= RARE_FIND) add(head, h("span.cd-abyss", "Rare find"));
       const facts = h("div.cd-facts",
         h("span", h("b", m(d.total)), "total"),
-        h("span", "deepest", h("b", m(d.max_depth)), d.deepest_answer ? h("i", `(${d.deepest_answer})`) : null),
+        h("span", "deepest", h("b", m(d.max_depth)), d.deepest_answer ? h("i.tier-" + window.Iceberg.tierOfDepth(d.max_depth).key, `(${d.deepest_answer})`) : null),
         d.rank && d.players ? h("span", h("b", `#${fmt(d.rank)}`), `of ${fmt(d.players)}${d.ranked === false ? " (unlisted)" : ""}`) : null,
         run.get(day) > 1 ? h("span", h("b", `day ${run.get(day)}`), "of a streak") : null);
       add(detail, head, facts);

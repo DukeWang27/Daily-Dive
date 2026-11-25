@@ -34,7 +34,7 @@ const { depthOf, tierOfDepth } = window.Iceberg;
 const Brand = window.Brand || { name: "Iceberg", noun: "iceberg", slug: "iceberg" }; // brand.js: the game's name, in one place
 const Account = window.Account;   // account.js: sign-in and the database (everyone is a guest without it)
 const V = window.IcebergValidate, Sound = window.Sound, Sea = window.Sea || { mood() {} }, Icons = window.IcebergIcons, Share = window.IcebergShare, Wildlife = window.Wildlife;
-let SAMPLE_PLAYERS = 50000;       // shown with sample statistics, clearly labelled as simulated (set from categories.json)
+let SAMPLE_PLAYERS = 50000;       // only used to rank estimated answers on the board; never shown as a number of people
 
 // ---------- Small helpers ----------
 const $ = sel => document.querySelector(sel);
@@ -137,7 +137,8 @@ const okGuesses = r => r.guesses.filter(g => g.status === "ok");
 const bestOf = r => okGuesses(r).reduce((b, g) => !b || g.share < b.share ? g : b, null);
 const scoreOf = r => { const b = bestOf(r); return b ? depthOf(b.share) : 0; };
 const totalSoFar = () => state ? state.rounds.reduce((s, r) => s + scoreOf(r), 0) : 0;
-const guessName = (cat, g) => { const row = g.name && cat.answers.find(a => a.a === g.name); return row ? display(row) : g.typed; };
+// Another real name for the same answer ("Mexican Hairless Dog" for Xoloitzcuintli) is shown as the player wrote it.
+const guessName = (cat, g) => { if (g.aka) return g.aka; const row = g.name && cat.answers.find(a => a.a === g.name); return row ? display(row) : g.typed; };
 
 function show(id) {
   if ((id === "hub" || id === "dive") && screen !== "hub" && screen !== "dive") cameFrom = screen;   // so leaving those pages returns here
@@ -199,9 +200,13 @@ function renderHome() {
 // hidden or closed mid-question: looking something up in another tab does not stop it.
 const clock = { on: false, deadline: 0, timer: 0, raf: 0, shown: -1, ice: null };
 const timeLeft = r => clock.on && cur() === r ? Math.max(0, clock.deadline - Date.now()) : Math.max(0, r.left == null ? TIME_MS : r.left);
+// The question's panel of ice (frost.js): it cracks with the clock, so it is drawn wherever the clock is.
+let frost = null;
+const panel = () => frost || (window.Frost && $("#q-ice") ? (frost = window.Frost.create($("#q-ice")), $("#q-ice").classList.add("look-" + frost.look(), window.Frost.LOOKS[frost.look()].ink === "dark" ? "ink-dark" : "ink-light"), frost) : null);
 function clockDraw() {
   if (!TIME_MS || !state || screen !== "play") return;
   const r = cur(), ms = timeLeft(r), secs = Math.ceil(ms / 1000), box = $("#melt");
+  if (panel() && state.phase === "play") frost.set(ms / TIME_MS);
   if (!clock.ice) clock.ice = window.IceTimer.create($("#melt-ice"));
   clock.ice.set(ms / TIME_MS, { paused: !clock.on, urgent: secs <= 5 ? 1 - ms / 5000 : 0 });
   box.classList.toggle("paused", !clock.on && ms > 0); box.classList.toggle("low", secs <= 10 && ms > 0); box.classList.toggle("last", secs <= 5 && ms > 0); box.classList.toggle("out", ms <= 0);
@@ -242,7 +247,7 @@ function timeUp() {
   const r = cur(); if (!state || r.done) return;
   clock.on = false; clearInterval(clock.timer); cancelAnimationFrame(clock.raf);
   r.left = 0; r.at = 0; r.timeout = true; busy = true; save(); clockDraw();
-  clock.ice && clock.ice.dissolve(); Sound.play("melt");
+  clock.ice && clock.ice.dissolve(); Sound.play("melt"); Sound.play("shatter"); if (panel()) frost.shatter();
   $("#answer").blur(); setHint(bestOf(r) ? `Time's up. Your ${depthOf(bestOf(r).share)} m counts.` : "Time's up.");
   setTimeout(() => { if (state && cur() === r) { busy = false; finishQuestion(); } }, 750 / SPEED);   // the last of the ice dissolving
 }
@@ -276,11 +281,12 @@ function sceneFrame() {
   if (state && state.phase === "done") { const d = $("#done-panel"); return wide ? { l: 0, r: d.offsetWidth, t: top, b: 0 } : { l: 0, r: 0, t: top, b: Math.max(0, play.clientHeight - d.offsetTop) }; }
   // Room is kept above the summit for the question's block of ice. Its height, not its position, decides this: the
   // block follows the summit (placeSlab), so measuring where it is would chase the camera round in circles.
+  // The whole column (the panel and the guesses) sits on the centre line, and the iceberg is centred beneath it.
   const box = play.getBoundingClientRect(), slabBottom = top - box.top + 6 + $(".q-berg").offsetHeight;
-  if (wide) { const k = $(".dock"); return { l: k.offsetLeft + k.offsetWidth + 20, r: 0, t: top, b: 0, h: Math.round(slabBottom + box.top) + 4 - top }; }   // room above the summit only
-  const p = $("#play-panel").getBoundingClientRect();
-  play.style.setProperty("--q-bottom", Math.round(slabBottom) + "px"); play.style.setProperty("--p-height", Math.round(box.bottom - p.top) + "px");
-  return { l: 0, r: 0, t: Math.round(slabBottom) + 4, b: Math.round(box.bottom - p.top) + 4 };
+  play.style.setProperty("--q-bottom", Math.round(slabBottom) + "px"); play.style.setProperty("--p-height", "0px");
+  // The camera works only below the column: the summit rests just beneath it, and answers and their labels are framed
+  // in the water below, never behind the question or the answer box.
+  return { l: 0, r: 0, t: Math.round(slabBottom + box.top) + (wide ? 4 : 2), b: 0, h: 0 };
 }
 // The question's block of ice rests on the summit: its point on the peak, wherever the camera has the iceberg. When an
 // answer takes the camera down and the summit leaves the window, the block waits at the top until it comes back.
@@ -290,7 +296,9 @@ function placeSlab() {
   const box = (slab.offsetParent || document.body).getBoundingClientRect(), ib = $("#ib").getBoundingClientRect(), top = $(".top").getBoundingClientRect().bottom - box.top + 6;   // measured from the block's own containing box
   const w = slab.offsetWidth, h = slab.offsetHeight, px = ib.left - box.left + v.x0 + PEAK_AT.x * v.z, py = ib.top - box.top + v.y0 + PEAK_AT.y * v.z;
   const f = v.frame || { l: 0, r: 0 }, lo = f.l + 8, hi = box.width - f.r - w - 8;
-  const x = Math.round(Math.max(lo, Math.min(hi, px - w / 2))), y = Math.round(Math.max(top, py - h + 1));
+  // Always on the centre line (the camera keeps the summit there at rest); only its height follows the summit.
+  // Fixed in place, so the answer box never moves under the player's fingers while the camera travels.
+  const x = Math.round(Math.max(lo, Math.min(hi, (box.width - w) / 2))), y = Math.round(top);
   slab.style.transform = `translate(${x}px, ${y}px)`; slab.classList.toggle("afloat", py - h + 1 < top - 0.5); slab.classList.add("placed");
 }
 function syncFrame(ms) { if (berg && screen === "play" && state) berg.setFrame(sceneFrame(), ms); }
@@ -358,10 +366,12 @@ async function startQuestion(animated) {
   // The clock. A reload never hands time back: whatever passed while the page was away has gone too.
   clearInterval(clock.timer); cancelAnimationFrame(clock.raf); clock.on = false; clock.shown = -1;
   $("#melt").hidden = !TIME_MS;
+  if (!TIME_MS && !done && panel()) { frost.reset(`${state.day}-${state.round}`); frost.set(1); ready.then(() => frost.form()); }   // no clock: the panel still forms, and never cracks
   if (TIME_MS && !done) {
     if (r.left == null) r.left = TIME_MS;
     if (r.at) { r.left = Math.max(0, r.left - (Date.now() - r.at)); r.at = 0; }
     if (clock.ice) clock.ice.reset();
+    if (panel()) { frost.reset(`${state.day}-${state.round}`); frost.set(r.left / TIME_MS); ready.then(() => { if (state && cur() === r && state.phase === "play") frost.form(); }); }
     clockDraw();
     // It starts once the question is in view and the box is ready.
     ready.then(() => { if (state && cur() === r && state.phase === "play") clockStart(); });
@@ -452,8 +462,9 @@ function submit() {
   const shake = () => { form.classList.remove("shake"); void form.offsetWidth; form.classList.add("shake"); };
 
   if (j.status === "dup") { // free: nothing is used up
-    const name = j.row ? display(j.row) : j.text, same = V.normalize(j.text) === V.normalize(name);
-    setHint(same ? `You've already tried ${name}. No guess used.` : `${j.text} counts as ${name}, which you've already tried.`, "warn");
+    const name = j.row ? display(j.row) : j.text, same = V.variants(V.normalize(j.text)).includes(V.normalize(name)), prev = j.row && given.rows.get(j.row.a);
+    // The same answer under another of its names: no new discovery, and no guess used.
+    setHint(same || (prev && V.normalize(prev.aka || prev.typed) === V.normalize(j.text)) ? `You've already tried ${name}. No guess used.` : `You've already discovered this answer (${name}). No guess used.`, "warn");
     Sound.play("duplicate"); input.select(); unknownKey = "";
     const slot = document.querySelectorAll("#slots .slot")[r.guesses.findIndex(g => j.row ? g.name === j.row.a : g.key === j.key)];
     if (slot) { slot.classList.remove("land"); void slot.offsetWidth; slot.classList.add("land"); }
@@ -472,10 +483,11 @@ function submit() {
     return;
   }
   if (j.status === "confirm") {
-    // Medium confidence: one plausible answer, offered once. The clock keeps running, so asking gives no free thinking
-    // time, and only two offers are made per question, so it can't be used to fish for answers.
+    // A likely misspelling: one answer offered, never swapped in silently, and nothing about its rarity shown until it is
+    // accepted. The clock keeps running, so asking gives no free thinking time, and only three offers are made per
+    // question (one per guess), so it can't be used to fish for answers.
     r.checks = (r.checks || 0) + 1;
-    if (r.checks > 2) { keepTyped = j.key; return submit(); }
+    if (r.checks > 3) { keepTyped = j.key; return submit(); }
     confirmFor = { key: j.key, row: j.row, raw: j.text };
     Sound.play("pending"); askCorrection(display(j.row), j.text);
     return;
@@ -503,12 +515,17 @@ function submit() {
 // the server's check matches exactly) and what was typed is kept to show beside it.
 function place(cat, r, row, raw, via) {
   const input = $("#answer"); unknownKey = ""; confirmFor = null; keepTyped = "";
-  const share = row ? shareOf(row) : REVIEWED_SHARE, corrected = via === "typo" || via === "confirmed" || via === "joined";
-  const g = { status: "ok", typed: corrected && row ? display(row) : raw, key: V.normalize(corrected && row ? display(row) : raw), name: row ? row.a : null, share, via, rank: rankText(cat, r, share) };
-  if (corrected && V.normalize(raw) !== V.normalize(g.typed)) g.raw = raw;
+  // Anything not typed exactly is sent as the answer's own name, so the server scores it as that answer: the same
+  // depth, the same counts, one answer however it was written.
+  const share = row ? shareOf(row) : REVIEWED_SHARE, canon = !!row && via !== "exact";
+  const g = { status: "ok", typed: canon ? display(row) : raw, key: V.normalize(canon ? display(row) : raw), name: row ? row.a : null, share, via, rank: rankText(cat, r, share) };
+  const differs = canon && V.normalize(raw) !== V.normalize(g.typed);
+  // "gray" for grey, "colour" for color: a spelling of the same word, shown as the answer. A different name is kept as written.
+  if (differs && via === "alias" && V.editCost(V.normalize(raw), V.normalize(g.typed), 2) > 2) g.aka = String(raw).trim().replace(/^./, c => c.toUpperCase());
+  else if (differs) g.raw = raw;
   r.guesses.push(g); input.value = "";
-  const name = guessName(cat, g);
-  setHint(via === "typo" ? `Spelling corrected: ${name}.` : via === "confirmed" ? "" : (via !== "exact" && V.normalize(raw) !== V.normalize(name)) ? `Counted as ${name}.` : "", via === "typo" ? "fixed" : "");
+  const name = row ? display(row) : g.typed;
+  setHint(via === "typo" ? `Spelling corrected: ${name}.` : via === "confirmed" ? "" : g.aka ? `Also known as ${name}.` : g.raw ? `Counted as ${name}.` : "", via === "typo" ? "fixed" : "");
   Sound.play(r.guesses.length === GUESSES ? "final" : "submit", { step: r.guesses.length - 1 });
   save(); reveal(cat, r, g);
 }
@@ -524,7 +541,10 @@ async function reveal(cat, r, g) {
     if (beneath && dir > 0) Sound.play("descend", { seconds: ms / 1000 }); else { Sound.play("travel", { dir, seconds: ms / 1000 }); if (special && !beneath) Sound.play("rare", { lead: ms / 1000 }); }
     if (life) life.calm(ms + 2600);
   });
+  // An exceptional find has the stage to itself: the question's column steps aside while it is revealed.
+  const col = $(".q-berg"); if (special) col.classList.add("aside");
   await berg.add(bergItem(cat, r, g, index + 1), { special });
+  col.classList.remove("aside");
   if (!state || cur() !== r) return;
   busy = false; clockStart();
   // An answer this deep does not go unnoticed. Each of the great squid comes once per question, at its own depth.
@@ -569,7 +589,11 @@ async function reviewGuess(cat, r, g) {
   g.checking = false;
   const v = verdicts && verdicts.find(x => V.normalize(x.text || "") === V.normalize(g.typed));
   if (v && (v.status === "ok" || v.status === "invalid")) {
-    const row = v.canonical ? cat.answers.find(a => a.a === V.normalize(v.canonical)) : null;
+    // The reviewer's usual name for it may be any listed name of an answer (an alias or a regional spelling): then it
+    // is that answer, with that answer's depth and counts, not a new and rarer one.
+    let row = v.canonical ? cat.answers.find(a => a.a === V.normalize(v.canonical)) : null;
+    if (!row && v.canonical && v.status === "ok") { const j = V.judge(v.canonical, prep(cat), { rows: new Map(), texts: new Set(), noCorrect: true }); if (j && j.status === "ok" && j.row && j.via !== "review") row = j.row; }
+    if (row && r.guesses.some(x => x !== g && x.name === row.a)) { v.status = "invalid"; v.reason = `Same answer as ${display(row)}, already discovered`; row = null; }
     V.remember(prep(cat), g.typed, { status: v.status, row: row ? row.a : undefined, reason: v.reason });
     applyVerdict(cat, r, g, v.status, row, v.reason);
   }
@@ -616,6 +640,7 @@ function finishQuestion() {
   clearTimeout(autoFinish);
   if (r.done) return;
   clockStop();
+  if (!r.timeout && panel()) frost.dissolve();
   r.done = true; state.phase = "done"; save();
   const best = bestOf(r);
   if (!state.practice) live.record(state.day, state.round + 1, okGuesses(r).map(g => g.name).filter(Boolean), best ? best.name : null, scoreOf(r))
@@ -671,7 +696,8 @@ function renderDone(cat, r) {
       // An answer from a reference list that nobody had estimated: its rarity is a cautious first guess until players give it.
       const row = g.name && cat.answers.find(a => a.a === g.name), provisional = row && row.pv;
       const sub = el("span", "sum-sub"); sub.append(el("span", "zone", tier.name), el("span", null, provisional ? "rarity still being measured" : `${pctText(g.share)} of players`));
-      const shown = g.raw || g.typed, typed = V.normalize(shown) !== V.normalize(guessName(cat, g));
+      const shown = g.raw || g.typed, typed = !g.aka && V.normalize(shown) !== V.normalize(guessName(cat, g));
+      if (g.aka && row) sub.append(el("span", "aka", `Also known as ${display(row)}`));
       const crowd = crowdLine(r, g.name); if (crowd) sub.append(el("span", "crowd" + (crowd.startsWith("Nobody") ? " alone" : ""), crowd));
       if (g.note) sub.append(el("span", null, g.note)); else if (typed) sub.append(el("span", null, `you typed “${shown}”`));
       const dep = el("span", "sum-depth"); dep.textContent = `${d} m`;
@@ -702,9 +728,12 @@ function renderDone(cat, r) {
   }
 
   // Everyone's answers: only shown now, so they can't steer your guesses.
-  $("#players").textContent = board.isLive ? `${fmt(board.players)} players today` : `Sample data · ${fmt(board.players)} simulated players`;
+  // Until enough real players have answered this question, the figures are the question's estimated rarities: said so
+  // plainly, with how many real players have answered so far, and no invented head-counts.
+  const sofar = r.stats && r.stats.players ? r.stats.players : 0;
+  $("#players").textContent = board.isLive ? `${fmt(board.players)} players today` : `Estimated${sofar ? ` · ${fmt(sofar)} player${sofar === 1 ? "" : "s"} so far` : ""}`;
   $("#sample-note").hidden = board.isLive;
-  $("#sample-text").textContent = `These figures come from ${fmt(board.players)} simulated players, for testing. Real counts replace them once the game's database is connected.`;
+  $("#sample-text").textContent = `Fewer than ${BOARD_MIN_PLAYERS} players have answered this question so far, so these are estimated shares, not counts of real answers. Real counts take over automatically once ${BOARD_MIN_PLAYERS} players have answered.`;
   const min = Math.min(...[...board.common, ...board.rare].map(x => x.share), 0.001);
   const lo = Math.floor(Math.log10(min) - 0.001), hi = 0; // whole decades: ... 0.01%, 0.1%, 1%, 10%, 100%
   const pos = s => Math.max(0, Math.min(1, (Math.log10(s) - lo) / (hi - lo)));
@@ -713,8 +742,8 @@ function renderDone(cat, r) {
     list.forEach(x => {
       const li = el("li", x.me ? "me" : ""); if (x.me) li.title = "You gave this answer";
       const track = el("span", "track"), fill = el("i"); fill.style.width = `${Math.max(1.5, 100 * pos(x.share))}%`; track.append(fill);
-      const val = el("span", "bar-val"); val.append(el("b", null, pctText(x.share)), ` · ${fmt(x.count)}`);
-      val.title = `${pctText(x.share)} of players (${fmt(x.count)} of ${fmt(board.players)})`;
+      const val = el("span", "bar-val"); val.append(el("b", null, pctText(x.share)), board.isLive ? ` · ${fmt(x.count)}` : "");
+      val.title = board.isLive ? `${pctText(x.share)} of players (${fmt(x.count)} of ${fmt(board.players)})` : `about ${pctText(x.share)} of players (estimated)`;
       const name = el("span", "bar-name", x.name); name.title = x.name;
       li.append(name, track, val); target.append(li);
     });
@@ -1068,7 +1097,8 @@ async function boot() {
     window.ICEBERG_TEST = {
       judge: (text, i) => { const j = V.judge(text, prep(CATS[i]), null); return j ? { status: j.status, answer: j.row ? j.row.a : null, via: j.via, reason: j.reason } : null; },
       shareOf: (name, i) => { const row = CATS[i].answers.find(a => a.a === name); return row ? row.s : null; },
-      get cats() { return CATS; }, depthOf, get clock() { return { on: clock.on, left: state ? timeLeft(cur()) : 0, total: TIME_MS, ice: clock.ice ? { length: clock.ice.length, fraction: clock.ice.fraction, melted: clock.ice.melted, drops: clock.ice.drops } : null }; }, get state() { return state; }, get screen() { return screen; }, get berg() { return berg; }, get busy() { return busy; }, get life() { return life; },
+      get cats() { return CATS; }, depthOf, get frost() { return frost; },
+      summit: () => { const v = berg && berg.view, ib = $("#ib").getBoundingClientRect(); return v ? { x: ib.left + v.x0 + PEAK_AT.x * v.z, y: ib.top + v.y0 + PEAK_AT.y * v.z } : null; }, get clock() { return { on: clock.on, left: state ? timeLeft(cur()) : 0, total: TIME_MS, ice: clock.ice ? { length: clock.ice.length, fraction: clock.ice.fraction, melted: clock.ice.melted, drops: clock.ice.drops } : null }; }, get state() { return state; }, get screen() { return screen; }, get berg() { return berg; }, get busy() { return busy; }, get life() { return life; },
     };
   }
   // What the other screens (account, log, friends, rankings, the dive viewer) may use.

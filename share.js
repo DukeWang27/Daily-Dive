@@ -5,7 +5,7 @@
   "use strict";
   const I = window.Iceberg, { WW, WH, W, CX, SH } = I.WORLD;
   const B = window.Brand; // the name, mark and tagline (brand.js)
-  const ZONE = { tip: "#eaf6ff", shallows: "#a8d8f5", mid: "#6cb8ec", deep: "#4f9fe6", abyss: "#7df0df", beyond: "#e0645b" };
+  const PAL = window.DeeplePalette, ZONE = Object.fromEntries(["tip", "shallows", "mid", "deep", "abyss", "beyond"].map(k => [k, PAL.hex(k)])), RED = ZONE.beyond;
   const UI = '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', PIXEL = '"Pixelify Sans", ui-monospace, monospace';
   let art = null;
 
@@ -58,10 +58,10 @@
       const red = m.r.tier === "beyond", line = red ? "rgba(224,112,102,.6)" : "rgba(190,225,250,.5)";
       if (red) { const glow = g.createRadialGradient(m.x, m.y, 0, m.x, m.y, 120); glow.addColorStop(0, "rgba(224,92,80,.28)"); glow.addColorStop(1, "rgba(224,92,80,0)"); g.fillStyle = glow; g.fillRect(m.x - 120, m.y - 120, 240, 240); }
       g.strokeStyle = line; g.lineWidth = 2; g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(m.side > 0 ? lx : lx + w, m.ly); g.stroke();
-      diamond(g, m.x, m.y, 9, ZONE[m.r.tier], red ? "#e0645b" : "#eaf6ff");
+      diamond(g, m.x, m.y, 9, ZONE[m.r.tier], red ? RED : "#eaf6ff");
       pill(g, lx, ly, w, h, red ? "rgba(14,3,5,.92)" : "rgba(5,11,27,.9)", line);
       g.fillStyle = red ? "#c98f88" : "#93a9cc"; g.font = `700 22px ${UI}`; g.textAlign = "left"; g.fillText(String(m.i + 1), lx + 18, m.ly + 1);
-      g.fillStyle = red ? "#e0645b" : "#eaf3ff"; g.font = `800 30px ${UI}`; g.fillText(m.label, lx + 44, m.ly + 1);
+      g.fillStyle = ZONE[m.r.tier] || "#eaf3ff"; g.font = `800 30px ${UI}`; g.fillText(m.label, lx + 44, m.ly + 1);
     }
     // Right: the numbers.
     const X = AW + 60, RW = CW - X - 60;
@@ -82,7 +82,7 @@
       g.fillStyle = "rgba(143,208,245,.14)"; g.fillRect(X, y - 62, RW, 2);
       diamond(g, X + 18, y - 12, 15, r ? ZONE[r.tier] : "rgba(98,121,158,.5)");
       g.font = `800 22px ${UI}`; g.fillStyle = "#06112a"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), X + 18, y - 11);
-      g.textBaseline = "alphabetic"; g.textAlign = "left"; g.font = `600 34px ${UI}`; g.fillStyle = r ? (r.tier === "beyond" ? "#e0645b" : "#eaf3ff") : "#62799e"; g.fillText(r ? r.tierName : "No depth", X + 62, y);
+      g.textBaseline = "alphabetic"; g.textAlign = "left"; g.font = `600 34px ${UI}`; g.fillStyle = r ? (ZONE[r.tier] || "#eaf3ff") : "#62799e"; g.fillText(r ? r.tierName : "No depth", X + 62, y);
       g.textAlign = "right"; g.font = `800 44px ${UI}`; g.fillStyle = r ? "#eaf3ff" : "#62799e"; g.fillText(r ? `${r.depth} m` : "–", X + RW, y + 2);
       g.textAlign = "left"; y += 96;
     });
@@ -92,7 +92,7 @@
       const v = `${data.deepest.depth} m · ${data.deepest.tierName}`;
       g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.fillText("Deepest find", X, y); const lw = g.measureText("Deepest find").width;
       g.font = `800 34px ${UI}`; const vw = g.measureText(v).width; if (lw + vw + 24 > RW) y += 44;   // no room on one line: the value goes beneath
-      g.textAlign = "right"; g.fillStyle = I.isBeyond(data.deepest.depth) ? "#e0645b" : "#7df0df"; g.fillText(v, X + RW, y); g.textAlign = "left"; y += 56;
+      g.textAlign = "right"; g.fillStyle = I.isBeyond(data.deepest.depth) ? RED : "#7df0df"; g.fillText(v, X + RW, y); g.textAlign = "left"; y += 56;
     }
     if (data.streak > 1) { g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.fillText("Streak", X, y); g.textAlign = "right"; g.fillStyle = "#eaf3ff"; g.font = `800 34px ${UI}`; g.fillText(`${data.streak} days`, X + RW, y); g.textAlign = "left"; }
     g.font = `800 38px ${UI}`; g.fillStyle = "#eaf3ff"; g.fillText(B.tagline[0], X, CH - 124);

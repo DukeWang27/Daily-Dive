@@ -39,6 +39,11 @@ Accept an answer when a reasonable person would agree it belongs to the category
 
 "canonical" is how duplicates are detected: two answers that mean the same thing must get the same canonical name (car and automobile are both "car"; a variety or model takes the name the rules say it counts as).
 
+Other legitimate names for one thing (scientific and common names, regional names and spellings, abbreviations,
+historical names: "Mexican hairless dog" and "xoloitzcuintli", "orca" and "killer whale", "aubergine" and "eggplant")
+must all get the same canonical name, the most widely used English one. Related but distinct things are never merged
+(a wolf is not a dog breed; a clementine is not a mandarin orange variety unless the rules say so).
+
 Be consistent: apply the question's acceptance criteria exactly as written, the same way every time. Different names
 for the same thing are one answer; genuinely different things stay different (raven and crow are different birds). If
 you are not confident the thing exists or fits, answer "uncertain" rather than guessing.

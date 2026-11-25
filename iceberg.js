@@ -320,7 +320,7 @@
 
     const TIP_Y = (PEAK + W) / 2 + 8;
     let compact = false, stack = false, U = 2, Z = 2, camW = 0, camH = 0, camY = TIP_Y, aim = 0, axis = 0, focusIdx = -1, bestIdx = -1, items = [], raf = 0, snowRaf = 0, busy = false;
-    let frame = { l: 0, r: 0, t: 0, b: 0, h: 0 }, frameRun = null, gaugeW = 84, noteBox = null, wide = false;   // wide: the whole iceberg in view, every marker labelled
+    let introRun = null, frame = { l: 0, r: 0, t: 0, b: 0, h: 0 }, frameRun = null, gaugeW = 84, noteBox = null, wide = false;   // wide: the whole iceberg in view, every marker labelled
     let run = { cancelled: true };
     const handlers = { focus: () => {}, depth: () => {}, travel: () => {}, land: () => {}, render: () => {}, resize: () => {} };
     let seed = 20261123; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; // fixed seed: same drift every visit
@@ -329,14 +329,16 @@
 
     // Where the iceberg's centre line sits on screen: in the middle of the free area, nudged aside on wide windows
     // so an annotation has open water to sit in.
-    const axisFor = f => { const w = camW - f.l - f.r; return f.l + w * Math.max(0.4, Math.min(0.5, 0.5 - (w - 520) / 1600)); };
+    // The iceberg is centred in the free area, on the same line as the question above it, at every size.
+    const axisFor = f => { const w = camW - f.l - f.r; return f.l + w * 0.5; };
     function measure() {
       camW = host.clientWidth; camH = host.clientHeight;
       const fw = camW - frame.l - frame.r, fh = camH - frame.t - frame.b;
       stack = fw < 620;                 // narrow: the annotation sits under its marker instead of beside the ice
       compact = fh < 330;               // very little room (a phone keyboard is open): a shorter annotation
       gaugeW = stack ? 40 : 84;
-      U = Math.max(2, Math.min(4, Math.floor(Math.min(fw * 0.68 / 190, fh * 0.9 / (W - PEAK + 30)))));
+      // The tip must fit beneath the room kept above it for the question (frame.h).
+      U = Math.max(2, Math.min(4, Math.floor(Math.min(fw * 0.68 / 190, (fh - (frame.h || 0)) * 0.9 / (W - PEAK + 30)))));
       const ax = axisFor(frame);
       U = Math.min(6, Math.max(U, Math.ceil(Math.max(ax, camW - ax) / CX))); // the sea always reaches both edges
       if (!frameRun) axis = ax;
@@ -360,21 +362,26 @@
     const viewHalf = (z = Z) => camH / (2 * z);
     // The camera may run a little past the top and bottom of the artwork, by as much as the controls cover, so the
     // tip and the very deepest answers can still be framed in the free part of the window.
-    const clampCam = (y, z = Z) => { const h = viewHalf(z), lo = h - frame.t / z, hi = floorY() - h + frame.b / z; return lo >= hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, y)); };
+    // At the tip the view may reach a little above the artwork (frame.h, the room kept for the question): that is open sky.
+    const clampCam = (y, z = Z) => { const h = viewHalf(z), lo = h - (frame.t + (frame.h || 0)) / z, hi = floorY() - h + frame.b / z; return lo >= hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, y)); };
     const tx = () => Math.round(axis - CX * Z), ty = () => Math.round(camH / 2 - camY * Z);
     const depthNow = () => Math.min(1, Math.max(0, (camY - W - viewHalf(U) * 0.3) / (BOTTOM - W - viewHalf(U) * 0.9)));
     // The pool of light the camera carries: wide near the surface, a small circle round the answer in the deep, and
     // narrower again beneath the iceberg.
     const poolR = () => { const bk = beyondNow(); return Math.round(((1 - Math.pow(depthNow(), 0.7)) * Math.max(camW, camH) * 0.75 + 130) * (1 - bk * 0.55) + bk * 110); };
     // 0 on the iceberg, rising to 1 as the camera passes its tip and goes on into the open water beneath it.
-    const beyondNow = () => { const k = Math.min(1, Math.max(0, (camY - (BOTTOM - 30)) / (BEYOND_Y - BOTTOM + 30))); return k * k * (3 - 2 * k); };
+    // Measured at the middle of the open water (below whatever the frame keeps clear at the top), not the window's middle.
+    const beyondNow = () => { const y = camY + (frame.t + (camH - frame.t - frame.b) / 2 - camH / 2) / Z, k = Math.min(1, Math.max(0, (y - (BOTTOM - 30)) / (BEYOND_Y - BOTTOM + 30))); return k * k * (3 - 2 * k); };
     // Where a focused answer sits on screen: near the middle of the free area, or high in it when the annotation
     // has to go underneath.
     const focusLine = () => frame.t + (camH - frame.t - frame.b) * (stack ? (compact ? 0.22 : 0.3) : 0.46);
     const focusY = it => it.y - (focusLine() - camH / 2) / U;
     // h: headroom kept above the summit when the camera is at the tip (the question's block of ice rests there). It
     // only moves the tip's framing; answers further down are framed in the whole free area as before.
-    const tipY = () => TIP_Y - (frame.t + (frame.h || 0) + (camH - frame.t - (frame.h || 0) - frame.b) / 2 - camH / 2) / U;
+    // With room kept for the question above (a tall frame.t), the summit sits just beneath it, so as much of the
+    // water as possible stays in view; otherwise the tip is centred in the free area.
+    const tipY = () => frame.t > 200 ? Math.max(TIP_Y - (frame.t + (camH - frame.t - frame.b) / 2 - camH / 2) / U, PEAK - (frame.t + 14 - camH / 2) / U)
+      : Math.min(TIP_Y - (frame.t + (frame.h || 0) + (camH - frame.t - (frame.h || 0) - frame.b) / 2 - camH / 2) / U, PEAK - (frame.t + (frame.h || 0) + 4 - camH / 2) / U);
 
     function render() {
       const X0 = tx(), Y0 = ty();
@@ -555,7 +562,7 @@
 
     // Start of a question: a clean iceberg, all of it in view, then a short push in to the tip.
     async function enter(animated = true, o = {}) {
-      stop(); const r = run = { cancelled: false };
+      stop(); const r = run = introRun = { cancelled: false };
       layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; nav.hidden = true; busy = false; wide = false; host.classList.remove("ib-drawn");
       measure();
       if (!animated) { Z = U; camY = clampCam(tipY()); aim = 0; render(); return; }
@@ -565,13 +572,13 @@
         const z0 = Math.min(U * 2.4, 9); Z = z0; camY = clampCam(PEAK + 4, z0); aim = 0; render();
         const y0 = camY;
         await animate(1700 / speed, r, k => { const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; Z = z0 + (U - z0) * e; camY = clampCam(y0 + (tipY() - y0) * e); render(); });
-        if (!r.cancelled) { Z = U; camY = clampCam(tipY()); render(); }
+        if (!r.cancelled) { Z = U; camY = clampCam(tipY()); render(); r.cancelled = true; }   // finished: nothing is running any more
         return;
       }
       Z = wideZ(); camY = clampCam(WH / 2); aim = 0; render();
       const z0 = Z, y0 = camY;
       await animate(900 / speed, r, k => { const e = easeOutQuart(k); Z = z0 + (U - z0) * e; camY = clampCam(y0 + (tipY() - y0) * e); render(); });
-      if (!r.cancelled) { Z = U; camY = clampCam(tipY()); render(); }
+      if (!r.cancelled) { Z = U; camY = clampCam(tipY()); render(); r.cancelled = true; }   // finished: nothing is running any more
     }
     // Between questions: everything from the last one fades, and the camera rises back to the iceberg's tip while
     // the frame recomposes for the controls. From beneath the iceberg it doesn't make you watch the whole way up:
@@ -604,7 +611,7 @@
         if (r.cancelled) return;   // a guess took over (stop() has already cleared the old answers)
       }
       clear();
-      if (!r.cancelled) { Z = U; axis = axis1; camY = clampCam(tipY()); aim = 0; render(); }
+      if (!r.cancelled) { Z = U; axis = axis1; camY = clampCam(tipY()); aim = 0; render(); r.cancelled = true; }   // finished: nothing is running any more
     }
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // One guess: a beat of anticipation, the journey, the landing. Resolves when the marker lands and the annotation
@@ -697,7 +704,8 @@
       const from = { ...frame }, axis0 = axis, cam0 = camY, u0 = U;
       frame = next; measure();
       const settle = () => busy ? camY : focusIdx >= 0 ? clampCam(focusY(items[focusIdx])) : items.length ? clampCam(camY) : clampCam(tipY());
-      const intro = !run.cancelled && Z !== U; // the opening push-in is still running: it reads the new frame by itself
+      // The opening push-in is still running (it reads the new frame by itself), or the whole-dive overview has its own zoom.
+      const intro = Z !== U && !run.cancelled && (run === introRun || wide);
       if (ms <= 0 || U !== u0 || busy || intro) { axis = axisFor(frame); if (!busy && !intro) { Z = U; camY = settle(); } render(); return; }
       const axis1 = axisFor(frame), cam1 = settle(), fr = frameRun = { cancelled: false };
       const mixF = k => ({ l: from.l + (next.l - from.l) * k, r: from.r + (next.r - from.r) * k, t: from.t + (next.t - from.t) * k, b: from.b + (next.b - from.b) * k, h: (from.h || 0) + (next.h - (from.h || 0)) * k });

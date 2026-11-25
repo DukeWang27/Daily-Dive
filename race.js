@@ -591,17 +591,18 @@
     if (rKeep && V.normalize(text) === rKeep) given.noCorrect = true;
     const j = V.judge(text, P, given); if (!j) return;
     // A likely spelling mistake: one answer offered (the race clock keeps running, as for everyone).
-    if (j.status === "confirm") { rConfirm = { key: j.key, row: j.row, raw: j.text }; window.Sound.play("pending"); say(`Did you mean ${j.row.d || j.row.a}? Enter for yes, Escape to keep “${j.text}”.`); input.select(); return; }
-    if (j.status === "dup") { say(`Already tried. No guess used.`, "warn"); window.Sound.play("duplicate"); input.select(); return; }
+    if (j.status === "confirm" && (rChecks.round !== r.round || rChecks.n < 3)) { rChecks = rChecks.round === r.round ? { round: r.round, n: rChecks.n + 1 } : { round: r.round, n: 1 }; rConfirm = { key: j.key, row: j.row, raw: j.text }; window.Sound.play("pending"); say(`Did you mean ${j.row.d || j.row.a}? Enter for yes, Escape to keep “${j.text}”.`); input.select(); return; }
+    if (j.status === "dup") { say(j.row && window.IcebergValidate.normalize(j.text) !== window.IcebergValidate.normalize(j.row.d || j.row.a) ? "You've already discovered this answer. No guess used." : `Already tried. No guess used.`, "warn"); window.Sound.play("duplicate"); input.select(); return; }
     if (j.status === "invalid") { say(`${j.reason}. No guess used.`, "warn"); window.Sound.play("invalid"); const f = $("#r-entry"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); input.select(); return; }
     if (j.status === "pending" && unknownKey !== j.key) { unknownKey = j.key; window.Sound.play("pending"); say(j.suggest ? `Did you mean ${j.suggest.join(" or ")}? Enter again to send “${j.text}” anyway (no depth).` : `“${j.text}” isn't one we know. Enter again uses a guess for no depth.`, "warn"); input.select(); return; }
     return send(text, j);
   }
-  let rConfirm = null, rKeep = "";
+  let rChecks = { round: 0, n: 0 }, rConfirm = null, rKeep = "";
   async function send(text, j) {
     const r = race, input = $("#r-answer"), mine = myRound();
     // A corrected spelling goes to the server as the answer's own name, so its check matches exactly.
-    if (j.status === "ok" && j.row && (j.via === "typo" || j.via === "confirmed" || j.via === "joined")) text = j.row.d || j.row.a;
+    // Another name for it ("Mexican Hairless Dog") goes the same way, so it scores exactly as the answer does.
+    if (j.status === "ok" && j.row && j.via !== "exact") text = j.row.d || j.row.a;
     unknownKey = ""; rKeep = ""; rConfirm = null; busy = true; input.value = "";
     window.Sound.play(mine.length === 2 ? "final" : "submit", { step: mine.length });
     try {
@@ -643,7 +644,7 @@
     const nameOf = g => q ? ((q.answers.find(a => a.a === g.answer) || {}).d || g.answer) : g.answer;
     const rows = r.players.slice().sort((a, b) => ((best[b.username] || {}).depth || 0) - ((best[a.username] || {}).depth || 0));
     add(box, h("div.r-between", h("p.eyebrow", `Question ${r.round} of ${r.q_count} · ${title}`), h("h2.r-title", "Deepest answers"),
-      h("ul.r-best", rows.map(p => { const g = best[p.username]; return h("li" + (g && g.depth === top && top > 0 ? ".won" : "") + (p.me ? ".me" : "") + (g && window.Iceberg.isBeyond(g.depth) ? ".beyond" : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` },
+      h("ul.r-best", rows.map(p => { const g = best[p.username]; return h("li" + (g && g.depth === top && top > 0 ? ".won" : "") + (p.me ? ".me" : "") + (g && window.Iceberg.isBeyond(g.depth) ? ".beyond" : "") + (g ? ".tier-" + window.Iceberg.tierOfDepth(g.depth).key : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` },
         h("i.r-dot"), h("span.r-name", p.me ? "You" : p.username), h("span.r-ans", g ? nameOf(g) : "nothing counted"), h("span.r-pct", g ? G().pctText(g.share) : ""), h("b", g ? m(g.depth) : "0 m")); })),
       h("p.fine#r-next"), h("button.link#r-leave", { type: "button", onclick: () => { if (confirm("Leave this race? You can't rejoin it once you leave.")) leave(); } }, "Leave race")));
     // The answers, briefly, above each submarine.
@@ -676,7 +677,7 @@
         h("span.r-links", h("button.link", { type: "button", onclick: () => window.Viewer.openRace(r.id, r.match, x.username) }, "Explore"),
           x.username !== r.me && p.friend === false ? h("button.link", { type: "button", onclick: e => act(e.currentTarget, async () => { await A.rpc("friend_request", { p_username: x.username }); e.target.textContent = "Request sent"; }) }, "Add friend") : null)); })),
       h("details.r-answers", h("summary", "Best answer on each question"), h("div.scroll", h("table", h("tr", h("th", "Question"), ...res.map(x => h("th", x.username === r.me ? "You" : x.username))),
-        ...(r.questions || []).map((_, i) => h("tr", h("td", rowsFor(r.me)[i].title), ...res.map(x => { const c = rowsFor(x.username)[i]; return h("td" + (window.Iceberg.isBeyond(c.depth) ? ".beyond" : ""), c.name ? `${c.name} · ${c.depth} m` : "–"); })))))),
+        ...(r.questions || []).map((_, i) => h("tr", h("td", rowsFor(r.me)[i].title), ...res.map(x => { const c = rowsFor(x.username)[i]; return h("td" + (window.Iceberg.isBeyond(c.depth) ? ".beyond" : "") + (c.name ? ".tier-" + window.Iceberg.tierOfDepth(c.depth).key : ""), c.name ? `${c.name} · ${c.depth} m` : "–"); })))))),
       h("div.row.r-actions",
         h("button.btn", { type: "button", id: "r-rematch", onclick: e => act(e.currentTarget, async () => { race = await call("race_rematch", { p_race: r.id }); nudge(); update(); }) }, r.kind === "public" ? "Race again" : r.kind === "practice" ? "Practice again" : "Rematch"),
         h("button.btn.ghost", { type: "button", onclick: () => leave() }, "Leave"))));

@@ -30,8 +30,10 @@
   --line: rgba(143, 208, 245, .12); --line-2: rgba(143, 208, 245, .22);
   --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e;
   --ice: #eaf6ff; --accent: #8fd0f5; --lumen: #7df0df; --warn: #e6c58f;
-  --t-tip: #eaf6ff; --t-shallows: #a8d8f5; --t-mid: #6cb8ec; --t-deep: #4f9fe6; --t-abyss: #7df0df;
-  --t-beyond: #e0645b; --beyond-soft: #c98f88; --beyond-glow: 224, 92, 80;   /* Challenger Deep: a muted, readable red, only ever beneath the iceberg */
+  /* The rarity palette. palette.js is the source and sets these on load; the same values here are the fallback. */
+  --t-tip: #F1F8FF; --t-shallows: #B5E5FF; --t-mid: #65C5F5; --t-deep: #528FFF; --t-abyss: #49E8CC;
+  --t-deep-rgb: 82, 143, 255; --t-abyss-rgb: 73, 232, 204;
+  --t-beyond: #FF6259; --beyond-soft: #ff918b; --beyond-glow: 255, 98, 89;   /* Challenger Deep: red, only ever beneath the iceberg */
   --pixel: "Pixelify Sans", ui-monospace, monospace;
   --ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   /* Motion: one language everywhere. Ordinary things are quick and ease out (they arrive at speed and settle);
@@ -133,14 +135,26 @@ section.home::before { content: ""; position: absolute; inset: 0; pointer-events
 @keyframes bob { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
 .race-teaser .go { width: 20px; height: 20px; color: var(--accent); margin-left: 6px; transition: transform var(--t-quick) var(--ease-out); }
 .race-teaser:hover .go { transform: translateX(3px); }
+/* Every answer is written in the colour of its depth, wherever it is listed (the tier's name stays beside it as text). */
+.slot.done .slot-name, #sum li[class*="tier-"] .sum-name, #e-rounds li[class*="tier-"] .e-name, .r-best li[class*="tier-"] .r-ans, .r-answers td[class*="tier-"],
+.cmp-ans[class*="tier-"], i[class*="tier-"], .jn-row[class*="tier-"] .jn-name { color: var(--tier); }
+#sum li.tier-beyond .sum-name, #sum li.tier-abyss .sum-name, .slot.done.tier-beyond .slot-name, .slot.done.tier-abyss .slot-name { text-shadow: 0 0 14px rgba(var(--t-abyss-rgb), .25); }
+#sum li.tier-beyond .sum-name, .slot.done.tier-beyond .slot-name { text-shadow: 0 0 14px rgba(var(--beyond-glow), .35); }
 /* The depth zones, named down the right edge of the water: the premise in one glance. */
 .depth-ruler { position: absolute; z-index: 2; right: max(var(--edge), calc(50vw - 590px + var(--gutter))); top: var(--ruler-top, 60%); bottom: clamp(28px, 6vh, 64px); margin: 0; padding: 0 0 0 16px; list-style: none;
   display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
   border-left: 1px solid var(--line); animation: title-in .7s var(--ease-out) .35s both; }
 .depth-ruler li { display: flex; align-items: center; gap: 9px; margin-left: -20.5px; }
-.depth-ruler li::before { content: ""; width: 8px; height: 8px; transform: rotate(45deg); background: var(--tier); opacity: .85; }
+.depth-ruler li { color: var(--tier); text-shadow: 0 1px 3px rgba(2, 6, 16, .85); }
+.depth-ruler li::before { content: ""; width: 8px; height: 8px; transform: rotate(45deg); background: var(--tier); box-shadow: 0 0 0 1.5px rgba(2, 6, 16, .7); }
 .depth-ruler .tier-tip { margin-top: -6px; }
-.depth-ruler .tier-beyond { color: var(--beyond-soft); }
+/* The deeper zones glow a little: the deeper, the more, and never enough to blur the letters. */
+.depth-ruler .tier-deep { text-shadow: 0 0 12px rgba(var(--t-deep-rgb), .28), 0 1px 3px rgba(2, 6, 16, .85); }
+.depth-ruler .tier-deep::before { box-shadow: 0 0 0 1.5px rgba(2, 6, 16, .7), 0 0 8px rgba(var(--t-deep-rgb), .5); }
+.depth-ruler .tier-abyss { text-shadow: 0 0 14px rgba(var(--t-abyss-rgb), .38), 0 1px 3px rgba(2, 6, 16, .85); }
+.depth-ruler .tier-abyss::before { box-shadow: 0 0 0 1.5px rgba(2, 6, 16, .7), 0 0 10px rgba(var(--t-abyss-rgb), .6); }
+.depth-ruler .tier-beyond { text-shadow: 0 0 16px rgba(var(--beyond-glow), .45), 0 1px 3px rgba(2, 6, 16, .85); }
+.depth-ruler .tier-beyond::before { box-shadow: 0 0 0 1.5px rgba(2, 6, 16, .7), 0 0 12px rgba(var(--beyond-glow), .7); }
 
 /* Game modes in the header: the two ways to play, always one tap away. The ink slides to the one you're in. */
 .modes { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; gap: 4px; padding: 0; }
@@ -190,7 +204,7 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .play { position: fixed; left: 0; top: 0; width: 100%; height: var(--vvh); overflow: hidden; z-index: 0; }
 #ib, #ib2 { position: absolute; inset: 0; }
 .veil { position: absolute; inset: 0; pointer-events: none; transition: opacity .5s;
-  background: linear-gradient(90deg, rgba(3, 8, 20, .78) 0, rgba(3, 8, 20, .55) 300px, rgba(3, 8, 20, 0) 540px), linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
+  background: radial-gradient(ellipse 620px var(--q-bottom, 300px) at 50% 0, rgba(3, 8, 20, .55), rgba(3, 8, 20, 0)), linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
 .play.done .veil { background: linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
 .dock { position: absolute; left: var(--edge); top: calc(var(--top-h) + 22px); width: min(372px, 34vw); display: grid; gap: 18px; align-content: start; transition: opacity .2s var(--ease-in), transform .2s var(--ease-in); }
 .play.playing .dock { transition: opacity .3s var(--ease-out) .14s, transform .38s var(--ease-out) .14s; }   /* the next question comes in as the results go out */
@@ -206,7 +220,8 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
   padding-bottom: 22px; filter: drop-shadow(0 6px 18px rgba(2, 8, 20, .45)); transition: opacity .2s var(--ease-in); }   /* position follows the summit every frame, so only opacity eases */
 .play.playing .q-berg { transition: opacity .35s var(--ease-out) .1s; }
 .q-berg.arriving, .q-berg:not(.placed) { opacity: 0; transition: none; }   /* hidden on the way down; appears on the summit */
-.play.done .q-berg { opacity: 0; pointer-events: none; }
+.play.done .q-berg { opacity: 0; pointer-events: none; transition: opacity .25s var(--ease-in) .42s; }   /* after the ice has cleared (frost.js) */
+.play.done .q-berg #play-panel { opacity: 0; transition: opacity .18s var(--ease-in); }
 .q-berg.afloat { clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px); padding-bottom: 14px; }   /* waiting at the top: no point */
 .q-berg h2 { white-space: normal; }
 .q-berg .eyebrow { color: #3a6f99; margin-bottom: 4px; }
@@ -214,6 +229,39 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .q-berg .q-title h2 { color: #06112a; text-shadow: none; font-size: clamp(22px, 2.2vw, 30px); }
 .q-berg .q-icon { color: #2b6ea3; font-size: 30px; }
 .q-berg .q-hint { color: #355a7a; margin-top: 4px; }
+/* The centred column: the panel of ice and the guesses beneath it, on the same line as the iceberg's summit. */
+.q.q-berg { width: min(540px, calc(100vw - 32px)); max-width: none; padding: 0; background: none; clip-path: none; filter: none; color: var(--text); display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.q-berg.afloat { clip-path: none; padding: 0; }
+.q-ice { position: relative; isolation: isolate; padding: 14px 18px 16px; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; min-width: 0; }
+.q-ice > :not(.frost-art) { position: relative; z-index: 1; transition: opacity .25s var(--ease-out); }
+.frost-art { position: absolute; z-index: 0; image-rendering: pixelated; pointer-events: none; }   /* no CSS filter: it would be recomputed on every redraw */
+.frost-fly { position: fixed; z-index: 60; pointer-events: none; image-rendering: pixelated; }
+.q-ice.shattered > :not(.frost-art), .q-ice.dissolved > :not(.frost-art) { opacity: 0; transition: opacity .12s; }
+.q-ice.forming > :not(.frost-art) { opacity: 0; transition: none; }
+.q-berg .q-title h2 { color: var(--ice); text-shadow: 0 1px 2px rgba(2, 8, 20, .6); font-size: clamp(21px, 2.1vw, 28px); line-height: 1.15; text-wrap: balance; max-width: 30ch; }
+.q-berg .eyebrow { color: #9fd3f2; } .q-berg .q-icon { color: #b5e5ff; font-size: 28px; } .q-berg .q-hint { color: #bcd6ec; }
+.q-ice .entry { width: 100%; margin-top: 12px; background: rgba(2, 10, 24, .62); box-shadow: inset 0 0 0 1.5px rgba(181, 229, 255, .45); }
+.q-ice .entry:focus-within { box-shadow: inset 0 0 0 2px #b5e5ff, 0 0 0 4px rgba(181, 229, 255, .14); }
+/* Ancient slab: milky ice, so dark words. */
+.q-ice.ink-dark .q-title h2 { color: #06223f; text-shadow: 0 1px 0 rgba(255, 255, 255, .5); } .q-ice.ink-dark .eyebrow { color: #2e6390; }
+.q-ice.ink-dark .q-icon { color: #245f92; } .q-ice.ink-dark .q-hint { color: #2f5677; }
+.q-ice.ink-dark .entry { background: rgba(3, 12, 28, .86); }
+/* The three guesses beneath the panel, side by side, at every size. */
+.q-berg #play-panel { gap: 4px; padding: 4px 6px 6px; border-radius: 12px; background: rgba(3, 10, 24, .72); box-shadow: inset 0 0 0 1px rgba(181, 229, 255, .12); }
+.q-berg .hint { justify-content: center; text-align: center; margin: 0 4px; min-height: 21px; }
+.q-berg .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; }
+.q-berg .slot { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 1px; height: 66px; min-height: 0; padding: 6px 10px 6px 12px; align-content: center; border-bottom: 0; border-left: 1px solid var(--line); text-align: left; }
+.q-berg li:first-child > .slot { border-left: 0; }
+.q-berg .slot-n { position: absolute; top: 5px; right: 6px; width: 18px; height: 18px; font-size: 10px; }
+.q-berg .slot-main { order: 2; } .q-berg .slot-depth { order: 1; font-size: 19px; }
+.q-berg .slot-name { font-size: 13.5px; } .q-berg .slot-sub { font-size: 11.5px; }
+.q-berg .slot-sub .wide { display: none; } .q-berg .slot-sub b::before { content: " · "; color: var(--faint); font-weight: 400; }
+.q-berg .slot-tag { bottom: 6px; right: 8px; font-size: 8.5px; } .q-berg .slot.best .slot-depth { transform: none; }
+.q-berg .finish-row { justify-content: center; min-height: 0; }
+.q-berg .finish-row:not(:has(#finish:not([hidden]))):not(:has(.finish-note:not(:empty))) { display: none; }
+[data-screen="play"] > .dock { display: none; }
+/* An exceptional find: the column steps aside while it is revealed. */
+.q-berg.aside { opacity: .12; pointer-events: none; transition: opacity .4s var(--ease-out); }
 
 .q-title { display: flex; gap: 14px; align-items: center; min-width: 0; }
 .q-icon { font-size: 38px; line-height: 1; flex: none; }
@@ -423,8 +471,8 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 /* The accent follows the water: clear and bright near the surface, living light in the abyss. */
 .ib-note.tier-tip::before, .ib-note.tier-shallows::before { background: linear-gradient(rgba(240, 249, 255, .95), rgba(240, 249, 255, .14)); }
 .ib-note.tier-deep::before { background: linear-gradient(rgba(108, 184, 236, .9), rgba(108, 184, 236, .1)); }
-.ib-note.tier-abyss::before { background: linear-gradient(rgba(125, 240, 223, .95), rgba(125, 240, 223, .1)); box-shadow: 0 0 10px rgba(125, 240, 223, .55); }
-.ib-note.tier-abyss > .ib-name { text-shadow: 0 0 22px rgba(125, 240, 223, .3), 0 1px 2px rgba(2, 8, 20, .85); }
+.ib-note.tier-abyss::before { background: linear-gradient(rgba(var(--t-abyss-rgb), .95), rgba(var(--t-abyss-rgb), .1)); box-shadow: 0 0 10px rgba(var(--t-abyss-rgb), .55); }
+.ib-note.tier-abyss > .ib-name { text-shadow: 0 0 22px rgba(var(--t-abyss-rgb), .3), 0 1px 2px rgba(2, 8, 20, .85); }
 /* Challenger Deep: the answer itself in red, the figures in muted red and pale grey. Same type, same layout. */
 .ib-note.tier-beyond { --muted: #b9c2cf; --faint: #8b8f99; }
 .ib-note.tier-beyond::before { background: linear-gradient(rgba(var(--beyond-glow), .95), rgba(var(--beyond-glow), .08)); box-shadow: 0 0 10px rgba(var(--beyond-glow), .45); }
@@ -721,8 +769,11 @@ html.in-play .acct-btn { display: none; }
   .play.done .dock { transform: none; }
   .q { padding: 2px var(--gutter) 0; } .q .eyebrow, .q-hint { display: none; }
   [data-screen="play"] > .dock { justify-content: flex-end; }   /* the daily game only: its question sits on the iceberg, not in this column */
-  .q-berg { max-width: calc(100vw - var(--gutter) * 2); padding: 8px 14px 18px; } .q-berg.afloat { padding-bottom: 8px; }
-  .q-berg .q-title h2 { font-size: 19px; } .q-berg .q-icon { font-size: 22px; }
+  .q.q-berg { width: calc(100vw - var(--gutter) * 2); gap: 4px; padding: 0; } .q-ice { padding: 10px 12px 12px; }
+  .q-berg .q-title h2 { font-size: 18px; } .q-berg .q-icon { font-size: 22px; } .q-berg .eyebrow { display: block; margin-bottom: 2px; font-size: 10px; }
+  .q-ice .entry { margin-top: 8px; }
+  .q-berg .hint { height: auto; min-height: 18px; font-size: 12.5px; }
+  .q-berg .slot { height: 60px; }
   .q-icon { font-size: 26px; } .q-title { gap: 10px; }
   .q-title h2 { font-size: 20px; }
   #play-panel { gap: 8px; padding: 0 var(--gutter) calc(8px + env(safe-area-inset-bottom, 0px)); }
@@ -1034,25 +1085,27 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
   <section data-screen="play" class="play" hidden>
     <div id="ib" aria-label="The iceberg, with your guesses marked at their depths"></div>
     <div class="veil" aria-hidden="true"></div>
-    <!-- The question: a block of ice resting on the summit, above the iceberg it's asking about. -->
+    <!-- One column on the centre line, above the iceberg: the question and the answer box on a panel of ice (frost.js
+         draws it, cracking as the time runs out), then the three guesses. -->
     <div class="q q-berg">
-      <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
-      <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
-      <p class="q-hint" id="q-hint"></p>
-    </div>
-    <div class="dock">
-      <div id="play-panel">
+      <div class="q-ice" id="q-ice">
+        <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
+        <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
+        <p class="q-hint" id="q-hint"></p>
         <form class="entry" id="entry" autocomplete="off" novalidate>
           <div class="melt" id="melt" role="timer" aria-label="Time left" hidden><canvas id="melt-ice" aria-hidden="true"></canvas><span class="melt-n" id="melt-n">20</span></div>
           <label class="sr" for="answer">Your guess</label>
           <input id="answer" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" maxlength="60" placeholder="Type a guess">
           <button id="add" type="submit" aria-label="Submit guess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg></button>
         </form>
+      </div>
+      <div id="play-panel">
         <p class="hint" id="hint" role="status" aria-live="polite"></p>
         <ol class="slots" id="slots" aria-label="Your three guesses"></ol>
         <div class="finish-row"><button class="btn ghost" id="finish" type="button" hidden>Finish</button><span class="finish-note" id="finish-note"></span></div>
       </div>
     </div>
+    <div class="dock"></div>
 
     <div id="done-panel" class="done-panel drawer" hidden>
       <p class="done-q" id="done-q"></p>
@@ -1072,7 +1125,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
         <ul class="bars" id="rare"></ul>
         <div class="axis" aria-hidden="true"><span></span><span class="ticks" id="axis"></span><span class="pad">0.00% · 99,999</span></div>
         <p class="fine">Each figure is the share of players who gave that answer at least once in their three guesses, so the shares add up to more than 100%. Bar length uses a log scale: each mark is 10× rarer.</p>
-        <p class="fine" id="sample-note"><span class="sample-badge">Sample</span><span id="sample-text"></span></p>
+        <p class="fine" id="sample-note"><span class="sample-badge">Estimate</span><span id="sample-text"></span></p>
         <details class="rules-box fine"><summary>How answers are judged</summary><ul class="rules-list" id="rules"></ul></details>
       </div>
       <div class="next-row"><button class="btn wide" id="next" type="button">Next question</button></div>
@@ -1164,6 +1217,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
   </section>
   <form method="dialog"><button class="btn wide" type="submit">Got it</button></form>
 </dialog>
+<script src="palette.js"></script>
 <script src="brand.js"></script>
 <script>Brand.apply();</script>
 <script src="icons.js"></script>
@@ -1171,6 +1225,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 <script src="validate.js"></script>
 <script src="sea.js"></script>
 <script src="icetimer.js"></script>
+<script src="frost.js"></script>
 <script src="iceberg.js"></script>
 <script src="colossal.js"></script>
 <script src="wildlife.js"></script>

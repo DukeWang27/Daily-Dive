@@ -78,7 +78,7 @@
     const shortOk = new Set(["uk", "us", "nz", "uae", "usa"]);
     for (const row of cat.answers) for (const name of row.al || []) { const k = normalize(name); if (k.length >= 3 || shortOk.has(k) || k === normalize(row.a)) put(k, row, true); }
     // Plural forms of every name too, without overriding a real entry.
-    for (const row of cat.answers) for (const name of [row.a, ...(row.al || [])]) { const n = normalize(name); for (const v of variants(n).slice(1)) put(v, row, true); }
+    for (const row of cat.answers) for (const name of [row.a, ...(row.al || [])]) { const n = normalize(name); for (const v of variants(n).slice(1)) put(v, row, name === row.a ? "form" : true); }
     const keys = [], joined = new Map();
     for (const [k, v] of index) { keys.push({ k, row: v.row, snd: sound(k) }); const c = compact(k); if (c !== k && !joined.has(c)) joined.set(c, v); }
     return {
@@ -86,8 +86,33 @@
       general: new Set((cat.general || []).map(normalize)),
       notIn: new Set((cat.notIn || []).map(normalize)),
       pattern: cat.pattern || (cat.prefix ? { type: "start", s: cat.prefix } : null),
+      heads: headWords(cat),
       cache: loadCache(cat.key),
     };
+  }
+
+  // The question's own category words ("dog", "breed", "bird", "colour"): "Mexican Hairless Dog" names the same breed
+  // as "Mexican Hairless", so a trailing (or leading) category word is dropped when what is left is a known answer.
+  // It is never used to make a new answer, only to find one that is already listed.
+  const HEAD_STOP = new Set(["name", "a", "an", "the", "of", "that", "which", "is", "are", "you", "your", "can", "with", "in", "on", "for", "to", "and", "or",
+    "any", "one", "kind", "type", "sort", "something", "thing", "things", "people", "might", "would", "could", "has", "have", "from", "by", "at", "its", "it", "not"]);
+  const HEAD_EXTRA = ["breed", "species", "colour", "color", "shade", "variety", "brand", "type", "kind", "animal", "plant", "flower", "tree", "fruit", "vegetable"];
+  function headWords(cat) {
+    const out = new Set(HEAD_EXTRA);
+    for (const w of normalize(`${cat.prompt || ""} ${cat.title || ""}`).split(" ")) {
+      if (w.length < 3 || HEAD_STOP.has(w)) continue;
+      out.add(w); if (w.endsWith("s")) out.add(w.slice(0, -1)); else out.add(w + "s");
+    }
+    return out;
+  }
+  function headTrim(n, P) {
+    const words = n.split(" ");
+    if (words.length < 2 || !P.heads) return null;
+    const tries = [];
+    if (P.heads.has(words[words.length - 1])) tries.push(words.slice(0, -1));
+    if (P.heads.has(words[0])) tries.push(words.slice(1));
+    for (const t of tries) { const hit = lookup(t.join(" "), P); if (hit) return hit; }
+    return null;
   }
 
   function lookup(n, P) {
@@ -203,9 +228,12 @@
     // "any bird", "the rarest one", "something": not an answer, and never corrected into one.
     if (/^(any|every|all|some|random|whatever|anything|something|nothing|everything|idk|dunno|rarest|the rarest|a rare|rare|my|no)( |$)/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one particular answer" });
     const hit = lookup(n, P);
-    if (hit) return ok(hit.row, hit.alias ? "alias" : "exact");
+    if (hit) return ok(hit.row, hit.alias === true ? "alias" : hit.alias ? "form" : "exact");
     // Spaces don't make a different answer: "bluejay" is "blue jay", "sea horse" is "seahorse".
     for (const v of variants(compact(n))) { const j = P.joined.get(v) || (P.index.has(v) ? P.index.get(v) : null); if (j) return ok(j.row, "joined"); }
+    // "Mexican Hairless Dog" for a dog breed: the same answer with the category's own word added. A synonym, not a correction.
+    const head = headTrim(n, P);
+    if (head) return ok(head.row, head.alias === true ? "alias" : "head");
     // Word questions: anything that doesn't fit the letters can't be an answer (checked after known word forms,
     // so "clocks" still counts as clock for words ending in OCK).
     if (P.pattern) {
@@ -215,9 +243,9 @@
     }
     if (P.notIn.has(n) || variants(n).some(v => P.notIn.has(v))) return Object.assign(res, { status: "invalid", reason: "Doesn't fit this category" });
 
-    // A spelling mistake in the whole answer? High confidence: corrected now. Medium: the player is asked once. Low: left as typed.
+    // A spelling mistake in the whole answer? It is never replaced silently: high or medium confidence, the player is
+    // asked "Did you mean ...?" first (below, after describing words). Low: left as typed.
     const t = (given && given.noCorrect) ? null : correct(n, P);
-    if (t && t.level === "high") return Object.assign(ok(t.row, "typo"), { correction: t });
     // "baby elephant", "big red bus": describing words in front of a known answer don't make a new answer.
     const words = n.split(" ");
     for (let i = 1; i < Math.min(3, words.length); i++) {
@@ -229,7 +257,7 @@
       const rest = lookup(words.slice(i).join(" "), P);
       if (rest && P.cat.trimColours !== false) return ok(rest.row, "trimmed");
     }
-    if (t && t.level === "medium" && !(given && given.texts.has(n))) return Object.assign(res, { status: "confirm", row: t.row, correction: t });
+    if (t && (t.level === "high" || t.level === "medium") && !(given && given.texts.has(n))) return Object.assign(res, { status: "confirm", row: t.row, correction: t });
     const cached = P.cache.get(n);
     if (cached) {
       if (cached.status === "ok" && cached.row) { const row = P.cat.answers.find(r => r.a === cached.row); if (row) return ok(row, "review"); }

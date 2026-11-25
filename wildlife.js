@@ -453,13 +453,16 @@
   function create(berg, opts = {}) {
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const cv = berg.life, ctx = { back: cv.back.getContext("2d"), front: cv.front.getContext("2d"), lume: cv.lume.getContext("2d") };
-    let low = !!opts.low, animals = [], guests = [], inView = [], made = 0, seed = 1, raf = 0, last = 0, t = 0, calm = 0, calmUntil = 0, built = "", cost = 0, frames = 0, auto = false;
+    let low = !!opts.low, animals = [], guests = [], inView = [], made = 0, seed = 1, raf = 0, last = 0, t = 0, calm = 0, calmUntil = 0, built = null, cost = 0, frames = 0, auto = false;
     const seen = new Map(), handlers = { sight: () => {} };
     const E = { lo: 0, hi: 0, calm: 0, avoid: null, t: 0 };
     let rs = 1; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
 
     function range(v) { const bx = (v.x0 - mod(v.x0, v.u)) / v.u + 1; E.lo = -bx - 24; E.hi = -bx + cv.back.width + 24; return bx; }
     const mod = (a, n) => ((a % n) + n) % n;
+    // The water is refilled only when the view needs more of it (a wider view, or the low setting changed). Zooming in,
+    // as the results do, keeps the same animals where they are.
+    function stale(v) { if (!built || built.low !== low) return true; return Math.ceil(v.w / v.u) + 48 > built.span + 40; }   // (leaves E as populated)
     // Fill the water for this question. The same seed always gives the same animals in the same places.
     function populate() {
       const v = berg.view; range(v);
@@ -469,7 +472,7 @@
         const n = Math.max(1, Math.round(sp.n * wide * (low && sp.n > 1 ? 0.5 : 1)));
         for (let i = 0; i < n; i++) { const c = sp.make(E, rnd); c.sp = sp; c.layer = sp.layer === "mix" ? (i % 2 ? "front" : "back") : sp.layer; animals.push(c); }
       });
-      built = v.w + "x" + v.u + ":" + low;
+      built = { span: Math.ceil(v.w / v.u) + 48, low };
       // Let everything settle into motion before it is first seen.
       for (let i = 0; i < 30; i++) step(0.4, false);       // (visitors are not hurried along)
     }
@@ -503,7 +506,8 @@
         const open = c.sp.key === "spark" ? 1 : Math.min(ramp(sx - f.l + 40), ramp(v.w - f.r - sx + 40), ramp(sy - f.t + 30), ramp(v.h - f.b - sy + 30));
         D.a = (a && pf === 1 && !c.guest && c.x + c.len > a.l && c.x - c.len < a.r && c.y + 8 > a.t && c.y - 8 < a.b ? 0.3 : 1) * (c.fade != null ? c.fade : 1) * (ghost ? 0.85 : 1) * (0.2 + 0.8 * open);
         c.sp.draw(c, D);
-        return yy > -by + 6 && yy < -by + cv.back.height - 6 && c.x > -bx + 4 && c.x < -bx + cv.back.width - 4;
+        // Seen: on the canvas, and in the open water (not faded out behind the question or the controls).
+        return open > 0.05 && yy > -by + 6 && yy < -by + cv.back.height - 6 && c.x > -bx + 4 && c.x < -bx + cv.back.width - 4;
       };
       if (guests.length) {
         for (const c of guests) { c.fade = Math.min(1, c.age / (c.hover ? 3 : 0.8), (c.life - c.age) / (c.quick ? 0.9 : 3)); paint(c); if (!low && !c.sp.big) paint(c, true); }
@@ -527,12 +531,12 @@
       const v = berg.view;
       if (now - last < (low ? 48 : 31)) return;
       const dt = Math.min(0.1, (now - last) / 1000 || 0.033); last = now;
-      if (built !== v.w + "x" + v.u + ":" + low) populate();
+      if (stale(v)) populate();
       calm += ((v.busy || now < calmUntil ? 1 : 0) - calm) * Math.min(1, dt * 3);
       step(dt); draw();
     }
     // Camera moved between our frames: redraw at once so the animals stay locked to the water.
-    berg.onRender(() => { if (reduce || berg.view.busy || performance.now() - last > 20) { if (built !== berg.view.w + "x" + berg.view.u + ":" + low) populate(); draw(); } });
+    berg.onRender(() => { if (reduce || berg.view.busy || performance.now() - last > 20) { if (stale(berg.view)) populate(); draw(); } });
 
     const api = {
       // A new question: fresh water, the same every time for the same seed.

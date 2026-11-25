@@ -301,6 +301,11 @@
       bubbles(g, { t: t + 0.05, n: 8, spread: 0.6, lo: 350, hi: 1000, gain: 0.02 });
       glass(g, { f: note(67), t: t + 0.4, gain: 0.03, decay: 1.6, index: 0.8, wet: 0.7 });
     },
+    // Time's up and the question's ice breaks: a few small, bright fractures and the pieces settling. Quiet.
+    shatter(g, t) {
+      tick(g, t, 0.05, 4200); tick(g, t + 0.03, 0.035, 6100); tick(g, t + 0.07, 0.03, 3600);
+      [0.09, 0.16, 0.25, 0.36].forEach((d, i) => glass(g, { f: 2400 + i * 520, t: t + d, gain: 0.012 - i * 0.002, decay: 0.12, index: 3, ratio: 2.7, wet: 0.35, pan: (i % 2 ? 0.3 : -0.3) }));
+    },
     round(g, t) { glass(g, { f: note(79), t, gain: 0.06, decay: 1.2, wet: 0.45 }); glass(g, { f: note(86), t: t + 0.13, gain: 0.06, decay: 1.5, wet: 0.5 }); },
     day(g, t) {
       [72, 76, 79, 84, 86, 91].forEach((n, i) => glass(g, { f: note(n), t: t + i * 0.11, gain: 0.055, decay: 2, index: 1.5, wet: 0.55, pan: (i - 2.5) * 0.1 }));

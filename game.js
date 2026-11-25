@@ -160,7 +160,7 @@ function updateHeader() {
 }
 
 // ---------- The two modes, and the menu ----------
-// Daily Dive and Submarine Race sit in the header. They give way while a question is being answered (in either mode),
+// Icebreaker (the daily game) and Submarine Race sit in the header. They give way while a question is being answered (in either mode),
 // so nothing pulls you out mid-guess; everywhere else one tap switches.
 function modes() {
   const raceLive = document.documentElement.classList.contains("race-live");
@@ -180,7 +180,7 @@ function renderHome() {
   const today = todayResult(), n = streakNow().count;
   $("#home-day").textContent = today ? `Daily #${dayNumber()} done · ${fmt(today.total)} m` : `Daily #${dayNumber()} · ${CATS.length || 5} questions${TIME_MS ? ` · ${TIME_MS / 1000} s each` : ""}`;
   $("#home-streak").textContent = n ? `${n}-day streak` : "";
-  if (!$("#play").disabled) $("#play").textContent = today ? "See today's results" : "Play today's dive";
+  if (!$("#play").disabled) $("#play").textContent = today ? "See today's results" : "Play today's Icebreaker";
   const tick = () => {
     if (!today) { $("#home-next").textContent = ""; return; }
     const left = Math.max(0, localMidnight().getTime() + 86400000 - Date.now()), h = Math.floor(left / 3600000), m = Math.floor(left % 3600000 / 60000);
@@ -251,13 +251,15 @@ function timeUp() {
 function bergItem(cat, r, g, n) {
   const row = g.name ? cat.answers.find(a => a.a === g.name) : null, players = r.players || SAMPLE_PLAYERS;
   return { n, name: guessName(cat, g), share: g.share, shareText: pctText(g.share), blurb: row && row.b || "",
-    countText: row ? `${fmt(Math.max(1, Math.round(g.share * players)))} of ${fmt(players)}` : "", rankText: g.rank || "", sight: sightLine(g.sight) };
+    // A count of players only from real ones: a simulated sample is never presented as people.
+    countText: row && liveStats(r) ? `${fmt(r.stats.counts.get(g.name) || 1)} of ${fmt(r.stats.players)}` : "", rankText: g.rank || "", sight: sightLine(g.sight) };
 }
 const sightLine = key => { const e = key && Wildlife && Wildlife.ENCOUNTERS.find(x => x.key === key); return e ? e.line : ""; };
 function ensureBerg() {
   if (berg) return;
   berg = window.Iceberg.create($("#ib"), { speed: SPEED });
   berg.onDepth((d, b) => { if (screen === "play") Sound.setAmbience("play", d, b); });
+  berg.onRender(placeSlab); berg.onResize(placeSlab);
   berg.onFocus(i => { document.querySelectorAll("#slots .slot, #sum li").forEach(n => n.classList.toggle("active", +n.dataset.bi === i)); });
   // The animals that live in the water (wildlife.js). The game runs the same without them.
   if (Wildlife) {
@@ -272,10 +274,24 @@ function ensureBerg() {
 function sceneFrame() {
   const play = $('[data-screen="play"]'), top = Math.round($(".top").getBoundingClientRect().bottom), wide = !matchMedia("(max-width: 920px)").matches;
   if (state && state.phase === "done") { const d = $("#done-panel"); return wide ? { l: 0, r: d.offsetWidth, t: top, b: 0 } : { l: 0, r: 0, t: top, b: Math.max(0, play.clientHeight - d.offsetTop) }; }
-  if (wide) { const k = $(".dock"); return { l: k.offsetLeft + k.offsetWidth + 20, r: 0, t: top, b: 0 }; }
-  const q = $(".q").getBoundingClientRect(), p = $("#play-panel").getBoundingClientRect(), box = play.getBoundingClientRect();
-  play.style.setProperty("--q-bottom", Math.round(q.bottom - box.top) + "px"); play.style.setProperty("--p-height", Math.round(box.bottom - p.top) + "px");
-  return { l: 0, r: 0, t: Math.round(q.bottom - box.top) + 4, b: Math.round(box.bottom - p.top) + 4 };
+  // Room is kept above the summit for the question's block of ice. Its height, not its position, decides this: the
+  // block follows the summit (placeSlab), so measuring where it is would chase the camera round in circles.
+  const box = play.getBoundingClientRect(), slabBottom = top - box.top + 6 + $(".q-berg").offsetHeight;
+  if (wide) { const k = $(".dock"); return { l: k.offsetLeft + k.offsetWidth + 20, r: 0, t: Math.round(slabBottom + box.top) + 4, b: 0 }; }
+  const p = $("#play-panel").getBoundingClientRect();
+  play.style.setProperty("--q-bottom", Math.round(slabBottom) + "px"); play.style.setProperty("--p-height", Math.round(box.bottom - p.top) + "px");
+  return { l: 0, r: 0, t: Math.round(slabBottom) + 4, b: Math.round(box.bottom - p.top) + 4 };
+}
+// The question's block of ice rests on the summit: its point on the peak, wherever the camera has the iceberg. When an
+// answer takes the camera down and the summit leaves the window, the block waits at the top until it comes back.
+const PEAK_AT = { x: 492, y: 42 };   // the summit in the artwork (iceberg.js: CX + 12, PEAK)
+function placeSlab() {
+  const slab = $(".q-berg"), v = berg && berg.view; if (!slab || !v || screen !== "play") return;
+  const box = (slab.offsetParent || document.body).getBoundingClientRect(), ib = $("#ib").getBoundingClientRect(), top = $(".top").getBoundingClientRect().bottom - box.top + 6;   // measured from the block's own containing box
+  const w = slab.offsetWidth, h = slab.offsetHeight, px = ib.left - box.left + v.x0 + PEAK_AT.x * v.z, py = ib.top - box.top + v.y0 + PEAK_AT.y * v.z;
+  const f = v.frame || { l: 0, r: 0 }, lo = f.l + 8, hi = box.width - f.r - w - 8;
+  const x = Math.round(Math.max(lo, Math.min(hi, px - w / 2))), y = Math.round(Math.max(top, py - h + 1));
+  slab.style.transform = `translate(${x}px, ${y}px)`; slab.classList.toggle("afloat", py - h + 1 < top - 0.5); slab.classList.add("placed");
 }
 function syncFrame(ms) { if (berg && screen === "play" && state) berg.setFrame(sceneFrame(), ms); }
 // A light record of what has been seen: per question (for the results) and for good (for a collection, one day).
@@ -332,7 +348,13 @@ async function startQuestion(animated) {
   let ready = Promise.resolve();
   if (shown.length || done) { shown.forEach((g, i) => { g.bi = i; }); berg.restore(shown.map(g => bergItem(cat, r, g, r.guesses.indexOf(g) + 1))); tagBest(cat, r); }
   else if (rising) ready = berg.surface(sceneFrame());
-  else ready = berg.enter(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches) || ready;
+  else {
+    // Pressing Play: the camera comes down the iceberg from the summit to the waterline before the first question.
+    const descent = animated === true && state.round === 0 && !state.practice;
+    ready = berg.enter(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches, { descent }) || ready;
+    if (descent) { const slab = $(".q-berg"); slab.classList.add("arriving"); ready.then(() => slab.classList.remove("arriving")); const skip = e => { if (e.type === "keydown" && e.key === "Tab") return; berg.skipIntro(); off(); }, off = () => { removeEventListener("pointerdown", skip, true); removeEventListener("keydown", skip, true); };
+      addEventListener("pointerdown", skip, true); addEventListener("keydown", skip, true); ready.then(off); }
+  }
   // The clock. A reload never hands time back: whatever passed while the page was away has gone too.
   clearInterval(clock.timer); cancelAnimationFrame(clock.raf); clock.on = false; clock.shown = -1;
   $("#melt").hidden = !TIME_MS;
@@ -606,6 +628,14 @@ function finishQuestion() {
   if (best && berg.focused !== best.bi) { syncFrame(0); berg.focus(best.bi); } else syncFrame(520);
 }
 
+// Real counts for a question, once enough real players have answered it (released only after you finish it).
+const liveStats = r => !!(r && r.stats && r.stats.players >= BOARD_MIN_PLAYERS);
+// "You and 3 others said this" / "Nobody else said this": real players only, never the sample.
+function crowdLine(r, name) {
+  if (!liveStats(r) || !name) return "";
+  const others = Math.max(0, (r.stats.counts.get(name) || 1) - 1);
+  return others === 0 ? "Nobody else said this" : `You and ${fmt(others)} other${others === 1 ? "" : "s"} said this`;
+}
 function boardFor(cat, r) {
   // Real counts are used once enough players have answered the question today; until then, the rarity table.
   const stats = r.stats, isLive = !!(stats && stats.players >= BOARD_MIN_PLAYERS), players = isLive ? stats.players : SAMPLE_PLAYERS;
@@ -642,6 +672,7 @@ function renderDone(cat, r) {
       const row = g.name && cat.answers.find(a => a.a === g.name), provisional = row && row.pv;
       const sub = el("span", "sum-sub"); sub.append(el("span", "zone", tier.name), el("span", null, provisional ? "rarity still being measured" : `${pctText(g.share)} of players`));
       const shown = g.raw || g.typed, typed = V.normalize(shown) !== V.normalize(guessName(cat, g));
+      const crowd = crowdLine(r, g.name); if (crowd) sub.append(el("span", "crowd" + (crowd.startsWith("Nobody") ? " alone" : ""), crowd));
       if (g.note) sub.append(el("span", null, g.note)); else if (typed) sub.append(el("span", null, `you typed “${shown}”`));
       const dep = el("span", "sum-depth"); dep.textContent = `${d} m`;
       b.append(n, el("span", "sum-name", guessName(cat, g)), dep, sub);

@@ -183,6 +183,19 @@
     uf.forEach(([pts, tone]) => fillPoly(g, pts, UR[tone]));
     // Soft facet seams.
     [[c[0], c[1]], [c[0], c[2]], [c[1], c[3]], [c[2], c[5]], [c[4], c[5]], [c[5], c[6]], [c[2], c[4]]].forEach(([a, b]) => line(g, a, b, "#9fd3f2", 0.18));
+    // Frozen in the ice at about 165 m, tilted as if it came down hard a very long time ago: a small flying saucer.
+    // It's painted into the ice itself, so it darkens with depth like everything else and only shows when the light
+    // reaches it. Nothing in the game mentions it.
+    {
+      const UFO = ["         EEee          ", "       Eeeeeeee        ", "      Eeeeeeeeee       ", "  HHHHHHHHHHHHHHHHHH   ",
+        "hHHHHHHHHHHHHHHHHHHHh  ", "hhyhhhyhhhrhhhyhhhyhh  ", "  ssssssssssssssssss   ", "     s  s    s  s      "];
+      const pal = { E: "#e3f6ff", e: "#8fcfe4", H: "#b9c2cf", h: "#7d8798", y: "#ffd36b", r: "#ff7a6b", s: "#4a5466" };
+      const ux = CX - 44, uy = yOfDepth(165);
+      UFO.forEach((row, i) => [...row].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(ux + x - Math.floor(i / 3), Math.round(uy) + i + Math.floor(x / 8), 1, 1); } }));
+      // The ice over it: a frosted glaze, and the cracks it made going in.
+      fillPoly(g, [[ux - 6, uy - 5], [ux + 26, uy - 3], [ux + 28, uy + 12], [ux - 2, uy + 14], [ux - 8, uy + 6]], "#cfeaf8", 0.3);
+      [[[ux + 22, uy - 2], [ux + 31, uy - 9]], [[ux + 24, uy + 9], [ux + 33, uy + 15]], [[ux - 5, uy + 2], [ux - 13, uy - 3]], [[ux + 9, uy + 12], [ux + 7, uy + 20]]].forEach(([a, b]) => line(g, a, b, "#d9f1ff", 0.45));
+    }
     // Bake depth into the ice: it darkens with the sea around it.
     for (let y = W; y < WH; y += 6) {
       const t = Math.min(1, Math.max(0, (y - W - 20) / (BOTTOM - W - 20)));
@@ -539,11 +552,20 @@
     }
 
     // Start of a question: a clean iceberg, all of it in view, then a short push in to the tip.
-    async function enter(animated = true) {
+    async function enter(animated = true, o = {}) {
       stop(); const r = run = { cancelled: false };
       layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; nav.hidden = true; busy = false; wide = false; host.classList.remove("ib-drawn");
       measure();
       if (!animated) { Z = U; camY = clampCam(tipY()); aim = 0; render(); return; }
+      if (o.descent) {
+        // The day's first question: close on the summit, then down the face of the iceberg to the waterline, the
+        // camera pulling back as it goes. Any tap or key ends it at once (skipIntro).
+        const z0 = Math.min(U * 2.4, 9); Z = z0; camY = clampCam(PEAK + 4, z0); aim = 0; render();
+        const y0 = camY;
+        await animate(1700 / speed, r, k => { const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; Z = z0 + (U - z0) * e; camY = clampCam(y0 + (tipY() - y0) * e); render(); });
+        if (!r.cancelled) { Z = U; camY = clampCam(tipY()); render(); }
+        return;
+      }
       Z = wideZ(); camY = clampCam(WH / 2); aim = 0; render();
       const z0 = Z, y0 = camY;
       await animate(900 / speed, r, k => { const e = easeOutQuart(k); Z = z0 + (U - z0) * e; camY = clampCam(y0 + (tipY() - y0) * e); render(); });
@@ -694,6 +716,8 @@
     new IntersectionObserver(e => { if (e.some(x => x.isIntersecting) && !snowRaf) snowRaf = requestAnimationFrame(drawSnow); }).observe(host);
     return {
       enter, add, restore, overview, focus, step, setTag, setSight, setFrame, surface, life, stop,
+      // End an opening move early and settle at the tip (a tap or a key during the descent).
+      skipIntro() { if (run.cancelled || items.length) return; run.cancelled = true; Z = U; camY = clampCam(tipY()); render(); },
       // Skip ahead: a long move in progress (the descent beneath the iceberg, a slow reveal) finishes quickly.
       hurry() { if (!run.cancelled) run.hurry = true; },
       get wide() { return wide; },
@@ -709,7 +733,8 @@
         return { x0: tx(), y0: ty(), u: U, z: Z, w: camW, h: camH, camY, axis, frame, depth: depthNow(), beyond: bk, settled: Z === U, busy, note: noteBox, lights, focus: it ? { x: it.x, y: it.y } : null };
       },
       onFocus: f => { handlers.focus = f; }, onDepth: f => { handlers.depth = f; }, onTravel: f => { handlers.travel = f; }, onLand: f => { handlers.land = f; },
-      onRender: f => { handlers.render = f; }, onResize: f => { handlers.resize = f; },
+      // Several parts listen to the camera (the animals, the question on the summit), so these add rather than replace.
+      onRender: f => { const prev = handlers.render; handlers.render = () => { prev(); f(); }; }, onResize: f => { const prev = handlers.resize; handlers.resize = () => { prev(); f(); }; },
       destroy: () => { stop(); cancelAnimationFrame(snowRaf); ro.disconnect(); },
     };
   }

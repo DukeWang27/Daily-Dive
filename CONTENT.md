@@ -216,7 +216,7 @@ estimate:
 - With 10 players the prior dominates; with 1,000 the real data does.
 - An upper bound is reported, for "is it really that rare?".
 - Bots and duplicates: one row per player per question; anonymous players are rate-limited (`rate_log`).
-- **Daily Dive and Submarine Race are counted separately.** A race player's choices are made under a race clock, so
+- **The daily game (Icebreaker) and Submarine Race are counted separately.** A race player's choices are made under a race clock, so
   they are not merged.
 
 ### Fair scores

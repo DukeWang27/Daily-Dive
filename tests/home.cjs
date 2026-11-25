@@ -23,7 +23,7 @@ const junk = p => p.evaluate(() => { const t = document.body.innerText; const m 
         h: innerHeight, w: innerWidth, frame: getComputedStyle(document.querySelector('#scene')).boxShadow + getComputedStyle(document.querySelector('#scene')).borderRadius };
     });
     ok(T('the name, the premise and Play are all on screen without scrolling'), home.play.b <= home.h && home.play.t > 0 && home.word.t > 0 && !home.scroll, JSON.stringify(home.play));
-    ok(T('both modes are in the header; Daily Dive is the one shown'), home.modes && home.race && home.daily === 'page');
+    ok(T('both modes are in the header; Icebreaker (the daily game) is the one shown'), home.modes && home.race && home.daily === 'page');
     ok(T('no Practice Dive anywhere on the title screen'), !home.practice);
     ok(T('the six depth zones are not spelled out on the title screen'), home.tiersShown === 0);
     ok(T('the iceberg has no frame round it'), !/rgba|px [1-9]/.test(home.frame.replace('none', '')) || home.frame.startsWith('none'), home.frame);
@@ -52,7 +52,7 @@ const junk = p => p.evaluate(() => { const t = document.body.innerText; const m 
     await p.click('#menu-btn'); await p.click('#menu-panel [data-go="ranks"]'); await p.waitForSelector('[data-screen="hub"]:not([hidden])'); await p.waitForTimeout(300);
     ok(T('menu → Rankings opens the rankings'), /ranks/.test(await p.evaluate(() => location.hash)) && await p.evaluate(() => document.querySelector('#modes').getClientRects().length > 0));
     ok(T('rankings page: nothing clipped, no null text'), !(await audit(p)).length && !(await junk(p)), (await audit(p)).join('; ') + (await junk(p)));
-    // Modes: Submarine Race, then back to Daily Dive.
+    // Modes: Submarine Race, then back to Icebreaker.
     const t0 = Date.now(); await p.click('.mode[data-mode="race"]'); await p.waitForSelector('[data-screen="race"]:not([hidden])'); const raceMs = Date.now() - t0;
     await p.waitForTimeout(1400);
     const race = await p.evaluate(() => ({ cur: document.querySelector('.mode[data-mode="race"]').getAttribute('aria-current'), text: document.querySelector('#rdock').innerText, subs: Race.scene.subs.length, title: document.querySelector('.r-title') && document.querySelector('.r-title').textContent }));
@@ -61,7 +61,7 @@ const junk = p => p.evaluate(() => { const t = document.body.innerText; const m 
     ok(T('race landing without a database says so plainly'), /isn't connected/.test(race.text));
     ok(T('race landing: nothing clipped or off-screen, no null text'), !(await audit(p, '#rdock, header')).length && !(await junk(p)), (await audit(p, '#rdock, header')).join('; '));
     await p.click('.mode[data-mode="daily"]'); await p.waitForSelector('[data-screen="home"]:not([hidden])'); await p.waitForTimeout(300);
-    ok(T('Daily Dive goes back to the title screen'), await p.evaluate(() => document.querySelector('.mode[data-mode="daily"]').getAttribute('aria-current') === 'page' && !location.hash));
+    ok(T('Icebreaker goes back to the title screen'), await p.evaluate(() => document.querySelector('.mode[data-mode="daily"]').getAttribute('aria-current') === 'page' && !location.hash));
     // In a question, the modes and the menu step aside.
     await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(500);
     ok(T('during a question, the mode switch and menu are out of the way'), await p.evaluate(() => document.querySelector('#modes').getClientRects().length === 0 && document.querySelector('#menu-btn').getClientRects().length === 0));

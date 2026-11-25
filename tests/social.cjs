@@ -115,7 +115,7 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
   await hub(bea, 'friends'); const fr0 = await body(bea);
   ok('before diving: the friends page says a friend has finished, and nothing more', /Ada/.test(fr0) && /Finished today/.test(fr0) && /score hidden until you dive/.test(fr0) && !new RegExp(`${guestEnd.total} m`).test(fr0) && !/Explore|Compare/.test(fr0), fr0.slice(0, 200));
   await hub(bea, 'ranks'); const rk0 = await body(bea);
-  ok('before diving: today\'s rankings are closed, with a plain reason', /Finish today's dive to see today's rankings/.test(rk0) && /1 player has finished so far/.test(rk0) && !/Ada/.test(rk0));
+  ok('before diving: today\'s rankings are closed, with a plain reason', /Finish today's Icebreaker to see today's rankings/.test(rk0) && /1 player has finished so far/.test(rk0) && !/Ada/.test(rk0));
   const a1 = await direct(bea, '/rest/v1/rpc/get_dive', { p_username: 'Ada', p_day: 1 }), a2 = await direct(bea, '/rest/v1/rpc/leaderboard', { p_day: 1, p_scope: 'friends' }), a3 = await direct(bea, '/rest/v1/dive_guesses?select=*', null, 'GET'), a4 = await direct(bea, '/rest/v1/dives?select=*', null, 'GET'), a5 = await direct(bea, '/rest/v1/rpc/profile_of', { p_username: 'Ada' }), a6 = await direct(bea, '/rest/v1/rpc/friends', { p_day: 1 }), a7 = await direct(bea, '/rest/v1/rpc/round_counts', { p_day: 1, p_round: 1, p_player: 'made-up-device' });
   ok('direct requests with a real sign-in token: a friend\'s dive is refused ("locked")', a1.status === 400 && a1.body.message === 'locked', `${a1.status} ${JSON.stringify(a1.body).slice(0, 80)}`);
   ok('direct requests: the tables of dives and guesses cannot be read at all', a3.status >= 401 && a4.status >= 401 && /permission denied/.test(a3.body.message + a4.body.message), `${a3.status}, ${a4.status}`);
@@ -181,7 +181,7 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
 
   // ---------- Days pass: streaks and the calendar ----------
   await setDay(2); await reload(ada); await ada.evaluate(() => { location.hash = ''; }); await ada.waitForTimeout(300);
-  ok('a new day: the home screen offers a fresh dive', (await ada.textContent('#play')) === "Play today's dive" && await ada.evaluate(() => Game.today() === 2));
+  ok('a new day: the home screen offers a fresh dive', (await ada.textContent('#play')) === "Play today's Icebreaker" && await ada.evaluate(() => Game.today() === 2));
   await play(ada, 0.5); await ada.waitForFunction(() => /Ranked #/.test(document.querySelector('#e-social').innerText), null, { timeout: 9000 }); await ada.waitForTimeout(400);
   const e2 = await ada.evaluate(() => ({ streak: document.querySelector('#e-streak').textContent, on: document.querySelectorAll('#e-days i.on').length, pop: !!document.querySelector('#e-days i.today.pop'), server: Account.profile.stats.streak }));
   ok('streak: a second day in a row makes it 2, with a small celebration on the day\'s marker', e2.streak === '2-day streak' && e2.server === 2 && e2.on >= 2 && e2.pop, JSON.stringify(e2));
@@ -271,7 +271,7 @@ const url = (extra = '') => `${SITE}?test&fast&api=${API}&key=${gw.ANON}&launch=
     for (const tab of ['friends', 'ranks', 'log', 'settings']) { await hub(p, tab); seen.push(await p.evaluate(() => !document.querySelector('#hub-demo').hidden && /Demonstration data/i.test(document.querySelector('#hub-demo').innerText) && /made up/.test(document.querySelector('#hub-demo').innerText))); }
     await hub(p, 'friends'); const names = await p.evaluate(() => [...document.querySelectorAll('#hub-body .rows .name')].map(x => x.textContent));
     ok('demonstration: every social screen carries a "Demonstration data, made up" label, and every invented player is named demo_…', seen.every(Boolean) && names.length >= 4 && names.every(n => /^demo_/.test(n)), names.join(','));
-    await hub(p, 'ranks'); ok('demonstration: follows the same rule, rankings closed until you have dived', /Finish today's dive to see today's rankings/.test(await body(p)));
+    await hub(p, 'ranks'); ok('demonstration: follows the same rule, rankings closed until you have dived', /Finish today's Icebreaker to see today's rankings/.test(await body(p)));
     await ctx.close();
     const ctx2 = await b.newContext({ viewport: VPS.desk }), q = await ctx2.newPage(); await q.goto(SITE + '?test&fast&reset'); await q.waitForSelector('#play'); await q.click('#acct-btn'); await q.waitForSelector('[data-screen="hub"]:not([hidden])');
     ok('demonstration: not offered on an ordinary copy of the game', !/demonstration/i.test(await q.evaluate(() => document.querySelector('[data-screen="hub"]').innerText)) && await q.evaluate(() => !Game.demo.offered));

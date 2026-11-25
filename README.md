@@ -8,11 +8,18 @@ A daily guessing game. Five questions a day, three guesses each, 20 seconds a qu
 the fewer players who share your answer, the deeper it sits. Only your deepest answer per question counts, and a
 later, shallower guess never takes it away. Your score is depth in metres, added up over the five questions.
 
-Two ways to play, side by side in the header: **Daily Dive** (the five questions above, the same for everyone each
+Two ways to play, side by side in the header: **Icebreaker** (the daily game: the five questions above, the same for everyone each
 day) and **Submarine Race** (live races against other players). Everything else, from the dive log, friends,
 rankings and settings to sign-in and How to play, is in the menu at the top right. The title screen keeps to the essentials: the name,
 the premise in two lines, Play, and today's status (day, streak, time to the next dive). The six depth zones and the
 full rules are in How to play.
+
+**Starting the day.** Pressing Play brings the camera down the iceberg from its summit to the waterline (about two
+seconds; any tap or key skips it, and it's off with reduced motion). Each question sits in its own block of ice resting
+on the summit; when an answer takes the camera down, the block waits at the top of the window until it comes back up.
+After a question, each answer says how many real players gave it ("You and 3 others said this", "Nobody else said
+this"), from the database's real counts only and only once at least 30 players have answered. A simulated sample is
+never shown as people.
 
 There are 15 days of questions in the bank (75 questions). Everyone gets the same five on the same day, a new set
 appears at each player's local midnight, and after day 15 the calendar starts again from day 1 until more are added.

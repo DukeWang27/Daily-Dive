@@ -196,6 +196,25 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .play.playing .dock { transition: opacity .3s var(--ease-out) .14s, transform .38s var(--ease-out) .14s; }   /* the next question comes in as the results go out */
 .play.done .dock { opacity: 0; transform: translateX(-24px); pointer-events: none; }
 .q .eyebrow { margin-bottom: 10px; }
+.sum-sub .crowd { color: var(--text); } .sum-sub .crowd.alone { color: var(--lumen); font-weight: 650; }   /* real players only */
+.howto-sub { font-weight: 500; color: var(--muted); font-size: .85em; }
+/* The question as a slab of ice on the summit: centred over the iceberg's part of the window, light frosted ice with
+   dark type, cut corners like the artwork's facets, and a point resting on the peak. The camera frames the peak just
+   beneath it (sceneFrame in game.js). */
+.q-berg { position: absolute; z-index: 3; top: 0; left: 0; width: max-content; max-width: min(620px, calc(100vw - var(--edge) * 2)); padding: 12px 22px 14px; text-align: center; color: #0a1a33; will-change: transform;
+  background: linear-gradient(160deg, #f4fbff 0%, #d9eefb 46%, #b7dcf3 100%); clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(50% + 12px) calc(100% - 10px), 50% 100%, calc(50% - 12px) calc(100% - 10px), 0 calc(100% - 10px), 0 10px);
+  padding-bottom: 22px; filter: drop-shadow(0 6px 18px rgba(2, 8, 20, .45)); transition: opacity .2s var(--ease-in); }   /* position follows the summit every frame, so only opacity eases */
+.play.playing .q-berg { transition: opacity .35s var(--ease-out) .1s; }
+.q-berg.arriving, .q-berg:not(.placed) { opacity: 0; transition: none; }   /* hidden on the way down; appears on the summit */
+.play.done .q-berg { opacity: 0; pointer-events: none; }
+.q-berg.afloat { clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px); padding-bottom: 14px; }   /* waiting at the top: no point */
+.q-berg h2 { white-space: normal; }
+.q-berg .eyebrow { color: #3a6f99; margin-bottom: 4px; }
+.q-berg .q-title { justify-content: center; }
+.q-berg .q-title h2 { color: #06112a; text-shadow: none; font-size: clamp(22px, 2.2vw, 30px); }
+.q-berg .q-icon { color: #2b6ea3; font-size: 30px; }
+.q-berg .q-hint { color: #355a7a; margin-top: 4px; }
+
 .q-title { display: flex; gap: 14px; align-items: center; min-width: 0; }
 .q-icon { font-size: 38px; line-height: 1; flex: none; }
 .q-title h2 { font-size: clamp(26px, 2.6vw, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; text-shadow: 0 2px 18px rgba(2, 6, 16, .7); }
@@ -701,6 +720,9 @@ html.in-play .acct-btn { display: none; }
   .dock > * { pointer-events: auto; }
   .play.done .dock { transform: none; }
   .q { padding: 2px var(--gutter) 0; } .q .eyebrow, .q-hint { display: none; }
+  .dock { justify-content: flex-end; }
+  .q-berg { max-width: calc(100vw - var(--gutter) * 2); padding: 8px 14px 18px; } .q-berg.afloat { padding-bottom: 8px; }
+  .q-berg .q-title h2 { font-size: 19px; } .q-berg .q-icon { font-size: 22px; }
   .q-icon { font-size: 26px; } .q-title { gap: 10px; }
   .q-title h2 { font-size: 20px; }
   #play-panel { gap: 8px; padding: 0 var(--gutter) calc(8px + env(safe-area-inset-bottom, 0px)); }
@@ -954,7 +976,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 <header class="top">
   <button class="brand" id="brand" type="button" aria-label="Deeple home" data-brand-label="{name} home"><span class="brand-mark" data-brand="mark" aria-hidden="true"></span><span data-brand="name">Deeple</span></button>
   <nav class="modes" id="modes" aria-label="Game modes">
-    <button type="button" class="mode" data-mode="daily" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 17 11H7z" fill="currentColor"/><path d="M5 13h14l-3.5 7h-7z" fill="currentColor" opacity=".55"/></svg><span>Daily Dive</span></button>
+    <button type="button" class="mode" data-mode="daily" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 17 11H7z" fill="currentColor"/><path d="M5 13h14l-3.5 7h-7z" fill="currentColor" opacity=".55"/></svg><span>Icebreaker</span></button>
     <button type="button" class="mode" data-mode="race"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c0-2.5 2.6-4.5 7-4.5h3c3.3 0 6 2 6 4.5S17.3 18 14 18h-3c-4.4 0-7-2-7-4.5z" fill="currentColor"/><path d="M10 9V6h4v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 11v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="13.5" r="1.6" fill="#06112a"/></svg><span>Submarine Race</span></button>
     <i class="mode-ink" aria-hidden="true"></i>
   </nav>
@@ -1012,12 +1034,13 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
   <section data-screen="play" class="play" hidden>
     <div id="ib" aria-label="The iceberg, with your guesses marked at their depths"></div>
     <div class="veil" aria-hidden="true"></div>
+    <!-- The question: a block of ice resting on the summit, above the iceberg it's asking about. -->
+    <div class="q q-berg">
+      <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
+      <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
+      <p class="q-hint" id="q-hint"></p>
+    </div>
     <div class="dock">
-      <div class="q">
-        <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
-        <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
-        <p class="q-hint" id="q-hint"></p>
-      </div>
       <div id="play-panel">
         <form class="entry" id="entry" autocomplete="off" novalidate>
           <div class="melt" id="melt" role="timer" aria-label="Time left" hidden><canvas id="melt-ice" aria-hidden="true"></canvas><span class="melt-n" id="melt-n">20</span></div>
@@ -1115,7 +1138,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
   <form method="dialog" class="howto-close"><button class="icon-btn" type="submit" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></form>
   <h2 id="howto-title">How to play</h2>
   <section>
-    <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 17 11H7z" fill="currentColor"/><path d="M5 13h14l-3.5 7h-7z" fill="currentColor" opacity=".55"/></svg>Daily Dive</h3>
+    <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 17 11H7z" fill="currentColor"/><path d="M5 13h14l-3.5 7h-7z" fill="currentColor" opacity=".55"/></svg>Icebreaker<span class="howto-sub"> · the daily five</span></h3>
     <ol class="howto-steps">
       <li><span><b>Five questions a day.</b> Things like <i>Name a bird</i>. Everyone gets the same five.</span></li>
       <li><span><b>Three guesses each.</b> The fewer players who give your answer, the deeper it sinks.</span></li>

@@ -423,20 +423,20 @@
       start: (c, E, at, side) => {
         const sq = window.Colossal.create(7 + Math.floor(Math.abs(at.x * 13 + at.y * 7)) % 97);
         sq.speed = 0; sq.dir = 1; sq.angle = sq.heading = -Math.PI / 2; c.sq = sq; c.side = side; c.mx = at.x; c.my = at.y; c.life = 48; c.len = 220; c.pf = 1;
-        c.x = at.x + side * 44; c.y0 = c.y = at.y + 250;
+        c.x = at.x + side * 44; c.y0 = c.y = at.y + 120;
       },
       // It rises out of the deep beside the answer, on the side away from the words, tail first as squid swim:
       // the fins and the long mantle come up out of the dark, then the head and the great eye pass the light at the
       // answer's own depth, then the arms and the two long tentacles trail up after it and out of the top of the view.
       step: (c, dt) => {
         const sq = c.sq, a = c.age, sd = c.side, ease = k => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
-        const T = 11, k1 = ease(a / T), k2 = ease((a - T) / 32);
+        const T = 3.5, k1 = ease(a / T), k2 = ease((a - T) / 32);   // in view within a few seconds: players move on quickly
         const y1 = c.my - 14, y2 = c.my - 330;
-        c.y = a < T ? c.my + 250 + (y1 - c.my - 250) * k1 : y1 + (y2 - y1) * k2;
+        c.y = a < T ? c.my + 120 + (y1 - c.my - 120) * k1 : y1 + (y2 - y1) * k2;
         c.x = c.mx + sd * (44 + 8 * Math.sin(a * 0.15)) + (a > T ? sd * 30 * k2 : 0);
         sq.heading = -Math.PI / 2 - sd * (0.1 * Math.sin(a * 0.11 + 1) + (a > T ? 0.18 * k2 : 0));
-        sq.scale = 0.8 + 0.2 * ease(a / 8);
-        c.fog = a < T ? 0.7 - 0.66 * ease(a / 8) : 0.04 + 0.78 * ease((a - 30) / 16);
+        sq.scale = 0.85 + 0.15 * ease(a / 3);
+        c.fog = a < T ? 0.45 - 0.41 * ease(a / 3) : 0.04 + 0.78 * ease((a - (T + 20)) / 16);
         window.Colossal.step(sq, dt);
       },
       draw: (c, D) => {

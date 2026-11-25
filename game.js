@@ -535,7 +535,7 @@ async function reveal(cat, r, g) {
     setTimeout(() => {
       if (!state || cur() !== r || !at) return;
       life.encounter(guest.key, at); berg.setSight(g.bi, guest.line); Sound.play("encounter", { kind: guest.key });
-    }, 1500 / SPEED);
+    }, 700 / SPEED);   // soon after the answer lands: the squid should be seen before the player moves on
   }
   // Landed: say what was found, and whether it beat your deepest.
   renderSlots(-1, index); tagBest(cat, r);

@@ -65,7 +65,7 @@ const SHOTS = process.env.SHOTS || '';
     await p.waitForTimeout(2500);
     const s3 = await scene();
     ok(`${vp}: the colossal squid comes, and only it (no giant or bigfin for an answer beneath the iceberg)`, s3.guests.includes('colossal') && !s3.guests.includes('bigfin'), s3.guests.join(','));
-    await p.waitForTimeout(9000);
+    await p.waitForTimeout(2500);   // it arrives at the answer within a few seconds of the encounter starting, then drifts up
     const px = await p.evaluate(() => { const c = document.querySelector('#ib .ib-life-back'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0, red = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) { n++; if (d[i - 3] > d[i - 1] * 1.6 && d[i - 3] > 30) red++; } return { n, red, w: c.width, h: c.height, cost: window.Colossal.ms }; });
     ok(`${vp}: the squid is large: it covers a big part of the view`, px.n > px.w * px.h * 0.08, `${px.n} of ${px.w * px.h} pixels`);
     ok(`${vp}: where the light reaches it, it is red`, px.red > 300, `${px.red} red pixels`);

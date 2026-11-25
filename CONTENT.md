@@ -142,6 +142,11 @@ generate (AI, offline)  ->  content/questions/<id>.json  ->  build.py report  ->
     The schedule fills **all 90 days (days 16 to 105)**, 450 questions, with **36 good questions spare**.
   - All 90 days' database files were loaded into the test database (4 seconds; 79,860 scored answers, 126,861
     recognised spellings), re-running a day's file is safe, and a future day returns nothing to players.
+  - **Bug found and fixed while building:** the day files carried each answer's raw estimated share while the server
+    scores with the no-evidence caps, so 8,820 of 79,860 answers (11%) would have shown a different depth in the game
+    from the score, 7,145 of them looking like Challenger Deep. The build now publishes the capped share and refuses to
+    write any day where the game's depth and the server's differ (checked: 0 mismatches across all 90 days, the
+    original 15 days and the 29 race sets).
   - Easy questions (difficulty 2) are the scarcest resource: the scheduler uses one a day and saves the rest.
   - Known pattern: categories rotate on a roughly 4-day cycle (20 categories, 5 a day). Questions never repeat;
     a regular player may notice the subject areas come round in turn.

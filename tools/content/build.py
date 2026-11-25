@@ -215,7 +215,11 @@ def sql_q(s): return "'" + s.replace("'", "''") + "'"
 def client_question(q, rows):
     out = []
     for r in sorted(rows, key=lambda r: -r["p"]):
-        a = r["a"]; row = {"a": norm(a) if not a[:1].isupper() else a, "s": round(r["p"], 7)}
+        a = r["a"]; d = depth_of(r["p"], bool(r.get("pv")))
+        # The game works depth out from this share, so it must give the depth the server scores. When a cap applies (no
+        # player evidence yet), publish the share at the cap instead of the raw estimate, as recap_legacy.py does.
+        share = r["p"] if d == depth_of(r["p"], False, True) else SURFACE / 10 ** (d / 100)
+        row = {"a": norm(a) if not a[:1].isupper() else a, "s": round(share, 7)}
         if a[:1].isupper() or norm(a) != a: row["d"] = a
         al = [x for x in r.get("al", []) if norm(x) != norm(a)]
         if al: row["al"] = al
@@ -224,6 +228,12 @@ def client_question(q, rows):
     return {"key": q["id"], "title": q["title"], "icon": q["icon"], "prompt": q["prompt"], "hint": q["hint"], "rules": q["rules"]["player"],
             "answers": out, "general": q.get("general", []), "notIn": q.get("notIn", []), "category": q["category"],
             "criteria": {k: q["rules"].get(k) for k in ("accept", "exclude", "granularity", "synonyms") if q["rules"].get(k)}}
+
+def client_depth(share):
+    """The game's own rule (iceberg.js depthOf), so the build can check the files agree with the server."""
+    if share >= SURFACE: return 0
+    d = max(1, math.floor(100 * math.log10(SURFACE / share) + 0.5))
+    return BEYOND_M - 1 if d >= BEYOND_M and not round(share * 120000) >= 3 else d
 
 def days(public=False):
     qs = {q["id"]: q for q in load_questions()}
@@ -235,6 +245,9 @@ def days(public=False):
         for rnd, i in enumerate(ids, 1):
             q = qs[i]; rows, _ = answers_of(q); cq = client_question(q, rows); qlist.append(cq)
             table = {r["a"] if r["a"][:1].isupper() else norm(r["a"]): [round(r["p"], 7), depth_of(r["p"], bool(r.get("pv")))] for r in rows}
+            shown = {x["a"]: client_depth(x["s"]) for x in cq["answers"]}
+            wrong = [k for k, v in table.items() if k in shown and shown[k] != v[1]]
+            if wrong: sys.exit(f"day {day} round {rnd}: the game would show a different depth from the server for {wrong[:5]}")
             keys = {}
             for r in rows:
                 canon = r["a"] if r["a"][:1].isupper() else norm(r["a"])

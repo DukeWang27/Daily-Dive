@@ -98,20 +98,25 @@ const live = {
   },
 };
 // Review of unknown answers. Never blocks play: the guess is already placed as "pending" when this runs.
-// Contract (api/verify.js): POST { category, title, rules, criteria, known, answers } -> { results: [{ text, status: "ok"|"invalid"|"uncertain", ... }] }
-// "uncertain" changes nothing: the guess stays pending for a person to review.
+// Contract (api/verify.js): POST { question, answer, candidates, player } -> { status: "ok"|"invalid"|"pending", relationship, canonical }
+// "pending" changes nothing: the guess stays pending for a person to review.
 async function requestReview(cat, texts) {
   if (!BACKEND.verifyUrl || !texts.length) return null;
-  try {
-    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 8000);
-    const res = await fetch(BACKEND.verifyUrl, { method: "POST", headers: { "Content-Type": "application/json" }, signal: ctl.signal,
-      body: JSON.stringify({ category: cat.key, title: cat.prompt || cat.title, rules: cat.rules || [], criteria: cat.criteria || null,
-        known: (state && cur() ? cur().guesses.filter(g => g.name).map(g => g.name) : []).slice(0, 3), answers: texts.slice(0, 6) }) });
-    clearTimeout(timer);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return Array.isArray(data.results) ? data.results : null;
-  } catch { return null; }
+  // One small request per answer: the question, its rule, the answer, and the five listed answers it most resembles
+  // (so another name for one of them can be recognised). Nothing else leaves the page.
+  const P = prep(cat), names = [...new Set(P.keys.map(k => k.row.a))];
+  const near = t => { const n = V.normalize(t); return names.map(a => ({ a, c: V.editCost(n, V.normalize(a), 6) + (V.sound(n) === V.sound(V.normalize(a)) ? -1 : 0) })).sort((x, y) => x.c - y.c).slice(0, 5).map(x => x.a); };
+  const one = async text => {
+    try {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 7000);
+      const res = await fetch(BACKEND.verifyUrl, { method: "POST", headers: { "Content-Type": "application/json" }, signal: ctl.signal,
+        body: JSON.stringify({ question: { key: cat.key, prompt: cat.prompt || cat.title, rules: cat.rules || [] }, answer: text, candidates: near(text), player: playerId }) });
+      clearTimeout(timer);
+      if (!res.ok) return null;
+      const v = await res.json(); return v && { text, status: v.status, canonical: v.canonical || "", relationship: v.relationship || null, reason: v.reason || "" };
+    } catch { return null; }
+  };
+  return (await Promise.all(texts.slice(0, 3).map(one))).filter(Boolean);
 }
 // How rare an answer is: its share in the day's rarity table. The table is fixed when the day is published, so an
 // answer is worth the same to everyone, whenever they play, and a finished iceberg never shifts afterwards.
@@ -308,15 +313,17 @@ function logSighting(r, key) {
   r.seen.push(key); save();
   const all = store.get("sightings", {}); all[key] = all[key] || { n: 0, first: state.day }; all[key].n++; store.set("sightings", all);
 }
-function setHint(text, kind) { const h = $("#hint"); h.className = "hint" + (kind ? " " + kind : ""); h.textContent = text || ""; }
-// "Did you mean Raven?" in the hint line: Enter (or the button) for yes, Escape (or the other button) to keep it as typed.
+function setHint(text, kind) { const h = $("#hint"); h.className = "hint" + (kind ? " " + kind : ""); h.textContent = text || ""; const a = $("#q-ask"); if (a && !a.dataset.keep) a.hidden = true; }
+// "Did you mean Raven?" inside the ice panel, under the box: Enter (or the button) for yes; Escape, or editing the
+// answer, to keep it as typed. It says nothing about rarity, offers one answer only, and the clock keeps running.
 let confirmFor = null, keepTyped = "";
 function askCorrection(name, raw) {
-  const h = $("#hint"); h.className = "hint ask"; h.textContent = "";
+  setHint("");
+  const a = $("#q-ask"); a.textContent = ""; a.hidden = false;
   const yes = el("button", "ask-yes", name), no = el("button", "ask-no", "Keep \u201c" + raw + "\u201d");
   yes.type = no.type = "button"; yes.onpointerdown = no.onpointerdown = e => e.preventDefault();
   yes.onclick = acceptCorrection; no.onclick = declineCorrection;
-  h.append(el("span", null, "Did you mean "), yes, el("span", null, "?"), no);
+  a.append(el("span", "ask-q", "Did you mean "), yes, el("span", null, "?"), no, el("span", "ask-keys", "Enter \u00b7 yes \u2003 Esc \u00b7 keep"));
   $("#answer").select();
 }
 function acceptCorrection() {
@@ -588,6 +595,12 @@ async function reviewGuess(cat, r, g) {
   const verdicts = await requestReview(cat, [g.typed]);
   g.checking = false;
   const v = verdicts && verdicts.find(x => V.normalize(x.text || "") === V.normalize(g.typed));
+  // The reviewer thinks it's a misspelling of a listed answer: never applied silently, the player is asked.
+  if (v && v.status === "ok" && v.relationship === "spelling") {
+    const row = cat.answers.find(a => V.normalize(a.a) === V.normalize(v.canonical));
+    if (row && state && state.rounds.indexOf(r) === state.round && state.phase === "play") { askPendingCorrection(cat, r, g, row); save(); return; }
+    v.status = "pending";
+  }
   if (v && (v.status === "ok" || v.status === "invalid")) {
     // The reviewer's usual name for it may be any listed name of an answer (an alias or a regional spelling): then it
     // is that answer, with that answer's depth and counts, not a new and rarer one.
@@ -607,6 +620,17 @@ async function reviewGuess(cat, r, g) {
     return;
   }
   renderSlots();
+}
+// A guess already sent for review comes back as a likely misspelling: "Did you mean X?" in the ice panel. Yes scores it
+// as X; no leaves it waiting for a person. Nothing about X's rarity shows until the player says yes.
+function askPendingCorrection(cat, r, g, row) {
+  const ask = $("#q-ask"); if (!ask) return;
+  ask.hidden = false; ask.textContent = "";
+  const yes = el("button", "ask-yes", display(row)), no = el("button", "ask-no", "No, keep \u201c" + g.typed + "\u201d");
+  yes.type = no.type = "button";
+  yes.onclick = async () => { ask.hidden = true; applyVerdict(cat, r, g, "ok", row); save(); while (busy) await new Promise(res => setTimeout(res, 150)); if (state && cur() === r && g.bi == null && state.phase === "play") reveal(cat, r, g); else renderSlots(); };
+  no.onclick = () => { ask.hidden = true; $("#answer").focus(); };
+  ask.append(el("span", null, `\u201c${g.typed}\u201d \u2014 did you mean `), yes, el("span", null, "?"), no);
 }
 function applyVerdict(cat, r, g, status, row, reason) {
   if (status === "invalid") { g.status = "miss"; g.reason = reason || "Reviewed: doesn't count"; return; }
@@ -1018,6 +1042,8 @@ async function boot() {
     const want = PARAMS.has("test") && PARAMS.has("day") ? +PARAMS.get("day") : dayNumber();
     // The common-word list only sharpens the typo check, so the game doesn't wait for it.
     fetch("words.json").then(r => r.json()).then(words => { if (words && words.commonWords) V.setCommonWords(words.commonWords); }).catch(() => {});
+    // The larger dictionary only stops real words being "corrected"; it loads when the page is idle.
+    (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => fetch("realwords.txt").then(r => r.ok ? r.text() : "").then(t => { if (t && V.setRealWords) V.setRealWords(t); }).catch(() => {}));
     let day = await dayContent(want);
     if (!day && !BACKEND.url) day = await dayContent(((want - 1) % LEGACY_DAYS) + 1);
     CATS = day.questions || []; DAY_COUNT = index.count || 1;

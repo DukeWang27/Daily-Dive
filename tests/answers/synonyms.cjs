@@ -3,6 +3,8 @@
 const fs = require('fs'), path = require('path'), ROOT = path.join(__dirname, '..', '..');
 global.window = {}; global.localStorage = { getItem: () => null, setItem: () => {} };
 require('../../validate.js'); const V = window.IcebergValidate;
+if (window.IcebergValidate.setRealWords) { try { window.IcebergValidate.setRealWords(require('fs').readFileSync(require('path').join(__dirname, '../../realwords.txt'), 'utf8')); } catch {} }
+
 const q = (day, key) => V.prepare(JSON.parse(fs.readFileSync(path.join(ROOT, 'days', day + '.json'), 'utf8')).questions.find(x => x.key === key));
 let pass = 0, fail = 0;
 const t = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('FAIL  ' + name + '  [' + JSON.stringify(got) + ']'); } };

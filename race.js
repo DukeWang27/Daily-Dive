@@ -384,9 +384,19 @@
     const waiting = h("span.r-wait", "\u00a0");
     const code = h("input", { type: "text", maxLength: 6, placeholder: "CODE", autocapitalize: "characters", autocomplete: "off", spellcheck: false, "aria-label": "Race code", enterkeyhint: "go" });
     const err = h("p.msg.bad", { role: "status" }, error || "");
+    // Ranked 1v1 first: your division and rating, and one button. Then the unranked ways to race.
+    const rk = h("div.rk-card", h("div.rk-me", h("span.rk-badge-slot"), h("div", h("p.eyebrow", "Ranked 1v1"), h("b.rk-div", "\u00a0"), h("span.rk-elo", "\u00a0"))),
+      h("button.btn.wide", { type: "button", id: "r-ranked", onclick: () => searchRanked() }, "Find a ranked match"),
+      h("p.fine.center", "One opponent near your rating. 5 questions, 20 seconds, deepest total wins."),
+      h("button.link", { type: "button", id: "r-board", onclick: () => rankedBoard() }, "Ranked leaderboard"));
+    add(box, rk);
+    A.rpc("ranked_profile", {}).then(pr => { const R = window.Ranked; if (!pr || !R) return; const d = R.divisionOf(pr.elo);
+      rk.querySelector(".rk-badge-slot").replaceWith(R.badge(pr.elo, 3)); rk.querySelector(".rk-div").textContent = d.name; rk.querySelector(".rk-div").style.color = d.colour;
+      rk.querySelector(".rk-elo").textContent = `${fmt(pr.elo)} rating${pr.placement_left ? ` \u00b7 ${pr.placement_left} placement match${pr.placement_left === 1 ? "" : "es"} left` : ` \u00b7 ${pr.wins}W ${pr.losses}L${pr.draws ? ` ${pr.draws}D` : ""}`}`; }).catch(() => {});
     add(box,
       h("div.r-choices",
-        h("button.btn.wide", { type: "button", id: "r-quick", onclick: e => act(e.currentTarget, async () => { race = await call("race_quick"); enter(); }, err) }, "Quick race"),
+        h("p.eyebrow.r-unranked", "Unranked"),
+        h("button.btn.wide.ghost", { type: "button", id: "r-quick", onclick: e => act(e.currentTarget, async () => { race = await call("race_quick"); enter(); }, err) }, "Quick race"),
         h("p.fine.center.r-waiting", waiting),
         h("div.r-pair",
           h("button.btn.ghost", { type: "button", id: "r-private", onclick: e => act(e.currentTarget, async () => { race = await call("race_create", { p_kind: "private" }); enter(); }, err) }, "Race friends"),
@@ -425,8 +435,70 @@
     if (st === "lobby") return lobby(changed);
     if (st === "question") return question(changed);
     if (st === "between") return between(changed);
-    if (st === "finished") return results(changed);
+    if (st === "finished") return race.kind === "ranked" ? rankedResults(changed) : results(changed);
   }
+
+  // ----- Ranked -----
+  let searchTimer = 0;
+  async function searchRanked() {
+    view = "search"; stopPolling(); fleet(true);
+    const box = dock(); box.textContent = ""; box.className = "rdock home landing";
+    const status = h("p.rk-status", { role: "status" }, "Looking for an opponent\u2026"), detail = h("p.fine.center", "\u00a0");
+    add(box, h("div.q", h("p.eyebrow.r-live", h("i"), "Ranked 1v1"), h("h2.r-title", "Finding an opponent"), status, detail),
+      h("div.r-choices", h("button.btn.wide.ghost", { type: "button", id: "r-cancel", onclick: () => { clearTimeout(searchTimer); A.rpc("ranked_cancel").catch(() => {}); showHome(); } }, "Cancel")));
+    const step = async () => {
+      if (view !== "search") return;
+      try {
+        const res = await call("ranked_find");
+        if (res.status === "matched") { race = res.race; window.Sound.play("go"); return enter(); }
+        status.textContent = res.searching > 1 ? `${res.searching - 1} other player${res.searching === 2 ? " is" : "s are"} searching` : "Waiting for another player to search";
+        detail.textContent = `Within \u00b1${res.range} of your rating (${fmt(res.elo)}) \u00b7 ${res.waited}s`;
+      } catch (e) { status.textContent = e.message === "sign_in_required" ? "Sign in to play ranked." : "Can't reach the race service. Retrying\u2026"; }
+      searchTimer = setTimeout(step, 2000);
+    };
+    step();
+  }
+  async function rankedBoard() {
+    view = "board"; const box = dock(); box.textContent = ""; box.className = "rdock home landing";
+    const list = h("ol.rows.rk-board"), R = window.Ranked;
+    add(box, h("div.q", h("p.eyebrow", "Ranked 1v1"), h("h2.r-title", "Leaderboard")), list,
+      h("p.fine", "Players appear after ten placement matches. Separate from the daily rankings."), h("button.link", { type: "button", onclick: () => showHome() }, "Back"));
+    try {
+      const rows = await A.rpc("ranked_board", { p_limit: 50, p_offset: 0 });
+      if (!rows.length) add(list, h("li.empty", "Nobody has finished their placement matches yet."));
+      rows.forEach(x => add(list, h("li" + (x.me ? ".me" : ""), h("span.rank-n", "#" + x.place), R.badge(x.elo, 2), h("span.name", x.username), h("span.sub", `${x.wins}W ${x.losses}L`), h("b", fmt(x.elo)))));
+    } catch { add(list, h("li.empty", "Can't load the leaderboard right now.")); }
+  }
+  // Victory, defeat or a draw; the rating change; promotion or demotion; then question by question.
+  async function rankedResults(changed) {
+    view = "results"; live(false);
+    if (!changed && !rankedWaiting) return;
+    const r = race, R = window.Ranked; let res;
+    try { res = await A.rpc("ranked_result", { p_race: r.id }); } catch { res = { outcome: "error", players: [] }; }
+    const me = res.players.find(p => p.me), them = res.players.find(p => !p.me) || { username: (r.players.find(p => !p.me) || {}).username || "Opponent" };
+    rankedWaiting = res.outcome === "waiting";
+    if (rankedWaiting) { clearTimeout(rankedTimer); rankedTimer = setTimeout(() => { if (race && race.id === r.id) rankedResults(true); }, 5000); }
+    const box = dock(); box.textContent = ""; box.className = "rdock results";
+    const title = rankedWaiting ? "Checking answers" : !me ? "Match over" : me.result === "win" ? "Victory" : me.result === "loss" ? "Defeat" : me.result === "draw" ? "Draw" : "No contest";
+    const why = { forfeit: me && me.result === "win" ? `${them.username} left the match.` : "You left the match.", unresolved: "An answer still under review could have changed the result, so this match doesn't count.",
+      repeat_pair: "You've played each other three times today: this one doesn't change your rating.", abandoned: "The match was abandoned." }[me && me.reason] || "";
+    const head = h("div.rk-result" + (me ? "." + me.result : ""),
+      h("p.eyebrow", "Ranked 1v1"), h("h2.r-title", title),
+      rankedWaiting ? h("p.r-sum", "An answer is being checked. The result is decided within three minutes.") : null,
+      me ? h("p.r-sum", h("b", m(me.distance)), " \u2013 ", h("b", m(them.distance || 0)), ` against ${them.username}`) : null, why ? h("p.fine", why) : null);
+    if (me && !rankedWaiting) {
+      const was = R.divisionOf(me.before), now = R.divisionOf(me.after), up = now.from > was.from, down = now.from < was.from;
+      const delta = h("span.rk-delta" + (me.delta > 0 ? ".up" : me.delta < 0 ? ".down" : ""), (me.delta > 0 ? "+" : "") + me.delta);
+      add(head, h("div.rk-change", R.badge(me.after, 3), h("div", h("b.rk-div", { style: `color:${now.colour}` }, now.name), h("span.rk-elo", `${fmt(me.before)} \u2192 ${fmt(me.after)} `, delta)),
+        up ? h("p.rk-promo", `Promoted to ${now.name}`) : down ? h("p.rk-promo.down", `Down to ${now.name}`) : null));
+    }
+    add(box, head);
+    // Question by question, as in any race (answers are visible now the match is over).
+    const tmp = h("div"); const keep = box; await results.call(null, true); const rest = [...dock().querySelectorAll(".r-results > details, .r-results > ol")];
+    keep.textContent = ""; add(keep, head); rest.forEach(n => add(keep, n));
+    add(keep, h("div.row.r-actions", h("button.btn", { type: "button", id: "r-again", onclick: () => { leave(); searchRanked(); } }, "Queue again"), h("button.btn.ghost", { type: "button", onclick: () => leave() }, "Leave")));
+  }
+  let rankedWaiting = false, rankedTimer = 0;
   // Sounds and small events from one state to the next: arrivals, readiness, overtakes, new regions.
   let prev = null;
   function soundsFor(r) {
@@ -441,6 +513,7 @@
       if (prev.status === "finished" && r.status === "lobby") S2.play("rematch");
       const rank = rankOf(r);
       if (r.status === "question" && prev.rank && rank !== prev.rank) S2.play("overtake", { dir: rank < prev.rank ? 1 : -1 });
+      if (rank > prev.rank && r.status === "question" && r.kind === "ranked") { const lead = r.players.find(p => !p.me); if (lead) flash(`${lead.username} took the lead`); }
       if (rank < prev.rank && r.status === "question") { const passed = r.players.filter(p => !p.me).sort((a, b) => b.distance - a.distance)[rank - 1]; if (passed) flash(`You passed ${passed.username}`); }
     }
     // Another racer's Challenger Deep find: everyone sees their submarine light up red and hears it, but not the answer.

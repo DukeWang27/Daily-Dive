@@ -171,6 +171,20 @@
       A.rpc("race_record", { p_username: p.username }).then(r => { if (stale(t)) return; if (!r.races) { races.remove(); return; }
         add(races, h("span", "Submarine races "), h("span", h("b", String(r.races)), r.races === 1 ? " race" : " races"), h("span", h("b", String(r.wins)), r.wins === 1 ? " win" : " wins"), h("span", "furthest ", h("b", `${Number(r.best).toLocaleString("en-US")} m`))); }).catch(() => races.remove());
     }
+    // Ranked 1v1: rating, division, record and how the rating has moved. Separate from the daily numbers.
+    if (st === "in" && window.Ranked) {
+      const rk = h("div.section.rk-profile"); add(box, rk);
+      A.rpc("ranked_profile", { p_username: p.username }).then(r => { if (stale(t) || !r || !r.played) { rk.remove(); return; }
+        const R = window.Ranked, d = R.divisionOf(r.elo), rate = r.played ? Math.round(100 * r.wins / r.played) : 0;
+        add(rk, h("h3", "Ranked 1v1"), h("div.rk-me", R.badge(r.elo, 3), h("div", h("b.rk-div", { style: `color:${d.colour}` }, d.name), h("span.rk-elo", `${r.elo.toLocaleString("en-US")} rating \u00b7 peak ${r.peak.toLocaleString("en-US")}${r.placement_left ? ` \u00b7 placing (${r.placement_left} left)` : ""}`))),
+          h("p.r-record", h("span", h("b", String(r.played)), " played"), h("span", h("b", `${r.wins}-${r.losses}${r.draws ? "-" + r.draws : ""}`), " W-L"), h("span", h("b", rate + "%"), " won"), h("span", "best run ", h("b", String(r.best_streak)))));
+        // Rating over time: a small line, drawn to scale between the lowest and highest rating reached.
+        if (r.history.length > 1) { const pts = r.history.map(x => x[1]), lo = Math.min(...pts), hi = Math.max(...pts), W = 240, H = 44;
+          const path = pts.map((v, i) => `${i ? "L" : "M"}${(i / (pts.length - 1) * W).toFixed(1)},${(H - 4 - (hi > lo ? (v - lo) / (hi - lo) : 0.5) * (H - 8)).toFixed(1)}`).join(" ");
+          const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("class", "rk-spark"); svg.setAttribute("aria-label", `Rating from ${pts[0]} to ${pts[pts.length - 1]}`);
+          svg.innerHTML = `<path d="${path}" fill="none" stroke="${d.colour}" stroke-width="2" stroke-linejoin="round"/>`; add(rk, svg); }
+      }).catch(() => rk.remove());
+    }
     if (days) add(box, h("div.section", h("h3", "Calendar"), calendar(days, { open: openDay, own, who: p ? p.username : "guest" })), h("div.section", h("h3", own ? "Recent dives" : "Their recent dives"), recent(days, openDay, own)));
     else add(box, h("p.note-line", p.relation === "friend" ? `${p.username} keeps their calendar private.` : "Friends can see each other's calendar and dives."));
     if (own && st === "in") add(box, h("div.row", h("button.btn.ghost.small", { type: "button", onclick: () => go("friends") }, plural(+p.friends || 0, "friend")), h("button.btn.ghost.small", { type: "button", onclick: () => go("ranks") }, "Today's rankings")));

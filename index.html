@@ -913,6 +913,16 @@ html.in-play .acct-btn { display: none; }
 .e-found b { color: var(--lumen); font-weight: 650; }
 /* Spelling: a corrected answer says so quietly; a "Did you mean" offers one answer and a way to keep what was typed. */
 .hint.fixed { color: var(--lumen); }
+/* A spelling question, inside the ice: one suggestion, confirm or keep. */
+.q-ask { position: absolute; z-index: 4; left: 50%; top: calc(100% - 6px); transform: translateX(-50%); width: max-content; max-width: calc(100% - 16px);
+  padding: 8px 14px 9px; border-radius: 0 0 12px 12px; background: rgba(6, 24, 48, .94); box-shadow: inset 0 0 0 1px rgba(181, 229, 255, .35), 0 8px 20px rgba(2, 8, 20, .5);
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 6px; font-size: 15px; color: var(--ice); }
+.q-ask button { border: 0; font: inherit; font-weight: 700; border-radius: 8px; padding: 3px 10px; cursor: pointer; }
+.q-ask .ask-yes { background: #b5e5ff; color: #06112a; box-shadow: 0 0 0 1px rgba(255, 255, 255, .5), 0 2px 10px rgba(181, 229, 255, .25); }
+.q-ask .ask-yes:focus-visible, .q-ask .ask-no:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.q-ask .ask-no { background: none; color: #bcd6ec; text-decoration: underline; text-underline-offset: 2px; margin-left: 6px; padding: 3px 2px; }
+.q-ask .ask-keys { flex-basis: 100%; text-align: center; font-size: 11px; letter-spacing: .06em; color: #9fb7d4; }
+@media (hover: none) { .q-ask .ask-keys { display: none; } }
 .hint.ask { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--text); }
 .hint.ask button { border: 0; font: inherit; font-weight: 700; border-radius: 7px; padding: 1px 8px; cursor: pointer; }
 .hint.ask .ask-yes { background: var(--ice); color: #06112a; }
@@ -947,6 +957,21 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 .r-join input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
 .r-invites, .r-friends { display: grid; gap: 8px; } .r-invites h3, .r-friends h3 { margin: 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .r-inv { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(125, 240, 223, .07); box-shadow: inset 0 0 0 1px rgba(125, 240, 223, .3); }
+.rk-card { display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: rgba(6, 20, 42, .72); box-shadow: inset 0 0 0 1px rgba(181, 229, 255, .18); }
+.rk-me { display: flex; align-items: center; gap: 12px; } .rk-me .eyebrow { margin: 0 0 2px; }
+.rk-div { display: block; font-size: 18px; font-weight: 800; letter-spacing: .02em; } .rk-elo { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.rk-badge { flex: none; filter: drop-shadow(0 2px 6px rgba(2, 8, 20, .5)); }
+.rk-card .link { justify-self: center; }
+.r-unranked { margin: 6px 0 -4px; color: var(--faint); }
+.rk-status { font-size: 17px; font-weight: 700; margin: 8px 0 0; }
+.rk-result .rk-change { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0 4px; padding: 12px; border-radius: 12px; background: rgba(6, 20, 42, .7); }
+.rk-delta { font-weight: 800; margin-left: 4px; } .rk-delta.up { color: var(--t-abyss); } .rk-delta.down { color: var(--t-beyond); }
+.rk-promo { flex-basis: 100%; margin: 0; font-weight: 800; color: var(--t-abyss); } .rk-promo.down { color: var(--muted); }
+.rk-result.win .r-title { color: var(--t-abyss); } .rk-result.loss .r-title { color: var(--muted); }
+.rk-profile .rk-me { margin: 6px 0 10px; } .rk-spark { display: block; width: 100%; max-width: 320px; height: 48px; margin-top: 8px; }
+.rk-board li { display: grid; grid-template-columns: 44px auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.rk-board .empty { display: block; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .rk-promo { animation: rk-pop .5s cubic-bezier(.2, 1.4, .4, 1) both; } @keyframes rk-pop { from { transform: scale(.8); opacity: 0; } } }
 .r-record { display: flex; gap: 18px; margin: 0; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; } .r-record b { color: var(--text); margin-right: 4px; font-variant-numeric: tabular-nums; }
 .r-lobby { display: grid; gap: 16px; }
 .r-code { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; } .r-code span { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
@@ -1098,6 +1123,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
           <input id="answer" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" maxlength="60" placeholder="Type a guess">
           <button id="add" type="submit" aria-label="Submit guess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg></button>
         </form>
+        <div class="q-ask" id="q-ask" role="alert" aria-live="assertive" hidden></div>
       </div>
       <div id="play-panel">
         <p class="hint" id="hint" role="status" aria-live="polite"></p>
@@ -1262,6 +1288,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 <script src="social.js"></script>
 <script src="viewer.js"></script>
 <script src="subs.js"></script>
+<script src="ranked.js"></script>
 <script src="race.js"></script>
 <script src="demo.js"></script>
 <script src="game.js"></script>

@@ -13,7 +13,7 @@ const guess = async (p, text) => { await enter(p, text); await settle(p); };
 // Where the camera is the moment a guess has landed (the results view takes over shortly after the third).
 const landed = async (p, text) => { await enter(p, text); await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 10000 }); };
 const waitDone = p => p.waitForFunction(() => ICEBERG_TEST.state && ICEBERG_TEST.state.phase === 'done', null, { timeout: 10000 });
-const hint = p => p.textContent('#hint');
+const hint = p => p.evaluate(() => { const a = document.querySelector('#q-ask'); return (document.querySelector('#hint').textContent + ' ' + (a && !a.hidden ? a.textContent : '')).trim(); });   // the hint line, plus a spelling question in the ice panel
 // Nothing on the iceberg overlaps: visible labels, the card and markers.
 const overlaps = p => p.evaluate(() => {
   const vis = n => { const cs = getComputedStyle(n); return !n.classList.contains('dim') && cs.display !== 'none' && +cs.opacity > 0.05; };
@@ -85,8 +85,8 @@ async function fullGame(b, vp) {
   await enter(p, 'snaek'); let s4 = await S(p);
   ok(T('q4 unclear typo "snaek" (snake? sneak? snack?): no guess used, and never a list of possible answers'), s4.n === 0 && !/,.* or /.test(await hint(p)) && /isn't on today's list|Did you mean (snake|snack|sneak)\?/.test(await hint(p)), await hint(p));
   await enter(p, 'snorkle');
-  ok(T('q4 typo "snorkle": asked "Did you mean snorkel?" first, nothing placed and no rarity shown'), (await S(p)).n === 0 && /Did you mean snorkel\?/.test(await hint(p)) && !/%|players/.test(await hint(p)), await hint(p));
-  await p.click('#hint .ask-yes'); await settle(p);
+  ok(T('q4 typo "snorkle": asked "Did you mean snorkel?" first, nothing placed and no rarity shown'), (await S(p)).n === 0 && /Did you mean snorkel\?/.test(await p.textContent('#q-ask')) && !/%|players/.test(await hint(p)), await hint(p));
+  await p.click('#q-ask .ask-yes'); await settle(p);
   ok(T('q4 typo confirmed: placed as snorkel'), (await S(p)).names[0] === 'snorkel', JSON.stringify(await S(p)));
   await enter(p, 'Snorkels'); s4 = await S(p);
   ok(T('q4 duplicate "Snorkels": no guess used, no rarity shown again'), s4.n === 1 && /already tried snorkel|already discovered this answer/.test(await hint(p)), await hint(p));
@@ -218,8 +218,9 @@ async function reload(b) {
 async function review(b) {
   const p = await fresh(b, 'desk', '&verify=/verify-mock'); let bodies = [];
   await p.route('**/verify-mock', async route => { if (route.request().method() !== 'POST') return route.continue(); const body = JSON.parse(route.request().postData()); bodies.push(body); await new Promise(r => setTimeout(r, 250));
-    const verdict = { batmobile: { status: 'ok', canonical: 'batmobile', reason: 'A car' }, 'time machine': { status: 'invalid', canonical: '', reason: 'Not a real thing with wheels' }, whip: { status: 'ok', canonical: 'car', reason: 'Slang for car' } }[body.answers[0]];
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: body.answers[0], ...verdict }] }) }); });
+    // The review endpoint's contract (api/verify.js): one answer per request, with nearby listed answers as candidates.
+    const verdict = { batmobile: { status: 'ok', relationship: 'new', canonical: 'batmobile' }, 'time machine': { status: 'invalid', relationship: 'none', canonical: '', reason: 'Not a real thing with wheels' }, whip: { status: 'ok', relationship: 'alias', canonical: 'car' } }[body.answer];
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(verdict || { status: 'pending' }) }); });
   await start(p); await p.evaluate(() => { const s = ICEBERG_TEST.state; s.round = 4; localStorage.setItem('iceberg:game:' + s.day, JSON.stringify(s)); });
   await p.goto(URL + '?test&day=0&fast&verify=/verify-mock'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(300);
   await enter(p, 'batmobile'); await p.keyboard.press('Enter'); await p.waitForTimeout(80);
@@ -231,14 +232,14 @@ async function review(b) {
   await enter(p, 'time machine'); await p.keyboard.press('Enter');
   await p.waitForFunction(() => ICEBERG_TEST.state.rounds[4].guesses[1].status === 'miss', null, { timeout: 6000 }); await p.waitForTimeout(200); st = await slots(p);
   ok('review rejected: the slot stays used, with the reason and no depth', /miss/.test(st[1].cls) && /Not a real thing with wheels/.test(st[1].text) && (await S(p)).n === 2, st[1].text);
-  ok('review: only the unknown answer was sent, one per request', bodies.length === 2 && bodies.every(x => x.answers.length === 1 && x.category === 'wheels'), JSON.stringify(bodies.map(x => x.answers)));
+  ok('review: only the unknown answer was sent, one per request, with the question, its rule, at most 5 nearby listed answers and nothing else', bodies.length === 2 && bodies.every(x => typeof x.answer === 'string' && x.question.key === 'wheels' && Array.isArray(x.question.rules) && x.candidates.length <= 5 && Object.keys(x).sort().join() === 'answer,candidates,player,question'), JSON.stringify(bodies.map(x => x.answer)));
   await guess(p, 'car'); await waitDone(p);
   ok('review: best is still the approved answer (52 m beats car)', await p.evaluate(() => document.querySelector('#best-name').textContent === 'batmobile' && document.querySelector('#best-depth').textContent === '52m'));
   ok('review: verdicts are remembered, so the same answer is judged instantly next time', await p.evaluate(() => ICEBERG_TEST.judge('Batmobile', 4).status === 'ok' && ICEBERG_TEST.judge('time machine', 4).status === 'invalid'));
   await p.context().close();
   // Same-as-earlier verdict, and a dead service.
   const q = await fresh(b, 'desk', '&verify=/verify-mock');
-  await q.route('**/verify-mock', route => route.request().method() !== 'POST' ? route.continue() : route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: 'whip', status: 'ok', canonical: 'car', reason: 'Slang for car' }] }) }));
+  await q.route('**/verify-mock', route => route.request().method() !== 'POST' ? route.continue() : route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', relationship: 'alias', canonical: 'car' }) }));
   await start(q); await q.evaluate(() => { const s = ICEBERG_TEST.state; s.round = 4; localStorage.setItem('iceberg:game:' + s.day, JSON.stringify(s)); });
   await q.goto(URL + '?test&day=0&fast&verify=/verify-mock'); await q.waitForSelector('[data-screen="play"]:not([hidden])'); await q.waitForTimeout(300);
   await guess(q, 'car'); await enter(q, 'whip'); await q.keyboard.press('Enter');
@@ -568,7 +569,7 @@ async function timer(b) {
 
   // An answer still being checked when time runs out is not lost.
   p = await timed('desk', 4, '&verify=/verify-mock');
-  await p.route('**/verify-mock', async route => { if (route.request().method() !== 'POST') return route.continue(); await new Promise(r => setTimeout(r, 6000)); await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: 'jackalope', status: 'ok', canonical: '', reason: 'ok' }] }) }); });
+  await p.route('**/verify-mock', async route => { if (route.request().method() !== 'POST') return route.continue(); await new Promise(r => setTimeout(r, 6000)); await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', relationship: 'new', canonical: 'jackalope' }) }); });
   await begin(p); await running(p);
   await enter(p, 'jackalope'); await p.keyboard.press('Enter'); await waitDone(p);
   const v0 = await p.evaluate(() => ICEBERG_TEST.state.rounds[0].guesses[0].status);

@@ -63,8 +63,16 @@
     "dirty", "clean", "empty", "full", "wooden", "metal", "plastic", "electric", "pink", "purple", "orange", "yellow", "green", "blue", "red", "black", "white", "brown", "grey", "gray"]);
   const NOT_REAL = new Set(["teddy", "toy", "stuffed", "plush", "plastic", "fake", "cartoon", "robot", "robotic", "lego", "paper", "chocolate", "gummy", "inflatable", "pretend", "imaginary"]);
 
-  let COMMON = new Set();
+  let COMMON = new Set(), REAL = new Set();
   const setCommonWords = text => { COMMON = new Set(String(text || "").split(" ")); };
+  // A larger dictionary of real (rarer) English words, loaded in the background (realwords.txt). A real word is never
+  // "corrected" into a different answer: "farrier" is not a typo of farmer. It goes for review instead.
+  const setRealWords = text => { REAL = new Set(String(text || "").split(" ")); };
+  const isWord = w => COMMON.has(w) || REAL.has(w);
+  // Two spellings of one word (grey/gray, colour/color, centre/center, yoghurt/yogurt): an accepted variant, not a typo.
+  const SPELL = [[/our\b/g, "or"], [/(is|ys)(e|ed|es|ing|ation)\b/g, "iz$2"], [/tre\b/g, "ter"], [/ll/g, "l"], [/ae/g, "e"], [/oe/g, "e"], [/ey\b/g, "ay"], [/gh/g, ""], [/ph/g, "f"], [/[\s-]/g, ""]];
+  const spellingKey = w => SPELL.reduce((x, [re, to]) => x.replace(re, to), w);
+  const sameSpelling = (a, b) => a === b || spellingKey(a) === spellingKey(b);
 
   function prepare(cat) {
     const index = new Map(), byFirst = new Map();
@@ -76,9 +84,17 @@
     for (const row of cat.answers) put(normalize(row.a), row, false);
     // Other names of one or two letters ("pe", "b") are codes, not answers a player means; only a few are kept.
     const shortOk = new Set(["uk", "us", "nz", "uae", "usa"]);
-    for (const row of cat.answers) for (const name of row.al || []) { const k = normalize(name); if (k.length >= 3 || shortOk.has(k) || k === normalize(row.a)) put(k, row, true); }
+    // Some lists store common misspellings as other names ("leging", "turqoise"). Those are spelling mistakes, not
+    // other names: they are offered as a correction to confirm, never accepted silently.
+    for (const row of cat.answers) for (const name of row.al || []) { const k = normalize(name), a = normalize(row.a);
+      if (!(k.length >= 3 || shortOk.has(k) || k === a)) continue;
+      // Forms of one word (clocks, knocked, boxes) are not misspellings either.
+      const form = (x, y) => variants(x).includes(y) || variants(y).includes(x) || (x.startsWith(y) && /^(s|es|ed|d|ing|er|ers)$/.test(x.slice(y.length))) || (y.startsWith(x) && /^(s|es|ed|d|ing|er|ers)$/.test(y.slice(x.length)));
+      const near = m => m !== k && !sameSpelling(k, m) && !form(k, m) && k.split(" ").length === m.split(" ").length && editCost(k, m, 2) <= 2;
+      const typo = k !== a && !COMMON.has(k) && !form(k, a) && [row.a, ...(row.al || [])].map(normalize).some(near);
+      put(k, row, typo ? "typo" : true); }
     // Plural forms of every name too, without overriding a real entry.
-    for (const row of cat.answers) for (const name of [row.a, ...(row.al || [])]) { const n = normalize(name); for (const v of variants(n).slice(1)) put(v, row, name === row.a ? "form" : true); }
+    for (const row of cat.answers) for (const name of [row.a, ...(row.al || [])]) { const n = normalize(name); const base = index.get(n), kind = name === row.a ? "form" : base && base.row === row && base.alias === "typo" ? "typo" : true; for (const v of variants(n).slice(1)) put(v, row, kind); }
     const keys = [], joined = new Map();
     for (const [k, v] of index) { keys.push({ k, row: v.row, snd: sound(k) }); const c = compact(k); if (c !== k && !joined.has(c)) joined.set(c, v); }
     return {
@@ -183,7 +199,12 @@
     const margin = second ? best.ll - second.ll : 9;
     // Confidence. High: close, clearly ahead of any other answer, and what was typed isn't itself an English word.
     // Medium: plausible and ahead, worth one question to the player. Anything else: low, and nothing is guessed.
-    const realWord = n.split(" ").every(w => COMMON.has(w)) && n.length > 2;
+    const realWord = n.split(" ").every(w => isWord(w)) && n.length > 2;
+    // A correctly spelt real word is never turned into a different answer (it may be a real answer missing from the list).
+    if (realWord && n.split(" ").some(w => w.length >= 4 || REAL.has(w))) return { row: best.row, cost: +best.cost.toFixed(2), margin: +margin.toFixed(2), level: "low" };
+    // A real word one letter away that isn't on the list ("farier" -> farrier, not farmer) is the likelier meaning:
+    // suggest nothing, and let review decide.
+    if (best.cost > 1 && !n.includes(" ") && n.length >= 6 && REAL.size && nearWord(n, best.key)) return { row: best.row, cost: +best.cost.toFixed(2), margin: +margin.toFixed(2), level: "low" };
     const lenOk = L >= 0.6 * compact(best.key).length;
     // A question is only asked about an answer people commonly give, and only when what was typed starts the same way
     // or sounds the same: a suggestion must never hand the player an obscure answer they didn't already have in mind.
@@ -194,6 +215,17 @@
     // ...and never when much of the word would change (under about a third of its letters, more if it sounds the same).
     else if (lenOk && margin >= 0.5 && best.cost <= Math.min(allow, 0.3 * L + 0.4) + (soundsAlike ? 1.5 : 0) && askable) level = "medium";
     return { row: best.row, cost: +best.cost.toFixed(2), margin: +margin.toFixed(2), level };
+  }
+  // Is there a real word one edit from w (other than the candidate)? Checks the ~50 x length single edits, not the dictionary.
+  function nearWord(w, except) {
+    const abc = "abcdefghijklmnopqrstuvwxyz", seen = new Set([except]);
+    const test = x => { if (seen.has(x)) return false; seen.add(x); return x.length >= 4 && REAL.has(x) && !COMMON.has(x); };   // a rare real word: an everyday word nearby (rake, safe) says nothing
+    for (let i = 0; i <= w.length; i++) {
+      if (i < w.length && test(w.slice(0, i) + w.slice(i + 1))) return true;
+      if (i < w.length - 1 && test(w.slice(0, i) + w[i + 1] + w[i] + w.slice(i + 2))) return true;
+      for (const c of abc) { if (test(w.slice(0, i) + c + w.slice(i))) return true; if (i < w.length && c !== w[i] && test(w.slice(0, i) + c + w.slice(i + 1))) return true; }
+    }
+    return false;
   }
   function gibberish(n) {
     const letters = n.replace(/[^a-z]/g, "");
@@ -227,8 +259,12 @@
     if (P.general.has(n) || variants(n).some(v => P.general.has(v))) return Object.assign(res, { status: "invalid", reason: "Too general" });
     // "any bird", "the rarest one", "something": not an answer, and never corrected into one.
     if (/^(any|every|all|some|random|whatever|anything|something|nothing|everything|idk|dunno|rarest|the rarest|a rare|rare|my|no)( |$)/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one particular answer" });
+    // One answer at a time, and nothing that talks to the checker instead of answering.
+    if (/[,;]/.test(String(text)) && String(text).split(/[,;]/).filter(x => normalize(x).length > 1).length > 1) return Object.assign(res, { status: "invalid", reason: "One answer at a time" });
+    if (/[<>{}\[\]=:]/.test(String(text)) || /\b(ignore|instructions?|system|prompt|accept (this|it|me)|mark (it|this|as)|say (it s )?valid|is valid|you must)\b/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one answer" });
     const hit = lookup(n, P);
-    if (hit) return ok(hit.row, hit.alias === true ? "alias" : hit.alias ? "form" : "exact");
+    if (hit && hit.alias === "typo" && !(given && given.noCorrect) && !dupOf(hit.row)) return Object.assign(res, { status: "confirm", row: hit.row, correction: { row: hit.row, cost: 1, level: "high" } });
+    if (hit) return ok(hit.row, hit.alias === true ? "alias" : hit.alias === "typo" ? "confirmed" : hit.alias ? "form" : "exact");
     // Spaces don't make a different answer: "bluejay" is "blue jay", "sea horse" is "seahorse".
     for (const v of variants(compact(n))) { const j = P.joined.get(v) || (P.index.has(v) ? P.index.get(v) : null); if (j) return ok(j.row, "joined"); }
     // "Mexican Hairless Dog" for a dog breed: the same answer with the category's own word added. A synonym, not a correction.
@@ -270,5 +306,5 @@
     return Object.assign(res, { status: "pending", reason: "Not in today's list yet" });
   }
 
-  window.IcebergValidate = { normalize, variants, prepare, judge, remember, gibberish, setCommonWords, editCost, sound, correct };
+  window.IcebergValidate = { normalize, variants, prepare, judge, remember, gibberish, setCommonWords, setRealWords, editCost, sound, correct, sameSpelling };
 })();

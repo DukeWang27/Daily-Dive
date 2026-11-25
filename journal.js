@@ -44,8 +44,21 @@
     });
     return out;
   }
+  // In the labelled demonstration (a preview page with no database), an empty journal shows a made-up history
+  // instead, so the page can be seen as a player would see it after a couple of weeks. Never used with real data.
+  const R = (title, name, depth) => ({ title, name, depth });
+  const SAMPLE = [
+    [R("Birds", "raven", 12), R("Cheese", "feta", 64), R("Countries", "Bhutan", 148), R("Sports", "sepak takraw", 212), R("Words", "quagmire", 0)],
+    [R("Fish", "cod", 3), R("Trees", "rowan", 96), R("Gods", "Anubis", 171), R("Tools", "spokeshave", 257), R("Colours", "teal", 40)],
+    [R("Fruit", "durian", 120), R("Jobs", "farrier", 188), R("Dances", "polka", 55), R("Words", "squib", 233), R("Flowers", "daisy", 0)],
+    [R("Instruments", "theremin", 131), R("Weather", "sleet", 22), R("Pasta", "orecchiette", 162), R("Gems", "tanzanite", 205), R("Kitchen", "zester", 77)],
+  ].map((rounds, i) => ({ v: 3, day: i + 1, total: 0, rounds }));
+  // Shown only with no real history, and only in the demonstration, on a preview page, or with ?journal-sample.
+  const sampleOk = () => (window.Account && window.Account.demo) || /claude|anthropic/.test(location.hostname) || window.self !== window.top || new URLSearchParams(location.search).has("journal-sample");
+  let showingSample = false;
+  const history = () => { const d = window.Game ? window.Game.days() : []; showingSample = !d.length && sampleOk(); return showingSample ? SAMPLE : d; };
   // The whole journal, from every saved day.
-  function compute(days = window.Game ? window.Game.days() : []) {
+  function compute(days = history()) {
     const log = new Map(); let deepest = null, dives = 0;
     for (const rec of days.slice().sort((a, b) => a.day - b.day)) {
       dives++;
@@ -110,6 +123,7 @@
     const found = j.log.size;
     add(box, h("div.lead.jn-lead",
       h("h2.title", "Field journal"),
+      showingSample ? h("p.jn-sample", "Example entries, made up to show how the journal fills in. Play a dive to start your own.") : null,
       h("p.note-line", found
         ? `${found} of ${j.total} animals recorded over ${j.dives === 1 ? "one dive" : fmt(j.dives) + " dives"}. Each entry was reached by one of your answers.`
         : "Nothing recorded yet. Each question's best answer reaches a depth, and the animal that lives there goes in here. Answers everyone gives stay at the surface; rarer ones reach deeper water."),

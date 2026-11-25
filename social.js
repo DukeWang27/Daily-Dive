@@ -55,10 +55,9 @@
   addEventListener("hashchange", show);
 
   function tabs() {
-    const st = A ? A.state : "off", reqs = st === "in" && A.profile.requests ? A.profile.requests : 0, cur = route.view === "u" ? "friends" : route.view;
+    const st = A ? A.state : "off", reqs = st === "in" && A.profile.requests ? A.profile.requests : 0, cur = route.view === "u" ? "friends" : route.view === "journal" ? "log" : route.view;
     const tab = (id, label, n) => h("button", { type: "button", "aria-current": cur === id ? "page" : null, onclick: () => go(id) }, label, n ? h("span.n", String(n)) : null);
     const list = [tab("log", "Dive log")];
-    if (window.Journal) list.push(tab("journal", "Field journal"));
     if (st !== "off") list.push(tab("friends", "Friends", reqs), tab("ranks", "Rankings"), st === "in" ? tab("settings", "Settings") : tab("account", st === "new" ? "Finish signing up" : "Sign in"));
     const nav = $("#hub-tabs"); nav.textContent = ""; add(nav, ...list);
     const flag = $("#hub-demo"); flag.hidden = !(A && A.demo);
@@ -164,6 +163,8 @@
       h("p.note-line", p ? `Diving since ${G().dateOf(1) && new Date(p.since).toLocaleDateString("en-US", { month: "long", year: "numeric" })}` : "Kept on this device only."))));
     if (!own) add(box, relationRow(p));
     add(box, statsGrid(stats, own));
+    // The field journal (journal.js) lives with the dive log: what your answers have reached, kept on this device.
+    if (own && window.Journal) { const j = window.Journal.compute(); add(box, h("button.jn-link", { type: "button", onclick: () => go("journal") }, h("b", "Field journal"), h("span", j.log.size ? `${j.log.size} of ${j.total} animals recorded` : "The animals your answers reach"))); }
     // Submarine races: a record of their own, never mixed into the daily numbers above.
     if (st === "in" && (own || p.relation === "friend")) {
       const races = h("p.r-record"); add(box, races);

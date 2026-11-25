@@ -89,7 +89,25 @@ least 4 on entertainment *and* on three-guess fit; high averages don't rescue a 
 
 Each decision is written down with its reason (`cms.py approve|reject <id> "<reason>"`).
 
-## 6. Validation by format
+## 6. Breadth is not depth (the rule the first review taught us)
+
+Rarity scoring plus a huge answer list rewards typing *any plausible obscure entry* rather than having a good idea:
+if every insect species is valid, "caddisfly" scores like a genuine insight. Every question is checked for this:
+
+- **Notability, not existence.** Named things (songs, bands, animals, people) must have a Wikipedia article or a
+  chart entry, not merely appear in a database of millions.
+- **Group the long tail when its members are interchangeable.** If any illness, any insect or any plastic item would
+  do, they count as one answer. Keep separate answers only where telling them apart takes knowledge or wit.
+- **Common words for word puzzles.** Wordplay answers must be in the ~30,000 commonest words, so the challenge is
+  finding a surprising word, not a legal one.
+- **Group synonyms in fixed lists** for everyday actions ("stir", "stirring", "mix" are one answer), decided in
+  advance, never by a model at play time.
+- **Rules never contradict the prompt.** If the prompt doesn't exclude something, it's valid. A player must never
+  give the obvious answer and be told it didn't count.
+- **English-first.** Wordplay and British/American questions need near-native English; keep them to about one a
+  day while the game is English-only.
+
+## 7. Validation by format
 
 - **Deterministic (wordplay):** the dictionary decides. Fully automatic, no review needed.
 - **Dataset-backed (knowledge, culture):** listed answers plus a dataset. Unknown answers go to the AI check only for
@@ -102,7 +120,7 @@ Each decision is written down with its reason (`cms.py approve|reject <id> "<rea
 - Rarity is separate from validity everywhere: a newly accepted answer gets a provisional depth with the caps in
   `CONTENT.md`, then real player counts take over.
 
-## 7. Learning from players
+## 8. Learning from players
 
 Signals per question, read with care rather than as targets: share of players with at least one valid answer;
 guesses used; time to first answer; pending and dispute rates; autocorrect rate; how concentrated answers are

@@ -831,6 +831,10 @@ html.in-play .acct-btn { display: none; }
 .jn-detail p { margin: 0; font-size: 14px; }
 .jn-big { width: min(100%, 360px); height: auto; image-rendering: pixelated; justify-self: center; }
 .jn-foot { margin-top: 18px; }
+.jn-link { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%; margin: 14px 0 4px; padding: 12px 0; background: none; border: 0; border-block: 1px solid var(--line); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.jn-link span { color: var(--muted); font-size: 14px; }
+.jn-link span::after { content: " \2192"; }
+.jn-link:hover b, .jn-link:focus-visible b { color: var(--accent); }
 .e-found { display: block; }
 .e-found b { color: var(--lumen); font-weight: 650; }
 /* Spelling: a corrected answer says so quietly; a "Did you mean" offers one answer and a way to keep what was typed. */

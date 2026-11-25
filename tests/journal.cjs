@@ -76,6 +76,8 @@ const ok = (name, cond, extra) => { if (cond) { pass++; console.log('PASS  ' + n
     await open(q);
     ok(`${vp}: the journal fits the width`, await q.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     ok(`${vp}: reachable from the menu`, await q.evaluate(() => !!document.querySelector('#menu-panel [data-go="journal"]')));
+    await q.evaluate(() => { location.hash = '#log'; }); await q.waitForSelector('.jn-link');
+    ok(`${vp}: the dive log links to it, and no extra tab crowds the tab row`, await q.evaluate(() => /1 of 20|of 20 animals/.test(document.querySelector('.jn-link').innerText) && document.querySelector('#hub-tabs').scrollWidth <= document.querySelector('#hub-tabs').clientWidth));
     await c.close();
   }
   await b.close(); site.close();

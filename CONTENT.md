@@ -153,6 +153,13 @@ generate (AI, offline)  ->  content/questions/<id>.json  ->  build.py report  ->
   - Known limitation: many answer lists use a few share levels rather than a distinct estimate per answer (a median of
     18% of a question's answers share one estimate; 59 of the 450 scheduled questions have over half on one value), so
     before player data those answers score the same depth. Real answers take over after about 30 players a question.
+- **Editorial direction (25 November 2026).** Questions now follow `tools/content/EDITORIAL.md`: a house voice (few
+  prompts open "Name a"; a seeded lateral question most days), gates that reject before scores rank, and the
+  "breadth is not depth" rule. The schedule opens with 14 curated days written and independently criticised under
+  that framework (their questions carry `"set"` and `"plan"`), then continues from the earlier bank with its prompts
+  in the house voice (`build.py voiced`) and bare categories rationed to one a day (`build.py is_plain`).
+  Prepared days start the day after the last day already played when this went live (`days/index.json` `"static"`),
+  not after the original 15, so the original bank's unplayed days were retired.
 - **Where the content lives.** The repository is **public**, so upcoming questions, answers, the schedule and build
   output are git-ignored (`.gitignore`). They must be kept in a private store: a private repository or a storage
   bucket. The game never needs them as files: each day goes into the database (`content_days`) and is handed out by

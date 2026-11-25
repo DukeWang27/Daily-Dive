@@ -21,6 +21,18 @@ After a question, each answer says how many real players gave it ("You and 3 oth
 this"), from the database's real counts only and only once at least 30 players have answered. A simulated sample is
 never shown as people.
 
+**Field journal.** Menu → Field journal (also linked from the Dive log). It records the animals your answers have
+actually reached: each question's best verified answer reaches a depth, and the animal that lives there goes in, with
+the answer that found it. Animals that only drift past aren't recorded. Which animal you meet at a depth is fixed by the
+day and the question, so everyone who gets there meets the same one. The great squid need 200 m, 250 m and Challenger
+Deep. It is worked out from the dives already saved on the device (`journal.js`), so nothing can be bought or ground
+out, and there is no separate record to edit. It does not yet follow an account across devices.
+
+**Where a day's questions come from.** The first days ship as files (`days/index.json` says how many: `"static"`).
+Every later day is prepared ahead and kept off the public site: the database hands it out only once that day has begun
+somewhere in the world (`day_content`), and the device keeps a copy. If the database has nothing prepared for a day,
+both sides fall back to an earlier day in rotation. See CONTENT.md and `tools/content/EDITORIAL.md`.
+
 There are 15 days of questions in the bank (75 questions). Everyone gets the same five on the same day, a new set
 appears at each player's local midnight, and after day 15 the calendar starts again from day 1 until more are added.
 

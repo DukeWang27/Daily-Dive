@@ -320,7 +320,7 @@
 
     const TIP_Y = (PEAK + W) / 2 + 8;
     let compact = false, stack = false, U = 2, Z = 2, camW = 0, camH = 0, camY = TIP_Y, aim = 0, axis = 0, focusIdx = -1, bestIdx = -1, items = [], raf = 0, snowRaf = 0, busy = false;
-    let frame = { l: 0, r: 0, t: 0, b: 0 }, frameRun = null, gaugeW = 84, noteBox = null, wide = false;   // wide: the whole iceberg in view, every marker labelled
+    let frame = { l: 0, r: 0, t: 0, b: 0, h: 0 }, frameRun = null, gaugeW = 84, noteBox = null, wide = false;   // wide: the whole iceberg in view, every marker labelled
     let run = { cancelled: true };
     const handlers = { focus: () => {}, depth: () => {}, travel: () => {}, land: () => {}, render: () => {}, resize: () => {} };
     let seed = 20261123; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; // fixed seed: same drift every visit
@@ -372,7 +372,9 @@
     // has to go underneath.
     const focusLine = () => frame.t + (camH - frame.t - frame.b) * (stack ? (compact ? 0.22 : 0.3) : 0.46);
     const focusY = it => it.y - (focusLine() - camH / 2) / U;
-    const tipY = () => TIP_Y - (frame.t + (camH - frame.t - frame.b) / 2 - camH / 2) / U;
+    // h: headroom kept above the summit when the camera is at the tip (the question's block of ice rests there). It
+    // only moves the tip's framing; answers further down are framed in the whole free area as before.
+    const tipY = () => TIP_Y - (frame.t + (frame.h || 0) + (camH - frame.t - (frame.h || 0) - frame.b) / 2 - camH / 2) / U;
 
     function render() {
       const X0 = tx(), Y0 = ty();
@@ -689,8 +691,8 @@
     // The part of the window not covered by controls, as insets in pixels. The camera recomposes to suit, gliding
     // there when asked (the results panel sliding in, for example).
     function setFrame(f, ms = 0) {
-      const next = { l: f.l || 0, r: f.r || 0, t: f.t || 0, b: f.b || 0 };
-      if (next.l === frame.l && next.r === frame.r && next.t === frame.t && next.b === frame.b) return;
+      const next = { l: f.l || 0, r: f.r || 0, t: f.t || 0, b: f.b || 0, h: f.h || 0 };
+      if (next.l === frame.l && next.r === frame.r && next.t === frame.t && next.b === frame.b && next.h === (frame.h || 0)) return;
       if (frameRun) frameRun.cancelled = true; frameRun = null;
       const from = { ...frame }, axis0 = axis, cam0 = camY, u0 = U;
       frame = next; measure();
@@ -698,7 +700,7 @@
       const intro = !run.cancelled && Z !== U; // the opening push-in is still running: it reads the new frame by itself
       if (ms <= 0 || U !== u0 || busy || intro) { axis = axisFor(frame); if (!busy && !intro) { Z = U; camY = settle(); } render(); return; }
       const axis1 = axisFor(frame), cam1 = settle(), fr = frameRun = { cancelled: false };
-      const mixF = k => ({ l: from.l + (next.l - from.l) * k, r: from.r + (next.r - from.r) * k, t: from.t + (next.t - from.t) * k, b: from.b + (next.b - from.b) * k });
+      const mixF = k => ({ l: from.l + (next.l - from.l) * k, r: from.r + (next.r - from.r) * k, t: from.t + (next.t - from.t) * k, b: from.b + (next.b - from.b) * k, h: (from.h || 0) + (next.h - (from.h || 0)) * k });
       animate(ms / speed, fr, k => { const e = easeInOut(k); frame = mixF(e); axis = axis0 + (axis1 - axis0) * e; if (!busy) camY = cam0 + (cam1 - cam0) * e; render(); })
         .then(() => { if (fr.cancelled) return; frameRun = null; frame = next; axis = axis1; if (!busy) camY = settle(); render(); });
     }

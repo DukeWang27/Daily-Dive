@@ -277,7 +277,7 @@ function sceneFrame() {
   // Room is kept above the summit for the question's block of ice. Its height, not its position, decides this: the
   // block follows the summit (placeSlab), so measuring where it is would chase the camera round in circles.
   const box = play.getBoundingClientRect(), slabBottom = top - box.top + 6 + $(".q-berg").offsetHeight;
-  if (wide) { const k = $(".dock"); return { l: k.offsetLeft + k.offsetWidth + 20, r: 0, t: Math.round(slabBottom + box.top) + 4, b: 0 }; }
+  if (wide) { const k = $(".dock"); return { l: k.offsetLeft + k.offsetWidth + 20, r: 0, t: top, b: 0, h: Math.round(slabBottom + box.top) + 4 - top }; }   // room above the summit only
   const p = $("#play-panel").getBoundingClientRect();
   play.style.setProperty("--q-bottom", Math.round(slabBottom) + "px"); play.style.setProperty("--p-height", Math.round(box.bottom - p.top) + "px");
   return { l: 0, r: 0, t: Math.round(slabBottom) + 4, b: Math.round(box.bottom - p.top) + 4 };

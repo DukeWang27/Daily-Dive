@@ -173,6 +173,7 @@ def schedule(qs=None, reps=None, seed=7):
         if same >= 2: return 1e9                                                                # never three from one category
         if same and any(c["style"] == q["style"] for c in chosen if c["category"] == q["category"]): return 1e9
         p += 25.0 * same                                                                         # a second one only when nothing else fits
+        if q["difficulty"] <= 2 and any(c["difficulty"] <= 2 for c in chosen): p += 8.0          # easy ones are scarce: one a day, save the rest
         if sum(c["style"] == q["style"] for c in chosen) >= 2: return 1e9                         # at most two of any style a day
         for back, past in enumerate(reversed(history[-45:])):
             for c in past:

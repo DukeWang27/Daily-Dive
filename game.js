@@ -360,15 +360,14 @@ async function startQuestion(animated) {
   if (rising) { const d = $("#done-panel"); d.classList.add("leaving"); setTimeout(() => { d.hidden = true; d.classList.remove("leaving"); }, 220); }
   else $("#done-panel").hidden = !done;
   if (!rising) { show("play"); syncFrame(0); } else updateHeader();
-  // The water stays as it is between questions: the deep animals pass out of view above as the camera rises and the
-  // shallow ones come into it. A visiting giant leaves. A fresh start (or a reload) fills the water anew.
+  // The water stays as it is between questions, and so does the camera's depth. A visiting giant leaves. A fresh start (or a reload) fills the water anew.
   if (life) { if (rising) life.dismiss(); else life.reset(state.day * 10 + state.round + 1); }
   // Real counts for this question, if a database is connected. Depths are fixed from what's known when you guess.
   r.stats = null;
   const shown = okGuesses(r);
   let ready = Promise.resolve();
   if (shown.length || done) { shown.forEach((g, i) => { g.bi = i; }); berg.restore(shown.map(g => bergItem(cat, r, g, r.guesses.indexOf(g) + 1))); tagBest(cat, r); }
-  else if (rising) ready = berg.surface(sceneFrame());
+  else if (rising) ready = berg.carry(sceneFrame());   // the dive goes on from the depth the last question reached
   else {
     // Pressing Play: the camera comes down the iceberg from the summit to the waterline before the first question.
     const descent = animated === true && state.round === 0 && !state.practice;
@@ -1121,6 +1120,16 @@ async function boot() {
   // Skipping: during a long reveal, Enter, Space or Escape (or a tap on the water) brings it to its end quickly.
   const hurry = () => { if (berg && screen === "play" && state && busy) berg.hurry(); };
   $("#ib").addEventListener("pointerdown", e => { if (!e.target.closest("button")) hurry(); });
+  // While a question is open the keyboard always belongs to the answer box: Enter sends what's typed wherever the
+  // focus is (after a click on the water or the guesses, say), and typing a letter puts the focus back in the box.
+  // Other fields, buttons and links keep their own keys.
+  document.addEventListener("keydown", e => {
+    if (screen !== "play" || !state || state.phase !== "play" || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    const input = $("#answer"), t = e.target;
+    if (t === input || (t.closest && t.closest("input, textarea, select, button, a, summary, [contenteditable], .pt-bar, .pt-panel"))) return;
+    if (e.key === "Enter" && input.value.trim()) { e.preventDefault(); submit(); return; }
+    if (e.key.length === 1 && e.key !== " " && !input.disabled) input.focus({ preventScroll: true });
+  }, true);
   document.addEventListener("keydown", e => {
     if (screen === "play" && state && state.phase === "play" && busy && ["Enter", " ", "Escape"].includes(e.key) && !(e.key === " " && e.target.closest("input"))) { hurry(); if (e.key !== "Enter") e.preventDefault(); }
     if (screen === "play" && state && state.phase === "play" && e.key === "Enter" && !busy && cur().guesses.length >= GUESSES) { e.preventDefault(); finishQuestion(); return; }

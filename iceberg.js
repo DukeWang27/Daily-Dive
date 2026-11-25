@@ -613,6 +613,23 @@
       clear();
       if (!r.cancelled) { Z = U; axis = axis1; camY = clampCam(tipY()); aim = 0; render(); r.cancelled = true; }   // finished: nothing is running any more
     }
+    // Between questions, the dive goes on: the last question's answers fade and the frame recomposes for the controls,
+    // but the camera stays at the depth it reached. The next guess travels from there, down or back up. Resolves once
+    // the frame is in place. f: the new frame, as for surface().
+    async function carry(f, ms = 620) {
+      stop(); const r = run = { cancelled: false }; busy = false; wide = false; nav.hidden = true;
+      const fromY = camY, z0 = Z, axis0 = axis, aim0 = aim;
+      if (frameRun) frameRun.cancelled = true; frameRun = null;
+      if (f) frame = { l: f.l || 0, r: f.r || 0, t: f.t || 0, b: f.b || 0 };
+      host.classList.add("ib-clearing"); host.classList.remove("ib-drawn");
+      let cleared = false;
+      const clear = () => { if (cleared) return; cleared = true; pendingClear = null; layer.innerHTML = ""; items = []; focusIdx = -1; bestIdx = -1; leader.setAttribute("d", ""); host.classList.remove("ib-clearing"); };
+      measure(); const axis1 = axisFor(frame);
+      pendingClear = () => { clear(); axis = axis1; Z = U; };
+      await animate((reduce ? 0 : ms) / speed, r, k => { const e = easeInOut(k); if (k > 0.25) clear(); Z = z0 + (U - z0) * e; axis = axis0 + (axis1 - axis0) * e; camY = clampCam(fromY); aim = aim0 * (1 - e); render(); });
+      clear();
+      if (!r.cancelled) { Z = U; axis = axis1; camY = clampCam(fromY); aim = 0; render(); r.cancelled = true; }
+    }
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // One guess: a beat of anticipation, the journey, the landing. Resolves when the marker lands and the annotation
     // starts to draw; the box is ready for the next guess from that moment.
@@ -725,7 +742,7 @@
     // Shown again (a screen change): pick the drawing back up.
     new IntersectionObserver(e => { if (e.some(x => x.isIntersecting) && !snowRaf) snowRaf = requestAnimationFrame(drawSnow); }).observe(host);
     return {
-      enter, add, restore, overview, focus, step, setTag, setSight, setFrame, surface, life, stop,
+      enter, add, restore, overview, focus, step, setTag, setSight, setFrame, surface, carry, life, stop,
       // End an opening move early and settle at the tip (a tap or a key during the descent).
       skipIntro() { if (run.cancelled || items.length) return; run.cancelled = true; Z = U; camY = clampCam(tipY()); render(); },
       // Skip ahead: a long move in progress (the descent beneath the iceberg, a slow reveal) finishes quickly.

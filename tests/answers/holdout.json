@@ -108,8 +108,8 @@
 "day": 3,
 "text": "galoshes",
 "expect": "ok",
-"answer": null,
-"kind": "missing-valid"
+"answer": "arctic",
+"kind": "alias"
 },
 {
 "q": "jobs",

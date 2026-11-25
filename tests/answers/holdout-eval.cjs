@@ -13,7 +13,7 @@ if (window.IcebergValidate.setRealWords) { try { window.IcebergValidate.setRealW
 const words = JSON.parse(fs.readFileSync(path.join(__dirname, '../../words.json'), 'utf8')); if (words.commonWords && V.setCommonWords) V.setCommonWords(words.commonWords);
 const cases = JSON.parse(fs.readFileSync(path.join(__dirname, 'holdout.json'), 'utf8'));
 const cats = {}, prep = {};
-const cat = c => { const k = c.day + c.q; if (!cats[k]) { cats[k] = JSON.parse(fs.readFileSync(path.join(__dirname, '../../days', c.day + '.json'), 'utf8')).questions.find(q => q.key === c.q); prep[k] = V.prepare(cats[k]); } return [cats[k], prep[k]]; };
+const cat = c => { const k = c.day + c.q; if (!cats[k]) { cats[k] = JSON.parse(fs.readFileSync(path.join(arg('days', path.join(__dirname, '../../days')), c.day + '.json'), 'utf8')).questions.find(q => q.key === c.q); prep[k] = V.prepare(cats[k]); } return [cats[k], prep[k]]; };
 
 (async () => {
   const ai = AI ? await import(path.join(__dirname, '../../api/_lib/check.mjs')) : null;
@@ -32,7 +32,8 @@ const cat = c => { const k = c.day + c.q; if (!cats[k]) { cats[k] = JSON.parse(f
   }
   const valid = rows.filter(r => r.expect === 'ok'), invalid = rows.filter(r => r.expect === 'invalid'), typos = rows.filter(r => r.expect === 'confirm');
   const pct = (a, b) => b ? +(100 * a / b).toFixed(1) : 0;
-  const rightRow = r => !r.answer || r.row === r.answer;
+  // An answer missing from the list that ends up "accepted" as some other listed answer is a wrong merge, not a success.
+  const rightRow = r => r.answer ? r.row === r.answer : !r.row;
   const m = {
     engine: path.relative(path.join(__dirname, '../..'), ENGINE), ai: AI || 'none', cases: rows.length,
     validAcceptedAtOnce: pct(valid.filter(r => r.out === 'ok' && rightRow(r)).length, valid.length),
@@ -42,7 +43,7 @@ const cat = c => { const k = c.day + c.q; if (!cats[k]) { cats[k] = JSON.parse(f
     invalidRejected: pct(invalid.filter(r => r.out === 'invalid').length, invalid.length),
     falseAcceptance: pct(invalid.filter(r => r.out === 'ok' || r.out === 'confirm').length, invalid.length),
     aliasRecognised: pct(rows.filter(r => ['alias', 'scientific', 'regional'].includes(r.kind) && r.out === 'ok' && rightRow(r)).length, rows.filter(r => ['alias', 'scientific', 'regional'].includes(r.kind)).length),
-    wrongEntity: pct(rows.filter(r => r.answer && (r.out === 'ok' || r.out === 'confirm') && r.row && r.row !== r.answer).length, rows.filter(r => r.answer).length),
+    wrongEntity: pct(rows.filter(r => r.expect === 'ok' && (r.out === 'ok' || r.out === 'confirm') && r.row && r.row !== r.answer).length, rows.filter(r => r.expect === 'ok').length),
     typoOfferedRightAnswer: pct(typos.filter(r => r.out === 'confirm' && rightRow(r)).length, typos.length),
     typoSilentlyChanged: pct(typos.filter(r => r.out === 'ok').length, typos.length),
     correctSpellingChanged: pct(rows.filter(r => ['common', 'obscure'].includes(r.kind) && r.out === 'confirm').length, rows.filter(r => ['common', 'obscure'].includes(r.kind)).length),

@@ -28,7 +28,9 @@ export function cleanAnswer(s) {
   const t = String(s ?? "").normalize("NFKC").replace(/[\u0000-\u001f\u007f<>{}\[\]`"\\]/g, " ").replace(/\s+/g, " ").trim();
   return t.slice(0, 40);
 }
-export const looksLikeInstructions = t => /\b(ignore|instruction|system|prompt|assistant|developer|accept (this|it|me)|mark (it|this|as)|you must|valid answer|json|output)\b/i.test(t) || /[,;:]/.test(t);
+// Phrases that address the checker rather than answer the question. Single words that are also real answers
+// ("prompt engineer", "solar system", "software developer") are deliberately not on this list.
+export const looksLikeInstructions = t => /\b(ignore (all|any|the|previous|prior|above|your|these|this)|instructions?|accept (this|it|me)|mark (it|this|me) as|mark as|you must|valid answer|disregard|respond with|return json)\b/i.test(t) || /[,;:]/.test(t);
 
 // Up to n listed answers that look closest to the typed text: what the model may map an alias or a misspelling to.
 export function nearest(text, names, n = 5) {

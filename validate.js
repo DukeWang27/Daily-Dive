@@ -91,7 +91,10 @@
       // Forms of one word (clocks, knocked, boxes) are not misspellings either.
       const form = (x, y) => variants(x).includes(y) || variants(y).includes(x) || (x.startsWith(y) && /^(s|es|ed|d|ing|er|ers)$/.test(x.slice(y.length))) || (y.startsWith(x) && /^(s|es|ed|d|ing|er|ers)$/.test(y.slice(x.length)));
       const near = m => m !== k && !sameSpelling(k, m) && !form(k, m) && k.split(" ").length === m.split(" ").length && editCost(k, m, 2) <= 2;
-      const typo = k !== a && !COMMON.has(k) && !form(k, a) && [row.a, ...(row.al || [])].map(normalize).some(near);
+      // Against a sibling name, only a classic slip counts (one letter dropped, or two swapped): two real spellings
+      // that differ by a letter (galosh, golosh) are both kept.
+      const slip = m => { for (let i = 0; i < m.length; i++) { if (m.slice(0, i) + m.slice(i + 1) === k) return true; if (i < m.length - 1 && m.slice(0, i) + m[i + 1] + m[i] + m.slice(i + 2) === k) return true; } return false; };
+      const typo = k !== a && !COMMON.has(k) && !form(k, a) && [row.a, ...(row.al || [])].map(normalize).some(m => m === a ? near(m) : near(m) && slip(m));
       put(k, row, typo ? "typo" : true); }
     // Plural forms of every name too, without overriding a real entry.
     for (const row of cat.answers) for (const name of [row.a, ...(row.al || [])]) { const n = normalize(name); const base = index.get(n), kind = name === row.a ? "form" : base && base.row === row && base.alias === "typo" ? "typo" : true; for (const v of variants(n).slice(1)) put(v, row, kind); }
@@ -261,7 +264,7 @@
     if (/^(any|every|all|some|random|whatever|anything|something|nothing|everything|idk|dunno|rarest|the rarest|a rare|rare|my|no)( |$)/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one particular answer" });
     // One answer at a time, and nothing that talks to the checker instead of answering.
     if (/[,;]/.test(String(text)) && String(text).split(/[,;]/).filter(x => normalize(x).length > 1).length > 1) return Object.assign(res, { status: "invalid", reason: "One answer at a time" });
-    if (/[<>{}\[\]=:]/.test(String(text)) || /\b(ignore|instructions?|system|prompt|accept (this|it|me)|mark (it|this|as)|say (it s )?valid|is valid|you must)\b/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one answer" });
+    if (/[<>{}\[\]=:]/.test(String(text)) || /\b(ignore (all|any|the|previous|prior|above|your|these|this)|instructions?|accept (this|it|me)|mark (it|this|me) as|mark as|say (it s )?valid|is valid|you must|disregard)\b/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one answer" });
     const hit = lookup(n, P);
     if (hit && hit.alias === "typo" && !(given && given.noCorrect) && !dupOf(hit.row)) return Object.assign(res, { status: "confirm", row: hit.row, correction: { row: hit.row, cost: 1, level: "high" } });
     if (hit) return ok(hit.row, hit.alias === true ? "alias" : hit.alias === "typo" ? "confirmed" : hit.alias ? "form" : "exact");

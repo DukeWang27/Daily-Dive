@@ -761,19 +761,23 @@ function bumpStreak(day) {
 }
 // Which set of five questions a day uses, and its file.
 let DAY_COUNT = 1; const setCache = new Map();
-const setOf = day => day > LEGACY_DAYS && BACKEND.url ? day : ((day - 1) % (LEGACY_DAYS || DAY_COUNT)) + 1;   // a prepared day is its own set
+const setOf = day => day > STATIC_DAYS && BACKEND.url ? day : ((day - 1) % (LEGACY_DAYS || DAY_COUNT)) + 1;   // a prepared day is its own set
 const loadSet = id => { if (!setCache.has(id)) setCache.set(id, dayContent(id).then(d => (d && d.questions) || [])); return setCache.get(id); };
-// A day's five questions. Days 1-15 (the original bank) ship as files. Later days are prepared in advance but kept off
-// the public site: the database hands each one out only once that day has begun somewhere (day_content in
-// supabase/0006_content.sql), and this device keeps a copy so a reload or a lost connection doesn't lose the day.
-let LEGACY_DAYS = 15;
+// A day's five questions. The first few days (STATIC_DAYS: the ones already played when prepared content began) ship
+// as files. Every later day is prepared in advance and kept off the public site: the database hands each one out only
+// once that day has begun somewhere (day_content in supabase/0006_content.sql), and this device keeps a copy so a
+// reload or a lost connection doesn't lose the day. With no database (tests, previews) the files are used in rotation.
+let LEGACY_DAYS = 15, STATIC_DAYS = 15;
 async function dayContent(n) {
   const fromFile = () => fetch(`days/${n}.json`).then(r => r.ok ? r.json() : null).catch(() => null);
-  const rotation = () => fetch(`days/${((n - 1) % LEGACY_DAYS) + 1}.json`).then(x => x.ok ? x.json() : null).catch(() => null);
-  if (n <= LEGACY_DAYS) return fromFile();
+  const online = !!(BACKEND.url && BACKEND.anonKey);
+  if (n <= STATIC_DAYS || (!online && n <= LEGACY_DAYS)) return fromFile();
   const cached = store.get("content:" + n, null);
   if (cached && cached.questions) return cached;
-  if (BACKEND.url && BACKEND.anonKey) {
+  if (online) {
+    // No prepared content for a day: the database falls back to an earlier day's set in rotation (private.day_set),
+    // so the game loads that same day's questions, from wherever that day's questions come.
+    const rotation = () => { const r = ((n - 1) % LEGACY_DAYS) + 1; return r === n ? fromFile() : dayContent(r); };
     try {
       const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 8000);
       const r = await fetch(`${BACKEND.url}/rest/v1/rpc/day_content`, { method: "POST", signal: ctl.signal,
@@ -782,12 +786,10 @@ async function dayContent(n) {
       if (r.ok) {
         const d = await r.json();
         if (d && d.questions) { store.set("content:" + n, d); return d; }
-        // The database answered: no prepared content for this day. It then uses the original bank in rotation
-        // (private.day_set), so the game does the same and both score the same questions.
         if (d === null) return rotation();
       } else if (r.status === 404) return rotation();   // no day_content function: a database from before 0006, which always rotates
-
     } catch { /* no answer: never guess a different set, which would be scored against the wrong table */ }
+    if (n <= LEGACY_DAYS) return null;   // this day's file is the old bank, which the database may no longer be using for it
   }
   return fromFile();   // a local preview build may carry the files
 }
@@ -982,7 +984,7 @@ async function boot() {
   // runs out it starts again from day 1. (Day 0 is a fixed set used by the automated tests.)
   try {
     const index = await (await fetch("days/index.json")).json();
-    LEGACY_DAYS = index.count || 15;
+    LEGACY_DAYS = index.count || 15; STATIC_DAYS = Math.min(LEGACY_DAYS, index.static || LEGACY_DAYS);
     // From day 16 on, each day has its own prepared questions; without them (no database here), the original bank repeats.
     const want = PARAMS.has("test") && PARAMS.has("day") ? +PARAMS.get("day") : dayNumber();
     // The common-word list only sharpens the typo check, so the game doesn't wait for it.

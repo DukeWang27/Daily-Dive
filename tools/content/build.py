@@ -15,7 +15,12 @@ sys.path.insert(0, os.path.dirname(__file__))
 import kbmerge
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 C = os.path.join(ROOT, "content")
-FIRST_NEW_DAY, DAYS_WANTED = 16, 90          # days 1-15 are the original bank (already in the database as sets 1-15)
+# Prepared content starts the day after the last day that ships as a file (days/index.json "static": the days already
+# played when prepared content began). Without that setting, it starts after the original 15-day bank.
+def _first_new_day():
+    try: idx = json.load(open(os.path.join(ROOT, "days", "index.json"))); return int(idx.get("static") or idx.get("count") or 15) + 1
+    except Exception: return 16
+FIRST_NEW_DAY, DAYS_WANTED = _first_new_day(), 90
 SURFACE, BEYOND_M = 0.10, 300
 PROVISIONAL_CAP = 250                        # a dataset-only answer (no estimate, no players yet) can't go deeper than this
 NO_EVIDENCE_CAP = BEYOND_M - 1               # nothing goes beneath the iceberg without real player evidence
@@ -41,6 +46,8 @@ def legacy_questions():
     out = []
     for f in sorted(glob.glob(os.path.join(ROOT, "days", "*.json")) + glob.glob(os.path.join(ROOT, "race", "*.json"))):
         if f.endswith("index.json") or f.endswith(os.sep + "0.json"): continue
+        name = os.path.basename(f)[:-5]
+        if os.sep + "days" + os.sep in f and name.isdigit() and int(name) >= FIRST_NEW_DAY: continue   # an original day that prepared content replaced: never played
         for q in json.load(open(f))["questions"]:
             out.append({"id": "legacy:" + q["key"], "prompt": q["prompt"], "topic": q["key"], "answers": [{"a": a["a"], "p": a["s"]} for a in q["answers"]]})
     return out
@@ -132,11 +139,12 @@ def report():
     for q in qs:
         rows, added = answers_of(q); q["_rows"] = rows
         reps[q["id"]] = quality(q, rows, added)
-    dups = duplicates(qs, legacy)
+    dups = duplicates(qs, legacy); byid = {q["id"]: q for q in qs}
     # The weaker question of a near-duplicate pair (or the new one, against the original bank) is held back.
     for d in dups:
         ra, rb = reps.get(d["a"]), reps.get(d["b"])
-        loser = d["a"] if rb is None or (ra and rb and ra["score"] <= rb["score"]) else d["b"]
+        ea, eb = bool(byid.get(d["a"], {}).get("set")), bool(byid.get(d["b"], {}).get("set"))   # an edited question beats an unedited one
+        loser = d["a"] if rb is None else d["b"] if ea and not eb else d["a"] if eb and not ea else d["a"] if ra["score"] <= rb["score"] else d["b"]
         if loser in reps and reps[loser]["status"] != "reject":
             reps[loser]["status"] = "duplicate"; reps[loser]["flags"].append(f"near-duplicate of {d['b'] if loser == d['a'] else d['a']}")
     json.dump({"generated": datetime.date.today().isoformat(), "questions": reps, "duplicates": dups}, open(os.path.join(C, "report", "quality.json"), "w"), indent=1)
@@ -144,6 +152,21 @@ def report():
     print(f"{len(qs)} questions: {dict(cnt)}; {len(dups)} near-duplicate pairs")
     print("categories (ready):", dict(collections.Counter(r["category"] for r in reps.values() if r["status"] == "ready")))
     return qs, reps
+
+# ---------- the house voice ----------
+CLAUSE = re.compile(r"\b(that|with|who|whose|you|named|from|in|on|at|of|for|by|before|after|not|isn|but|once|also|can|has|have|is|are|was|were|people|something|used|made|found|without|than|over|under|more|less|only|ending|starting|containing)\b")
+def is_plain(q):
+    """A bare category ("Name a waterfall"): fine now and then, rationed to one a day at most."""
+    p = q["prompt"]
+    return not q.get("set") and bool(re.fullmatch(r"Name (a|an|the)( [A-Za-z'-]+){1,3}( or( an?)? [a-z' -]+)?", p)) and not CLAUSE.search(p)
+def voiced(q):
+    """The prompt as players read it. Edited questions are final. Older ones lose the repeated "Name ..." opening unless
+    they are a bare category, where "Name a waterfall" is the natural way to ask (EDITORIAL.md, the house voice)."""
+    p = q["prompt"]
+    if q.get("set") or is_plain(q) or not p.startswith("Name "): return p
+    rest = p[5:]
+    if rest.split()[0].lower() in ("a", "an", "something", "someone", "the", "one", "any", "what"): return rest[0].upper() + rest[1:]
+    return p
 
 # ---------- schedule ----------
 def schedule(qs=None, reps=None, seed=7):
@@ -167,6 +190,13 @@ def schedule(qs=None, reps=None, seed=7):
         history.append(hist)
     day = max([FIRST_NEW_DAY - 1] + [int(d) for d in fixed]) + 1
     last_day = FIRST_NEW_DAY + DAYS_WANTED - 1
+    # Curated days: questions written as a set carry the day and position they were composed for ("plan"). They open
+    # the schedule in that order; anything of theirs that isn't ready is replaced by the scheduler's own choice.
+    planned = {}
+    for q in pool:
+        if q.get("plan") and q.get("set"): planned.setdefault(FIRST_NEW_DAY + int(q["plan"]["day"]) - 1, []).append(q)
+    for v in planned.values(): v.sort(key=lambda q: q["plan"].get("slot", 9))
+    reserved = {id(q) for d, v in planned.items() if d >= day for q in v}
     def penalty(q, chosen):
         p = 0.0
         same = sum(c["category"] == q["category"] for c in chosen)
@@ -174,7 +204,10 @@ def schedule(qs=None, reps=None, seed=7):
         if same and any(c["style"] == q["style"] for c in chosen if c["category"] == q["category"]): return 1e9
         p += 25.0 * same                                                                         # a second one only when nothing else fits
         if q["difficulty"] <= 2 and any(c["difficulty"] <= 2 for c in chosen): p += 8.0          # easy ones are scarce: one a day, save the rest
-        if sum(c["style"] == q["style"] for c in chosen) >= 2: return 1e9                         # at most two of any style a day
+        if sum(c["style"] == q["style"] for c in chosen) >= 2 and not q.get("set"): return 1e9    # at most two of any style a day
+        if is_plain(q):                                                                          # bare categories: one a day at most
+            if any(is_plain(c) for c in chosen): return 1e9
+            p += 6.0
         for back, past in enumerate(reversed(history[-45:])):
             for c in past:
                 if c["topic"] == q["topic"]: return 1e9                                           # same topic: 45-day cooldown
@@ -184,13 +217,13 @@ def schedule(qs=None, reps=None, seed=7):
                 if c["category"] == q["category"]: p += 3.0 / (back + 1)                         # categories spread across days
         return p
     while day <= last_day:
-        chosen = []
-        for slot in range(5):
+        chosen = list(planned.get(day, []))[:5]; curated = len(chosen)
+        for slot in range(len(chosen), 5):
             need_easy = slot == 4 and not any(c["difficulty"] <= 2 for c in chosen)
             need_hard = slot == 4 and not any(c["difficulty"] >= 3 for c in chosen)
             best, bp = None, 1e9
             for q in pool:
-                if q in chosen: continue
+                if q in chosen or id(q) in reserved: continue
                 if need_easy and q["difficulty"] > 2: continue
                 if need_hard and q["difficulty"] < 3: continue
                 p = penalty(q, chosen) + rng.random() * 0.5 - 0.02 * reps[q["id"]]["score"]
@@ -199,10 +232,11 @@ def schedule(qs=None, reps=None, seed=7):
             chosen.append(best)
         if len(chosen) < 5: print(f"stopped at day {day}: not enough varied ready questions"); break
         # Order within the day: an easy opener, the hardest fourth, a creative or association question last if there is one.
-        chosen.sort(key=lambda c: c["difficulty"])
-        hardest = max(chosen, key=lambda c: c["difficulty"]); chosen.remove(hardest); chosen.insert(3, hardest)
+        if curated < 3:   # a curated day keeps the order it was written in
+            chosen.sort(key=lambda c: c["difficulty"])
+            hardest = max(chosen, key=lambda c: c["difficulty"]); chosen.remove(hardest); chosen.insert(3, hardest)
         days[str(day)] = [c["id"] for c in chosen]
-        for c in chosen: pool.remove(c)
+        for c in chosen: pool.remove(c); reserved.discard(id(c))
         history.append(chosen); day += 1
     sched = {"note": "Day -> five question ids. Days up to tomorrow are fixed once published; later days are rebuilt by build.py schedule.",
              "first_new_day": FIRST_NEW_DAY, "days": days}
@@ -224,8 +258,9 @@ def client_question(q, rows):
         al = [x for x in r.get("al", []) if norm(x) != norm(a)]
         if al: row["al"] = al
         if r.get("pv"): row["pv"] = 1; row["x"] = 1
+        if r.get("hide"): row["h"] = 1                    # accepted, never shown on public answer lists
         out.append(row)
-    return {"key": q["id"], "title": q["title"], "icon": q["icon"], "prompt": q["prompt"], "hint": q["hint"], "rules": q["rules"]["player"],
+    return {"key": q["id"], "title": q["title"], "icon": q["icon"], "prompt": voiced(q), "hint": q["hint"], "rules": q["rules"]["player"],
             "answers": out, "general": q.get("general", []), "notIn": q.get("notIn", []), "category": q["category"],
             "criteria": {k: q["rules"].get(k) for k in ("accept", "exclude", "granularity", "synonyms") if q["rules"].get(k)}}
 

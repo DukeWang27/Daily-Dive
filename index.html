@@ -720,7 +720,7 @@ html.in-play .acct-btn { display: none; }
   .dock > * { pointer-events: auto; }
   .play.done .dock { transform: none; }
   .q { padding: 2px var(--gutter) 0; } .q .eyebrow, .q-hint { display: none; }
-  .dock { justify-content: flex-end; }
+  [data-screen="play"] > .dock { justify-content: flex-end; }   /* the daily game only: its question sits on the iceberg, not in this column */
   .q-berg { max-width: calc(100vw - var(--gutter) * 2); padding: 8px 14px 18px; } .q-berg.afloat { padding-bottom: 8px; }
   .q-berg .q-title h2 { font-size: 19px; } .q-berg .q-icon { font-size: 22px; }
   .q-icon { font-size: 26px; } .q-title { gap: 10px; }

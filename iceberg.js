@@ -15,12 +15,12 @@
   const SURFACE_SHARE = 0.10, MAX_M = 300, TOP_Y = W + 14, PXM = (BOTTOM - 64 - TOP_Y) / MAX_M;
   // Below the iceberg. The iceberg holds every answer down to 1 in 10,000 players (300 m). An answer rarer than
   // that, with the evidence to back it, leaves the ice altogether: it sits in open water beneath the iceberg's tip,
-  // in a region of its own, Unfathomable. The scene's world runs on past the artwork to make room (SH).
+  // in a region of its own, Challenger Deep. The scene's world runs on past the artwork to make room (SH).
   const BEYOND_M = MAX_M, BEYOND_Y = BOTTOM + 150, PXD = 3, SH = 1400;
   // Evidence. Every rarity table is built from a sample of players (today: 120,000 simulated three-guess players per
   // question; later, real counts). An answer only counts as rarer than 1 in 10,000 when at least 3 of that sample
   // gave it. Below that, nobody can tell "very rare" from "noise", so the answer stays at the bottom of the iceberg
-  // (299 m) and never reaches Unfathomable. Unknown answers, answers waiting for review and answers approved by review
+  // (299 m) and never reaches Challenger Deep. Unknown answers, answers waiting for review and answers approved by review
   // have no place in a table, so they can never get there either.
   const EVIDENCE = { players: 120000, min: 3 };
   const evidenced = share => Math.round(share * EVIDENCE.players) >= EVIDENCE.min;
@@ -30,7 +30,7 @@
     { key: "mid", name: "Midwater", from: 50 },      // 50 to 100 m: about 1 in 30 to 1 in 100
     { key: "deep", name: "The Deep", from: 100 },    // 100 to 200 m: 1 in 100 to 1 in 1,000
     { key: "abyss", name: "The Abyss", from: 200 },  // 200 to 299 m: 1 in 1,000 to 1 in 10,000
-    { key: "beyond", name: "Unfathomable", from: 300 }, // beneath the iceberg: rarer than 1 in 10,000, with evidence
+    { key: "beyond", name: "Challenger Deep", from: 300 }, // beneath the iceberg: rarer than 1 in 10,000, with evidence
   ];
   const depthOf = share => {
     if (share >= SURFACE_SHARE) return 0;

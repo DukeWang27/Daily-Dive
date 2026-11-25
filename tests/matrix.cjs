@@ -384,7 +384,7 @@ async function scene(b) {
   const deep = (await life()).inView;
   ok('at 317 m (beneath the iceberg): the water is almost empty, and nothing from the surface', deep.every(k => cast.find(s => s.key === k).band === 'abyss'), deep.join(', ') || 'nothing in view');
   await p.waitForTimeout(600);
-  ok('Unfathomable answer (317 m): the colossal squid comes, and the annotation says so', (await p.evaluate(() => ICEBERG_TEST.life.guests)).includes('colossal') && /colossal squid/i.test(await p.textContent('.ib-sight')), await p.evaluate(() => ICEBERG_TEST.life.guests.join(',')));
+  ok('Challenger Deep answer (317 m): the colossal squid comes, and the annotation says so', (await p.evaluate(() => ICEBERG_TEST.life.guests)).includes('colossal') && /colossal squid/i.test(await p.textContent('.ib-sight')), await p.evaluate(() => ICEBERG_TEST.life.guests.join(',')));
   ok('encounter plays its own quiet sound', (await p.evaluate(() => window.__snd)).includes('encounter'));
   await waitDone(p); await p.waitForTimeout(500);
   // Back up to the first guess and down again: the same water, not a fresh one.

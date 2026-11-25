@@ -20,11 +20,11 @@ appears at each player's local midnight, and after day 15 the calendar starts ag
 - **Depth.** An answer that 1 in 10 players (or more) give sits above the water at 0 m. Every 10 times rarer is
   100 m deeper: 1 in 100 is 100 m, 1 in 1,000 is 200 m, 1 in 10,000 is 300 m.
 - **Zones.** The Tip (above water), Shallows (to 50 m), Midwater (50 to 100 m), The Deep (100 to 200 m),
-  The Abyss (200 to 299 m), and **Unfathomable**, beneath the iceberg itself (300 m and deeper).
+  The Abyss (200 to 299 m), and **Challenger Deep**, beneath the iceberg itself (300 m and deeper).
 - **Beneath the iceberg.** The iceberg holds everything down to 1 in 10,000 players. An answer rarer than that
   leaves the ice: the camera takes a long, slow descent past the iceberg's tip into the dark open water below, the
   answer is annotated in red, and the colossal squid comes up out of the dark beside it. It only counts as
-  Unfathomable with evidence: at least 3 players in the rarity table's sample (today 120,000 simulated players per
+  Challenger Deep with evidence: at least 3 players in the rarity table's sample (today 120,000 simulated players per
   question) must have given it. Anything rarer than the sample can show stops at 299 m, at the very bottom of the
   iceberg, because "nobody in 120,000 said it" can't be told apart from noise. Unknown answers, answers waiting for
   review and answers approved by review never get there. About 1 in 8 accepted answers can reach it, almost always
@@ -368,7 +368,7 @@ screen. It needs the database and an account (so everyone in a race is a real pe
   and who may see what. Nobody's answers are sent to anyone else until the question has closed, and a guess after
   the deadline (plus 1.5 seconds for the network) is refused. Answers are judged in the browser for speed and
   checked again by the database (the same check the daily game now uses).
-- **Unfathomable in a race.** One answer of 300 m or deeper is an Unfathomable find, as in the daily game; a big
+- **Challenger Deep in a race.** One answer of 300 m or deeper is a Challenger Deep find, as in the daily game; a big
   total built from ordinary answers is not. The finder's submarine lights up red, the colossal squid rises beside it
   (lit only by the submarines' lamps), and every other racer immediately sees a note and the red light round that
   submarine, but not the answer. None of it pauses or slows the clock.
@@ -438,7 +438,7 @@ Nine sets of checks, all run against the real code:
   placeholder text such as "null", "undefined" or "NaN", deleting an account.
 - **`tests/beneath.cjs`** checks the region beneath the iceberg in a real browser, on a desktop and a phone: 52
   checks. The evidence rule and the depth scale, every daily answer that can reach it, an ordinary answer, a rare one
-  near the bottom of the iceberg, then an Unfathomable one: the descent past the tip, the iceberg out of view, the
+  near the bottom of the iceberg, then a Challenger Deep one: the descent past the tip, the iceberg out of view, the
   red annotation, gauge and guess row, the colossal squid (its size, colour and drawing time), the results, the share
   card and text, and exploring the dive again.
 - **`tests/flow.cjs`** times the game's moments in a real browser, with tight limits: 21 checks. Typing ahead, the

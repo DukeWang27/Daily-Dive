@@ -225,7 +225,7 @@
     const L = S.g.lamps; L.clearRect(0, 0, S.c.lamps.width, S.c.lamps.height);
     for (const s of S.subs.values()) {
       window.SubArt.lights(L, Math.round(s.x + bx), Math.round(s.y + by), s.look, S.t, { thrust: s.thrust, dark: 0.35 + dark * 0.75 });
-      if (s.beneath) {   // an Unfathomable find this question: a low red light breathing round the submarine
+      if (s.beneath) {   // a Challenger Deep find this question: a low red light breathing round the submarine
         const x = s.x + bx, y = s.y + by, k = 0.22 + 0.06 * Math.sin(S.t * 1.05), gr = L.createRadialGradient(x, y, 2, x, y, 46);
         gr.addColorStop(0, `rgba(224,92,80,${k.toFixed(3)})`); gr.addColorStop(1, "rgba(224,92,80,0)"); L.fillStyle = gr; L.fillRect(x - 48, y - 48, 96, 96);
       }
@@ -443,8 +443,8 @@
       if (r.status === "question" && prev.rank && rank !== prev.rank) S2.play("overtake", { dir: rank < prev.rank ? 1 : -1 });
       if (rank < prev.rank && r.status === "question") { const passed = r.players.filter(p => !p.me).sort((a, b) => b.distance - a.distance)[rank - 1]; if (passed) flash(`You passed ${passed.username}`); }
     }
-    // Another racer's Unfathomable find: everyone sees their submarine light up red and hears it, but not the answer.
-    for (const s of S.subs.values()) if (s.newFind) { s.newFind = false; if (!s.me) { s.beneath = r.round; if (prev && prev.id === r.id) { flash(`${s.name} found something Unfathomable`); S2.play("unfathomable"); } } }
+    // Another racer's Challenger Deep find: everyone sees their submarine light up red and hears it, but not the answer.
+    for (const s of S.subs.values()) if (s.newFind) { s.newFind = false; if (!s.me) { s.beneath = r.round; if (prev && prev.id === r.id) { flash(`${s.name} reached Challenger Deep`); S2.play("unfathomable"); } } }
     if (r.status !== "question") for (const s of S.subs.values()) s.beneath = 0;
     const me = r.players.find(p => p.me), z = zoneAt(me ? me.distance : 0);
     if (prev && z > lastZone) { S2.play("zone", { level: z }); flash(`${ZONES[z].name}`); }
@@ -612,9 +612,9 @@
       const me = race.players.find(p => p.me); if (me) { me.distance = res.distance; me.used = res.slot; }
       const beneath = res.status === "ok" && window.Iceberg.isBeyond(res.depth);
       const sub = [...S.subs.values()].find(s => s.me);
-      if (sub) { sub.dist = res.distance; sub.note = res.status === "ok" ? `${j.row ? (j.row.d || j.row.a) : text} · ${beneath ? "Unfathomable" : G().pctText(res.share)}` : ""; if (beneath) { sub.beneath = r.round; sub.finds = (sub.finds || 0) + 1; } setTimeout(() => { if (sub.note && sub.dist === res.distance) sub.note = ""; }, beneath ? 6500 : 3200); }
+      if (sub) { sub.dist = res.distance; sub.note = res.status === "ok" ? `${j.row ? (j.row.d || j.row.a) : text} · ${beneath ? "Challenger Deep" : G().pctText(res.share)}` : ""; if (beneath) { sub.beneath = r.round; sub.finds = (sub.finds || 0) + 1; } setTimeout(() => { if (sub.note && sub.dist === res.distance) sub.note = ""; }, beneath ? 6500 : 3200); }
       if (res.status !== "ok") say(`Saved for review: no depth.${res.left ? ` ${res.left} left.` : ""}`);
-      else if (beneath) { say(`Unfathomable: ${res.depth} m, ${G().pctText(res.share)} of players.${res.moved > 0 ? ` Down ${res.moved} m.` : ""}${res.left ? ` ${res.left} left.` : ""}`, "beyond"); if (res.moved > 0) window.Sound.play("thrust", { size: Math.min(1, res.moved / 260) }); window.Sound.play("unfathomable"); }
+      else if (beneath) { say(`Challenger Deep: ${res.depth} m, ${G().pctText(res.share)} of players.${res.moved > 0 ? ` Down ${res.moved} m.` : ""}${res.left ? ` ${res.left} left.` : ""}`, "beyond"); if (res.moved > 0) window.Sound.play("thrust", { size: Math.min(1, res.moved / 260) }); window.Sound.play("unfathomable"); }
       else if (res.moved > 0) { say(`${res.depth} m · ${G().pctText(res.share)} of players. Down ${res.moved} m.${res.left ? ` ${res.left} left.` : ""}`, "good"); window.Sound.play("thrust", { size: Math.min(1, res.moved / 260) }); window.Sound.play(res.depth >= 200 ? "rare" : "reveal", { m: res.depth, lead: 0.6 }); }
       else { say(`${res.depth} m · not deeper than your best, so you stay at ${m(res.distance)}.${res.left ? ` ${res.left} left.` : ""}`); window.Sound.play("neutral"); }
       // An exceptional answer: something large comes past your submarine.

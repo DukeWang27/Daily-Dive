@@ -250,7 +250,7 @@ const jsDepth = s => { if (s >= 0.1) return 0; const d = Math.max(1, Math.round(
 
   // ---------- Beneath the iceberg ----------
   const ev = (await admin(`select count(*) filter (where depth >= 300 and round(share * 120000) < 3)::int bad, count(*) filter (where depth >= 300)::int beyond, count(*) filter (where depth = 299 and round(share * 120000) < 3)::int held from public.set_answers where set_id < 1000`))[0];
-  ok('Unfathomable: no daily answer reaches 300 m without at least 3 of the 120,000 sample behind it; thinner ones stop at 299 m', ev.bad === 0 && ev.beyond > 0 && ev.held > 0, JSON.stringify(ev));
+  ok('Challenger Deep: no daily answer reaches 300 m without at least 3 of the 120,000 sample behind it; thinner ones stop at 299 m', ev.bad === 0 && ev.beyond > 0 && ev.held > 0, JSON.stringify(ev));
 
   // ---------- Deleting an account ----------
   await rpc(gus, 'delete_account');

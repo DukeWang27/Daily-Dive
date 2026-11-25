@@ -105,7 +105,7 @@
   function text(data) {
     // Beneath the iceberg the bar runs off the end, past the ice: a full bar and a mark beyond it.
     const bar = d => { const n = Math.max(0, Math.min(10, Math.round(d / 30))); return "▓".repeat(n) + "░".repeat(10 - n) + (I.isBeyond(d) ? " ◆" : ""); };
-    const lines = data.rounds.map((r, i) => `${i + 1} ${bar(r ? r.depth : 0)} ${r ? r.depth + " m" + (I.isBeyond(r.depth) ? " · Unfathomable" : "") : "–"}`);
+    const lines = data.rounds.map((r, i) => `${i + 1} ${bar(r ? r.depth : 0)} ${r ? r.depth + " m" + (I.isBeyond(r.depth) ? " · Challenger Deep" : "") : "–"}`);
     const last = [data.deepest ? `Deepest: ${data.deepest.depth} m (${data.deepest.tierName})` : "", data.streak > 1 ? `streak ${data.streak}` : ""].filter(Boolean).join(" · ");
     return [`${B.name} #${data.day} · ${data.total.toLocaleString("en-US")} m`, ...lines, last, B.tagline.join(" "), data.link || ""].filter(Boolean).join("\n");
   }

@@ -6,7 +6,7 @@
 //   results    after the third guess lands: until the question's results appear
 //   next       after "Next question": until the next question's text is on screen, the box is usable, the clock runs
 // plus frame times during camera moves and in general, long main-thread tasks, and memory across the questions.
-// --deep makes the first question's last guess an Unfathomable answer (beneath the iceberg, with the squid).
+// --deep makes the first question's last guess a Challenger Deep answer (beneath the iceberg, with the squid).
 const { chromium, serve, VPS } = require('./lib.cjs');
 const arg = (k, d) => { const a = process.argv.find(x => x.startsWith(`--${k}=`)); return a ? a.split('=').slice(1).join('=') : process.argv.includes(`--${k}`) ? true : d; };
 const API = arg('api', false), AUTH = arg('auth', false);   // --api: use the local stand-in server (GATEWAY_DELAY=ms makes it slow); --auth: play signed in

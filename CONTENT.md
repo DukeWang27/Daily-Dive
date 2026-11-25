@@ -207,7 +207,7 @@ estimate:
 - Real data improves future tables: `private.refresh_snapshot(set)` refuses any set already played. It also feeds
   re-runs of a question, the race pool, and calibration of the AI estimates against reality.
 
-### Beneath the iceberg (Unfathomable) now needs real players
+### Beneath the iceberg (Challenger Deep) now needs real players
 - **The rule:** an answer goes deeper than 299 m only if real players back it, meaning the question has at least
   10,000 real players and at least 2 real players gave the answer (`game_config`: `evidence_players`, `evidence_min`).
 - **Provisional answers** (dataset-only) stop at 250 m.
@@ -215,7 +215,7 @@ estimate:
   - to the new days;
   - to the original tables not yet played (days 3-15) and to the race pool (`recap_legacy.py` + `0006` part 5);
   - **not** to days 1 and 2: they were played under the old rule and stay exactly as they were.
-- **Consequence:** until a question has about 10,000 real players, nobody reaches Unfathomable on it. The squid
+- **Consequence:** until a question has about 10,000 real players, nobody reaches Challenger Deep on it. The squid
   encounters still exist, but they need real rarity.
 - **The thresholds are settings**, one line to change (see "Decisions for the owner").
 
@@ -281,7 +281,7 @@ Assumptions:
 
 ## 8. Decisions for the owner
 1. **Where private content lives** (the repository is public): a private repository, or make this one private.
-2. **The Unfathomable evidence threshold:** 10,000 real players is honest but means no Unfathomable for a long time.
+2. **The Challenger Deep evidence threshold:** 10,000 real players is honest but means no Challenger Deep for a long time.
    An alternative is a relative rule, such as "nobody else among at least 500 players gave it".
 3. **AI review in production:** set `ANTHROPIC_API_KEY` (and `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` for the
    shared cache) on Vercel, and set `verifyUrl` in game.js.

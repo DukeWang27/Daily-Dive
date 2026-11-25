@@ -18,7 +18,7 @@ const SHOTS = process.env.SHOTS || '';
 (async () => {
   await new Promise(r => gw.server.listen(8790, r)); const site = serve(8784), b = await chromium.launch();
   await sql(`truncate auth.users cascade`); await sql(`truncate public.rate_log, public.username_holds, public.races cascade`);
-  // Race questions that have answers beneath the iceberg, so the Unfathomable find can be tested on any of them.
+  // Race questions that have answers beneath the iceberg, so the Challenger Deep find can be tested on any of them.
   await sql(`update public.race_pool set active = qid in (1023, 1024, 1025, 1028, 1029)`);
   // Nothing goes beneath the iceberg without real players' evidence (supabase/0006_content.sql). Give the rarest answer of
   // each of these questions that evidence here, as enough real races would: 5 of 12,000 players gave it.
@@ -125,14 +125,14 @@ const SHOTS = process.env.SHOTS || '';
     await waitView(ann, 'question', 25000); await waitView(bo, 'question', 25000); await waitTyping(ann); await waitTyping(bo);
     const [x, y] = await Promise.all([answer(ann, 0.6), answer(bo, 0.6)]);
     if (q === 2) {
-      // Bo finds something Unfathomable (one answer beneath the iceberg). Ann sees it happen, but not the answer.
+      // Bo reaches Challenger Deep (one answer beneath the iceberg). Ann sees it happen, but not the answer.
       const deepA = ((await sql('select answer from public.set_answers where set_id = $1 and ev order by share limit 1', [await bo.evaluate(() => Race.state.qid)]))[0] || {}).answer;
-      ok('race: this question has an Unfathomable answer to find', !!deepA, deepA);
+      ok('race: this question has a Challenger Deep answer to find', !!deepA, deepA);
       const gd = await guess(bo, deepA);
-      ok('race: an Unfathomable find says so, in red, and lights the finder\'s submarine red', gd.mine.depth >= 300 && /Unfathomable/.test(gd.hint) && await bo.evaluate(() => document.querySelector('#r-hint').classList.contains('beyond') && Race.scene.subs.find(s => s.me).beneath), gd.hint);
-      await ann.waitForFunction(() => /found something Unfathomable/.test(Race.scene.flash), null, { timeout: 8000 }).catch(() => {});
+      ok('race: a Challenger Deep find says so, in red, and lights the finder\'s submarine red', gd.mine.depth >= 300 && /Challenger Deep/.test(gd.hint) && await bo.evaluate(() => document.querySelector('#r-hint').classList.contains('beyond') && Race.scene.subs.find(s => s.me).beneath), gd.hint);
+      await ann.waitForFunction(() => /reached Challenger Deep/.test(Race.scene.flash), null, { timeout: 8000 }).catch(() => {});
       const annSees = await ann.evaluate(() => ({ flash: Race.scene.flash, bo: Race.scene.subs.find(s => !s.me).beneath, data: JSON.stringify(Race.state) }));
-      ok('race: the other player sees it happen (a note and the red light), without the answer', /Bo_racer found something Unfathomable/.test(annSees.flash) && annSees.bo && !annSees.data.includes(deepA), annSees.flash);
+      ok('race: the other player sees it happen (a note and the red light), without the answer', /Bo_racer reached Challenger Deep/.test(annSees.flash) && annSees.bo && !annSees.data.includes(deepA), annSees.flash);
       await bo.waitForTimeout(2200);
       ok('race: the colossal squid comes to the finder\'s submarine', (await bo.evaluate(() => Race.scene.guests)).includes('colossal'));
       await shot(bo, 'unfathomable-phone'); await shot(ann, 'unfathomable-seen-desk');

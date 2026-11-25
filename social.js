@@ -99,7 +99,7 @@
       detail.textContent = ""; detail.className = "cal-day" + (d ? " has" : "");
       const head = h("div.cd-head", h("b", dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: dt.getFullYear() === end.getFullYear() ? undefined : "numeric" })), h("span", `Daily #${day}`));
       if (!d) { add(head, h("span.cd-state", day > today ? "not yet" : day === today ? "not finished yet" : "no dive")); add(detail, head); return; }
-      if (d.max_depth >= BENEATH) add(head, h("span.cd-beyond", "Unfathomable find")); else if (d.max_depth >= RARE_FIND) add(head, h("span.cd-abyss", "Rare find"));
+      if (d.max_depth >= BENEATH) add(head, h("span.cd-beyond", "Challenger Deep find")); else if (d.max_depth >= RARE_FIND) add(head, h("span.cd-abyss", "Rare find"));
       const facts = h("div.cd-facts",
         h("span", h("b", m(d.total)), "total"),
         h("span", "deepest", h("b", m(d.max_depth)), d.deepest_answer ? h("i", `(${d.deepest_answer})`) : null),
@@ -116,7 +116,7 @@
         const dt = new Date(first); dt.setDate(first.getDate() + k);
         const day = Math.round((dt - game.dateOf(1)) / 86400000) + 1, d = byDay.get(day);
         const cls = day < 1 ? "pre" : day > today ? "future" : d ? levelOf(d.total) + findClass(d) : day === today ? "open" : "none";
-        const state = day < 1 ? "" : day > today ? "not yet" : d ? `${m(d.total)}${d.max_depth >= BENEATH ? ", with an Unfathomable find" : d.max_depth >= RARE_FIND ? `, with a ${RARE_FIND} m+ find` : ""}` : day === today ? "not finished yet" : "no dive";
+        const state = day < 1 ? "" : day > today ? "not yet" : d ? `${m(d.total)}${d.max_depth >= BENEATH ? ", with a Challenger Deep find" : d.max_depth >= RARE_FIND ? `, with a ${RARE_FIND} m+ find` : ""}` : day === today ? "not finished yet" : "no dive";
         const cell = h("button." + cls.replace(/ /g, ".") + (day === today ? ".today" : ""), { type: "button", tabIndex: day < 1 ? -1 : 0, disabled: day < 1, "aria-label": day < 1 ? null : `${dt.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}: ${state}`, "data-day": day });
         if (day >= 1) { cell.onclick = () => pick(day, cell); cell.onmouseenter = () => { if (matchMedia("(hover: hover)").matches) pick(day, cell); }; }
         add(grid, cell);
@@ -130,7 +130,7 @@
     const weekdays = h("div.cal-dow", { "aria-hidden": "true" }, h("span"), ...["", "Mon", "", "Wed", "", "Fri", ""].map(x => h("span", x)));
     const year = days.filter(d => d.day > today - 371), abyss = year.filter(d => d.max_depth >= RARE_FIND).length;
     const top = h("div.cal-top", h("span", h("b", fmt(year.length)), year.length === 1 ? " dive in the last year" : " dives in the last year"), abyss ? h("span", h("b", fmt(abyss)), ` with a rare find (${RARE_FIND} m+)`) : null);
-    const key = h("div.cal-key", h("span.k-label", "Total depth"), h("i.none", { title: "no dive" }), ...LEVELS.slice().reverse().map(l => h("i." + l[1], { title: l[2] })), h("span.k-scale", "less → 800+ m"), h("span.k-abyss", h("i.l2.abyss"), `${RARE_FIND} m+ find`), year.some(d => d.max_depth >= BENEATH) ? h("span.k-abyss", h("i.l2.beyond"), "Unfathomable") : null);
+    const key = h("div.cal-key", h("span.k-label", "Total depth"), h("i.none", { title: "no dive" }), ...LEVELS.slice().reverse().map(l => h("i." + l[1], { title: l[2] })), h("span.k-scale", "less → 800+ m"), h("span.k-abyss", h("i.l2.abyss"), `${RARE_FIND} m+ find`), year.some(d => d.max_depth >= BENEATH) ? h("span.k-abyss", h("i.l2.beyond"), "Challenger Deep") : null);
     return h("div.cal-block", top, h("div.cal-frame", weekdays, scroller), detail, key);
   }
   const stat = (label, value, sub) => h("div.stat", h("span", label), h("b", value), sub ? h("small", sub) : null);
@@ -142,7 +142,7 @@
   }
   function recent(days, open, own) {
     if (!days.length) return h("p.note-line", own === false ? "No dives yet." : "No dives yet. Finish today's and it will appear here.");
-    return h("ul.rows", days.slice(-6).reverse().map(d => { const fn = open && open(d); return h("li", h("span.rank-n", "#" + d.day), h("div", h("div.name", dateText(d.day, false)), h("div.sub" + (d.max_depth >= BENEATH ? ".beyond" : ""), d.deepest_answer ? `deepest: ${d.deepest_answer}` : `deepest ${m(d.max_depth)}`, d.max_depth >= BENEATH ? " · Unfathomable" : "", d.rank && d.players ? ` · #${fmt(d.rank)} of ${fmt(d.players)}` : "")),
+    return h("ul.rows", days.slice(-6).reverse().map(d => { const fn = open && open(d); return h("li", h("span.rank-n", "#" + d.day), h("div", h("div.name", dateText(d.day, false)), h("div.sub" + (d.max_depth >= BENEATH ? ".beyond" : ""), d.deepest_answer ? `deepest: ${d.deepest_answer}` : `deepest ${m(d.max_depth)}`, d.max_depth >= BENEATH ? " · Challenger Deep" : "", d.rank && d.players ? ` · #${fmt(d.rank)} of ${fmt(d.players)}` : "")),
       h("div.val", m(d.total), fn ? h("button.link", { type: "button", onclick: fn }, "Open") : null)); }));
   }
   // What this device remembers, for guests (and as the base everyone starts from).

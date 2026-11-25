@@ -1,7 +1,7 @@
-// Beneath the iceberg: the Unfathomable region, in a real browser (no database needed).
+// Beneath the iceberg: the Challenger Deep region, in a real browser (no database needed).
 //   node tests/beneath.cjs            (SHOTS=<folder> to also save screenshots)
 // Checks the evidence rule and the depth scale, then plays a question: an ordinary answer, a rare one near the
-// bottom of the iceberg, then an Unfathomable one that takes the camera past the iceberg's tip into the open water,
+// bottom of the iceberg, then a Challenger Deep one that takes the camera past the iceberg's tip into the open water,
 // with its red annotation, the colossal squid and the sounds; then the rest of the day, the results, the share
 // card and text, and exploring the dive again. On a desktop and a phone.
 const { chromium, serve, VPS } = require('./lib.cjs');
@@ -23,7 +23,7 @@ const SHOTS = process.env.SHOTS || '';
         return { d1e4: I.depthOf(1e-4), d25: I.depthOf(2.5e-5), floor: I.depthOf(2e-5), d11: I.depthOf(1.1e-4), tier300: I.tierOfDepth(300).name, tier299: I.tierOfDepth(299).name,
           y299: I.yOfDepth(299), y300: I.yOfDepth(300), bottom: W.BOTTOM, mono: [0, 50, 150, 250, 299, 300, 320, 360].map(I.yOfDepth).every((y, i, a) => !i || y > a[i - 1]),
           metres: [I.metres(I.yOfDepth(120)), I.metres(I.yOfDepth(300)), I.metres(I.yOfDepth(345))], unknownShare: I.depthOf(0.03) }; });
-      ok('rule: 1 in 10,000 with evidence (12 of 120,000) is 300 m, Unfathomable', u.d1e4 === 300 && u.tier300 === 'Unfathomable', JSON.stringify([u.d1e4, u.tier300]));
+      ok('rule: 1 in 10,000 with evidence (12 of 120,000) is 300 m, Challenger Deep', u.d1e4 === 300 && u.tier300 === 'Challenger Deep', JSON.stringify([u.d1e4, u.tier300]));
       ok('rule: 3 of 120,000 is still enough evidence: 360 m', u.d25 === 360);
       ok('rule: too little evidence (the table floor, under 3 of the sample) stops at 299 m on the iceberg', u.floor === 299 && u.tier299 === 'The Abyss');
       ok('rule: just above 1 in 10,000 stays on the iceberg', u.d11 < 300);
@@ -38,7 +38,7 @@ const SHOTS = process.env.SHOTS || '';
     await p.click('#play'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(1400);
     const pick = await p.evaluate(() => { const c = ICEBERG_TEST.cats[ICEBERG_TEST.state.round], I = Iceberg, by = f => c.answers.filter(f).sort((x, y) => y.s - x.s);
       return { common: by(a => I.depthOf(a.s) < 60)[0].a, near: (by(a => { const d = I.depthOf(a.s); return d >= 230 && d < 300; })[0] || {}).a, beyond: (by(a => I.isBeyond(I.depthOf(a.s)))[0] || {}).a }; });
-    ok(`${vp}: the first question has an ordinary, a near-bottom and an Unfathomable answer to test with`, pick.common && pick.near && pick.beyond, JSON.stringify(pick));
+    ok(`${vp}: the first question has an ordinary, a near-bottom and a Challenger Deep answer to test with`, pick.common && pick.near && pick.beyond, JSON.stringify(pick));
     const guess = async a => { await p.fill('#answer', a); await p.keyboard.press('Enter'); await p.waitForTimeout(300); await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 20000 }); await p.waitForTimeout(500); };
     const scene = () => p.evaluate(() => { const v = ICEBERG_TEST.berg.view, W = Iceberg.WORLD, note = document.querySelector('.ib-note'), mark = document.querySelector('.ib-mark.focus');
       return { beyond: v.beyond, tipY: v.y0 + W.BOTTOM * v.u, top: v.frame.t, markY: mark ? mark.getBoundingClientRect().top + 7 : null, note: note ? note.className : '', name: note ? getComputedStyle(note.querySelector('.ib-name')).color : '',
@@ -59,7 +59,7 @@ const SHOTS = process.env.SHOTS || '';
     const s2 = await scene();
     ok(`${vp}: the camera is beneath the iceberg`, s2.beyond > 0.99);
     ok(`${vp}: the iceberg's tip has gone up out of the way (well above the answer, faded)`, s2.tipY < s2.markY - 250 && s2.ice < 0.4, `tip ${Math.round(s2.tipY)} marker ${Math.round(s2.markY)} ice ${s2.ice}`);
-    ok(`${vp}: the answer is annotated in red, Unfathomable`, /tier-beyond/.test(s2.note) && /224, 100, 91/.test(s2.name), s2.name);
+    ok(`${vp}: the answer is annotated in red, Challenger Deep`, /tier-beyond/.test(s2.note) && /224, 100, 91/.test(s2.name), s2.name);
     ok(`${vp}: the depth gauge reads it in red`, s2.red && /^3\d\d m$/.test(s2.gauge), s2.gauge);
     await shot('3-landed');
     await p.waitForTimeout(2500);
@@ -89,7 +89,7 @@ const SHOTS = process.env.SHOTS || '';
     await p.waitForSelector('[data-screen="end"]:not([hidden])'); await p.waitForTimeout(1200);
     const end = await p.evaluate(() => ({ sum: !!document.querySelector('#e-rounds li.tier-beyond') && /224, 100, 91/.test(getComputedStyle(document.querySelector('#e-rounds li.tier-beyond .e-depth')).color), text: document.querySelector('#e-card').textContent, card: document.querySelector('#share-canvas').toDataURL().length }));
     ok(`${vp}: results list the find in red`, end.sum);
-    ok(`${vp}: the share text marks it Unfathomable (still no answers in it)`, /◆ 3\d\d m · Unfathomable/.test(end.text) && !end.text.includes(pick.beyond), end.text.split('\n')[1]);
+    ok(`${vp}: the share text marks it Challenger Deep (still no answers in it)`, /◆ 3\d\d m · Challenger Deep/.test(end.text) && !end.text.includes(pick.beyond), end.text.split('\n')[1]);
     ok(`${vp}: the share card draws with the find beneath the iceberg`, end.card > 50000);
     await shot('6-end');
     const cardPx = await p.evaluate(() => { const c = document.querySelector('#share-canvas'), d = c.getContext('2d').getImageData(0, 0, 540, c.height).data; let red = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 180 && d[i + 1] < 120 && d[i + 2] < 110) red++; return red; });

@@ -56,7 +56,7 @@ All of this lives in `brand.js`, under the key `nerodeep`.
   | Ice white | `#eaf6ff` | name, buttons |
   | Pale blue | `#8fd0f5` | accent |
   | Living light | `#7df0df` | earned moments |
-  | Unfathomable red | `#e0645b` | beneath the iceberg only |
+  | Challenger Deep red | `#e0645b` | beneath the iceberg only |
 
 - **Tagline:** "Three guesses. How deep can you go?" This is the owner's line, kept. Krillion's share card says "How far down can you go?". If that closeness ever matters, use "Three guesses. The rarer, the deeper." instead.
 - **Search title:** "Nero Deep: the daily dive where rare answers sink deepest".

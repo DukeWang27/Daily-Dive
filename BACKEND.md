@@ -166,7 +166,7 @@ If any step fails, the browser's console (F12) shows the database's reply.
 - **Answers are checked twice.** The browser judges a guess for speed, then the database checks that what was typed
   really is the answer claimed (the same rules: other names, describing words, small typos). A claim that doesn't
   match is kept for review and scores nothing.
-- **Unfathomable needs evidence, and the database applies it.** An answer scores 300 m or more only if at least 3 of
+- **Challenger Deep needs evidence, and the database applies it.** An answer scores 300 m or more only if at least 3 of
   the rarity table's sample (120,000 per question today) gave it; the depths in `set_answers` are worked out that way
   by `tools/seed_answers.py`, so the browser's red annotation and the database's score always agree. When the tables
   are rebuilt from real player counts, change `EVIDENCE` in `iceberg.js` and in `tools/seed_answers.py` together to

@@ -247,7 +247,7 @@
       glass(g, { f: note(45), t: t + T * 0.42, gain: 0.018, decay: 1.8, index: 3.2, ratio: 2.3, wet: 0.9, pan: -0.3 });
       tone(g, { f: 41.2, f0: 55, glide: T, t: t + T * 0.3, gain: 0.08, attack: T * 0.6, decay: 2.5, wet: 0.4, lp: 160 });
     },
-    // An Unfathomable answer: a low struck bell with a fifth above it, the slow beating of two cold high tones, and a
+    // A Challenger Deep answer: a low struck bell with a fifth above it, the slow beating of two cold high tones, and a
     // sonar pulse going out into empty water, coming back late and faint. Wonder, not alarm.
     unfathomable(g, t) {
       glass(g, { f: note(40), t, gain: 0.11, decay: 5.5, index: 1.5, ratio: 2.76, wet: 0.75 });

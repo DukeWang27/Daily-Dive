@@ -10,7 +10,7 @@ import json, math, os, glob, re, unicodedata
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 SURFACE = 0.10
 
-BEYOND_M = 300                     # beneath the iceberg: "Unfathomable"
+BEYOND_M = 300                     # beneath the iceberg: "Challenger Deep"
 EVIDENCE_PLAYERS, EVIDENCE_MIN = 120_000, 3   # the sample behind each rarity table, and how many must have given an answer
 
 

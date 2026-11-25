@@ -29,7 +29,7 @@
   --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e;
   --ice: #eaf6ff; --accent: #8fd0f5; --lumen: #7df0df; --warn: #e6c58f;
   --t-tip: #eaf6ff; --t-shallows: #a8d8f5; --t-mid: #6cb8ec; --t-deep: #4f9fe6; --t-abyss: #7df0df;
-  --t-beyond: #e0645b; --beyond-soft: #c98f88; --beyond-glow: 224, 92, 80;   /* Unfathomable: a muted, readable red, only ever beneath the iceberg */
+  --t-beyond: #e0645b; --beyond-soft: #c98f88; --beyond-glow: 224, 92, 80;   /* Challenger Deep: a muted, readable red, only ever beneath the iceberg */
   --pixel: "Pixelify Sans", ui-monospace, monospace;
   --ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   /* Motion: one language everywhere. Ordinary things are quick and ease out (they arrive at speed and settle);
@@ -404,7 +404,7 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-note.tier-deep::before { background: linear-gradient(rgba(108, 184, 236, .9), rgba(108, 184, 236, .1)); }
 .ib-note.tier-abyss::before { background: linear-gradient(rgba(125, 240, 223, .95), rgba(125, 240, 223, .1)); box-shadow: 0 0 10px rgba(125, 240, 223, .55); }
 .ib-note.tier-abyss > .ib-name { text-shadow: 0 0 22px rgba(125, 240, 223, .3), 0 1px 2px rgba(2, 8, 20, .85); }
-/* Unfathomable: the answer itself in red, the figures in muted red and pale grey. Same type, same layout. */
+/* Challenger Deep: the answer itself in red, the figures in muted red and pale grey. Same type, same layout. */
 .ib-note.tier-beyond { --muted: #b9c2cf; --faint: #8b8f99; }
 .ib-note.tier-beyond::before { background: linear-gradient(rgba(var(--beyond-glow), .95), rgba(var(--beyond-glow), .08)); box-shadow: 0 0 10px rgba(var(--beyond-glow), .45); }
 .ib-note.tier-beyond::after { background: radial-gradient(closest-side, rgba(10, 2, 4, .6) 0, rgba(10, 2, 4, .4) 45%, rgba(10, 2, 4, .12) 76%, rgba(10, 2, 4, 0) 100%); }
@@ -632,7 +632,7 @@ pre.sharecard { margin: 0 0 12px; padding: 14px 16px; border-radius: 12px; backg
 .auth-sent { justify-self: center; display: inline-flex; align-items: center; gap: 10px; margin: 0; padding: 10px 16px; border-radius: 10px; background: rgba(7, 20, 51, .75); box-shadow: inset 0 0 0 1px var(--line-2); font-size: 15px; max-width: 100%; }
 .auth-sent svg { width: 20px; height: 20px; flex: none; color: var(--accent); }
 .auth-sent b { overflow-wrap: anywhere; }
-/* Messages: one short sentence with a small mark; red-free on purpose (red belongs to Unfathomable). */
+/* Messages: one short sentence with a small mark; red-free on purpose (red belongs to Challenger Deep). */
 .auth-msg { display: flex; align-items: flex-start; gap: 9px; margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.45; text-align: left; animation: msg-in var(--t-quick) var(--ease-out) both; }
 .auth-msg[hidden] { display: none; }
 .auth-msg.bad { color: var(--warn); background: rgba(230, 197, 143, .08); box-shadow: inset 0 0 0 1px rgba(230, 197, 143, .26); }
@@ -971,7 +971,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
     </div>
     <a class="race-teaser" id="race-btn" href="#race"><canvas class="sub-art" id="home-sub" width="40" height="24" aria-hidden="true"></canvas><span><span class="eyebrow">Submarine Race</span><b>Race other players, live</b></span><svg class="go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     <ol class="depth-ruler" aria-hidden="true">
-      <li class="tier-tip">The Tip</li><li class="tier-shallows">Shallows</li><li class="tier-mid">Midwater</li><li class="tier-deep">The Deep</li><li class="tier-abyss">The Abyss</li><li class="tier-beyond">Unfathomable</li>
+      <li class="tier-tip">The Tip</li><li class="tier-shallows">Shallows</li><li class="tier-mid">Midwater</li><li class="tier-deep">The Deep</li><li class="tier-abyss">The Abyss</li><li class="tier-beyond">Challenger Deep</li>
     </ol>
   </section>
 
@@ -1098,7 +1098,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
       <li class="tier-mid"><i></i><b>Midwater</b><span>50 to 100 m · 1 in 30 to 1 in 100</span></li>
       <li class="tier-deep"><i></i><b>The Deep</b><span>100 to 200 m · 1 in 100 to 1 in 1,000</span></li>
       <li class="tier-abyss"><i></i><b>The Abyss</b><span>200 to 299 m · 1 in 1,000 to 1 in 10,000</span></li>
-      <li class="tier-beyond"><i></i><b>Unfathomable</b><span>beneath the iceberg · rarer than 1 in 10,000</span></li>
+      <li class="tier-beyond"><i></i><b>Challenger Deep</b><span>beneath the iceberg · rarer than 1 in 10,000</span></li>
     </ul>
     <p class="howto-fine">An answer only goes beneath the iceberg once enough players have given it for its rarity to be trusted.</p>
   </section>

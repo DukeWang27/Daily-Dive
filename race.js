@@ -587,11 +587,24 @@
 
   // ----- A question -----
   let ice = null, iceFrame = 0;
+  // The question just closed: each racer's deepest answer shows above their submarine for a few seconds while the
+  // next question begins (there is no break between questions).
+  let flashTimer = 0;
+  async function flashLast(r) {
+    const round = r.round - 1; if (round < 1) return;
+    const q = await loadQ((r.questions || [])[round - 1] || null).catch(() => null), best = {};
+    for (const g of (r.revealed || []).filter(x => x.round === round).concat((r.mine || []).filter(x => x.round === round).map(x => ({ ...x, username: r.me })))) if (g.status === "ok" && (!best[g.username] || g.depth > best[g.username].depth)) best[g.username] = g;
+    const nameOf = g => q ? ((q.answers.find(a => a.a === g.answer) || {}).d || g.answer) : g.answer;
+    for (const s of S.subs.values()) { const g = best[s.name]; s.note = g ? `${nameOf(g)} · ${m(g.depth)}` : ""; }
+    window.Sound.play("standings", { n: r.players.length });
+    clearTimeout(flashTimer); flashTimer = setTimeout(() => { for (const s of S.subs.values()) s.note = ""; }, 4000);
+  }
   async function question(changed) {
     view = "question"; live(true);
     const r = race, box = dock();
     if (changed) {
       box.textContent = ""; box.className = "rdock playing";
+      if (r.round > 1) flashLast(r);
       unknownKey = ""; busy = false; encountered.clear();
       const qinfo = pool && pool.get(r.qid);
       add(box, h("div.q", h("p.eyebrow", h("span#r-qnum", `Question ${r.round} of ${r.q_count}`), h("span.r-mydepth#r-mydepth")), h("div.q-title", h("span.q-icon.cat-icon#r-qicon", { "aria-hidden": "true" }), h("h2#r-qtitle", qinfo ? qinfo.title : "…"))),
@@ -761,5 +774,5 @@
     const g = G(); g.show("race"); mount(); view = "preview"; fleet(false); dock().textContent = ""; syncSubs(list.map((d, i) => ({ username: i ? "Racer" + i : "You", seat: i, distance: d, me: !i, here: true })), true); S.camY = yOf(list[0]);
     if (o.squid && S.life) { const me = [...S.subs.values()].find(s => s.me); me.beneath = 1; setTimeout(() => S.life.encounter("colossal", { x: me.x, y: wildY(mOf(S.camY)) }), 50); }
   } : undefined;
-  window.Race = { open, close, preview, get state() { return race; }, get view() { return view; }, get scene() { return { subs: [...S.subs.values()].map(s => ({ name: s.name, dist: s.dist, y: s.y, me: s.me, beneath: !!s.beneath })), camY: S.camY, u: S.u, zone: ZONES[zoneAt(mOf(S.camY))].name, guests: S.life ? S.life.guests : [], flash: ($("#r-flash") || {}).textContent || "" }; }, ZONES, walls, yOf };
+  window.Race = { open, close, preview, get state() { return race; }, get view() { return view; }, notes: () => [...S.subs.values()].map(s => s.note || ""), get scene() { return { subs: [...S.subs.values()].map(s => ({ name: s.name, dist: s.dist, y: s.y, me: s.me, beneath: !!s.beneath })), camY: S.camY, u: S.u, zone: ZONES[zoneAt(mOf(S.camY))].name, guests: S.life ? S.life.guests : [], flash: ($("#r-flash") || {}).textContent || "" }; }, ZONES, walls, yOf };
 })();

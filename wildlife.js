@@ -168,6 +168,19 @@
     over(g, () => { g.fillStyle = "#2b4062"; g.fillRect(0, 0, 96, 9); g.fillStyle = "#101c30"; g.fillRect(0, 17, 96, 9); });
     px(g, 89, 12, "#6f8fb5"); px(g, 80, 13, "#101c30"); px(g, 80, 15, "#101c30"); px(g, 78, 14, "#101c30");
   });
+  // The megalodon (an invention for The Unknown): a great shark built from outlines, darker and heavier than the Greenland shark.
+  A.megalodon = shape(124, 36, (g, L) => {
+    const c = "#1b2230";
+    poly(g, [[16, 18], [30, 12], [52, 8], [78, 7], [98, 9], [112, 13], [121, 17], [123, 19.5], [119, 22], [108, 25], [86, 27.6], [60, 27.4], [38, 25], [24, 22]], c);
+    poly(g, [[0, 1], [8, 7], [18, 16.6], [18, 21], [9, 25], [2, 35], [6, 22], [5, 14]], c);                // the crescent tail
+    poly(g, [[62, 8], [70, 0], [78, 7.4]], c); poly(g, [[34, 11], [37, 8], [40, 10.4]], c);                     // the great dorsal fin, a small second one
+    poly(g, [[86, 26], [96, 26.6], [82, 35], [79, 34]], c); poly(g, [[44, 25], [49, 25.4], [43, 29.6]], c);      // pectoral, pelvic
+    over(g, () => { g.fillStyle = "#2a3446"; g.fillRect(0, 0, 124, 12); g.fillStyle = "#c9cfd6"; g.fillRect(70, 22, 54, 6); g.fillStyle = "#11161f"; g.fillRect(0, 28, 124, 8); });
+    for (let k = 0; k < 5; k++) { g.fillStyle = "#0b0f17"; g.fillRect(96 - k * 3, 13 + (k & 1), 1, 6); }            // gill slits
+    px(g, 114, 15, "#e8ecf2"); px(g, 114, 16, "#0a0d14");
+    for (let k = 0; k < 9; k++) { g.fillStyle = "#e6e2da"; g.fillRect(104 + k * 2, 22, 1, 1 + (k & 1)); }        // a row of teeth
+    for (let x = 30; x < 118; x += 6) L.push([x, x < 70 ? 8 : 9, "#5c6f8f", 0.16]);                               // the faint rim it shows in the dark
+  });
   const snaPal = { h: "rgba(233,241,250,.92)", b: "rgba(208,223,240,.82)", f: "rgba(180,204,232,.36)", e: "#1a2334", t: "rgba(208,223,240,.55)", p: "rgba(240,214,214,.5)" };
   A.snail = art([
     ".........fffffhhhh..",
@@ -238,11 +251,11 @@
       blit(D.g, s, x, y, c.dir, null, D.a);
       if (extra.lit) dots(D, s, x, y, c.dir, (0.5 + 0.5 * Math.sin(D.t * 1.7 + f.ph)) * D.a);
     }) });
-  school("capelin", "Capelin", "Mallotus villosus", [6, 46], "Arctic and subarctic shoals; surface to about 300 m", A.capelin, 16, [22, 8], 13, "front");
-  school("cod", "Polar cod", "Boreogadus saida", [2, 34], "Under Arctic sea ice, where it hides in cracks; surface to about 400 m", A.cod, 5, [16, 6], 8, "back");
+  school("capelin", "Capelin", "Mallotus villosus", [6, 120], "Arctic and subarctic shoals; surface to about 300 m", A.capelin, 16, [22, 8], 13, "front");
+  school("cod", "Polar cod", "Boreogadus saida", [2, 80], "Under Arctic sea ice, where it hides in cracks; surface to about 400 m", A.cod, 5, [16, 6], 8, "back");
 
-  define({ key: "krill", name: "Arctic krill", latin: "Thysanoessa inermis", zone: [10, 60], real: "Swarms in the upper few hundred metres, rising at night", band: "surface", layer: "front", n: 1,
-    make: (E, r) => ({ ...spawn(E, r, { len: 26 }), y0: inZone([10, 60], r, 6), bits: Array.from({ length: 26 }, () => ({ ox: (r() * 2 - 1) * 24, oy: (r() * 2 - 1) * 9, ph: r() * TAU, v: 0.7 + r() })) }),
+  define({ key: "krill", name: "Arctic krill", latin: "Thysanoessa inermis", zone: [10, 150], real: "Swarms in the upper few hundred metres, rising at night", band: "surface", layer: "front", n: 1,
+    make: (E, r) => ({ ...spawn(E, r, { len: 26 }), y0: inZone([10, 150], r, 6), bits: Array.from({ length: 26 }, () => ({ ox: (r() * 2 - 1) * 24, oy: (r() * 2 - 1) * 9, ph: r() * TAU, v: 0.7 + r() })) }),
     step: (c, dt, E) => { cruise(c, dt, E, 3.5, 30); c.y = c.y0 + Math.sin(D_t(E) * 0.15 + c.ph) * 5 + clear(c, dt, E, c.y0, 12); },
     draw: (c, D) => c.bits.forEach((b, i) => {
       if (D.low && i % 2) return;
@@ -261,8 +274,8 @@
     for (let i = -n; i <= n; i++) px(g, x + i, y - Math.round(ry * Math.sqrt(Math.max(0, 1 - (i / (rx + 0.4)) ** 2))), rim, a * (Math.abs(i) === n ? 0.6 : 0.95));
     for (let i = -n + 1; i < n; i += 2) px(g, x + i, y + 1, fringe, a * 0.7);
   }
-  define({ key: "moon", name: "Moon jelly", latin: "Aurelia aurita", zone: [8, 62], real: "Coastal seas worldwide, mostly near the surface", band: "surface", layer: "mix", n: 4,
-    make: (E, r) => ({ ...spawn(E, r, { len: 6 }), y0: inZone([8, 62], r, 4), per: 2.2 + r() * 0.8 }),
+  define({ key: "moon", name: "Moon jelly", latin: "Aurelia aurita", zone: [8, 120], real: "Coastal seas worldwide, mostly near the surface", band: "surface", layer: "mix", n: 4,
+    make: (E, r) => ({ ...spawn(E, r, { len: 6 }), y0: inZone([8, 120], r, 4), per: 2.2 + r() * 0.8 }),
     step: (c, dt, E) => { cruise(c, dt, E, 1.1); c.sq = pulse(D_t(E), c.ph, c.per); c.y = c.y0 + Math.sin(D_t(E) * 0.2 + c.ph) * 5 - c.sq * 2 + clear(c, dt, E, c.y0, 6); },
     draw: (c, D) => {
       const g = D.g, x = D.X(c.x), y = D.Y(c.y), rx = 5 - c.sq * 1.5, ry = 3.4 + c.sq * 1.3;
@@ -271,10 +284,10 @@
       for (const [dx, dy] of [[-2, -1], [1, -1], [-2, -2], [1, -2]]) px(g, x + dx + (dx < 0 ? 0 : 0), y + dy - Math.round(c.sq), "rgba(236,247,255,.75)", D.a); // the four rings it is known by
     } });
 
-  school("lantern", "Lanternfish", "Benthosema glaciale", [48, 112], "The glacier lanternfish; 300 to 1,000 m by day, rising at night", A.lantern, 9, [26, 9], 9, "front", { band: "mid", lit: true });
+  school("lantern", "Lanternfish", "Benthosema glaciale", [300, 760], "The glacier lanternfish; 300 to 1,000 m by day, rising at night", A.lantern, 9, [26, 9], 9, "front", { band: "mid", lit: true, n: 3 });
 
-  define({ key: "comb", name: "Arctic comb jelly", latin: "Mertensia ovum", zone: [44, 108], real: "Arctic waters, surface to several hundred metres", band: "mid", layer: "mix", n: 3,
-    make: (E, r) => ({ ...spawn(E, r, { len: 6 }), y0: inZone([44, 108], r, 4) }),
+  define({ key: "comb", name: "Arctic comb jelly", latin: "Mertensia ovum", zone: [60, 320], real: "Arctic waters, surface to several hundred metres", band: "mid", layer: "mix", n: 3,
+    make: (E, r) => ({ ...spawn(E, r, { len: 6 }), y0: inZone([60, 320], r, 4) }),
     step: (c, dt, E) => { cruise(c, dt, E, 1.4); c.y = c.y0 + Math.sin(D_t(E) * 0.3 + c.ph) * 6 + clear(c, dt, E, c.y0, 8); },
     draw: (c, D) => {
       const x = D.X(c.x - 3), y = D.Y(c.y - 4), g = D.g;
@@ -291,8 +304,8 @@
       limb(g, x + 5, y + 8, 9, Math.PI / 2 + 0.4 * c.dir, 0.5, D.t * 1.4 + c.ph + 1, "#bfe2f8", 0.4 * D.a);
     } });
 
-  define({ key: "mane", name: "Lion's mane jellyfish", latin: "Cyanea capillata", zone: [56, 118], real: "Cold northern seas, mostly in the upper 20 m; the largest known jellyfish", band: "mid", layer: "back", n: 1,
-    make: (E, r) => ({ ...spawn(E, r, { len: 12 }), y0: inZone([56, 118], r, 14), per: 3.4 }),
+  define({ key: "mane", name: "Lion's mane jellyfish", latin: "Cyanea capillata", zone: [40, 240], real: "Cold northern seas, mostly in the upper 20 m; the largest known jellyfish", band: "mid", layer: "back", n: 1,
+    make: (E, r) => ({ ...spawn(E, r, { len: 12 }), y0: inZone([40, 240], r, 14), per: 3.4 }),
     step: (c, dt, E) => { cruise(c, dt, E, 1.6, 60); c.sq = pulse(D_t(E), c.ph, c.per); c.y = c.y0 + Math.sin(D_t(E) * 0.16 + c.ph) * 8 - c.sq * 3 + clear(c, dt, E, c.y0, 18); },
     draw: (c, D) => {
       const g = D.g, x = D.X(c.x), y = D.Y(c.y), rx = 9 - c.sq * 2.4, ry = 5 + c.sq * 1.2, t = D.t;
@@ -303,8 +316,8 @@
       for (let i = -1; i <= 1; i++) px(g, x + i, y - Math.round(ry * 0.45) + 1, "rgba(204,170,176,.36)", D.a);
     } });
 
-  define({ key: "siph", name: "Siphonophore", latin: "Marrus orthocanna", zone: [70, 150], real: "Arctic and cold deep water, about 200 to 2,000 m; a colony that hunts as one long chain", band: "mid", layer: "back", n: 1, lit: true,
-    make: (E, r) => ({ ...spawn(E, r, { len: 44 }), y0: inZone([70, 150], r, 8) }),
+  define({ key: "siph", name: "Siphonophore", latin: "Marrus orthocanna", zone: [380, 900], real: "Arctic and cold deep water, about 200 to 2,000 m; a colony that hunts as one long chain", band: "mid", layer: "back", n: 2, lit: true,
+    make: (E, r) => ({ ...spawn(E, r, { len: 44 }), y0: inZone([380, 900], r, 8) }),
     step: (c, dt, E) => { cruise(c, dt, E, 4.2, 50); c.y = c.y0 + Math.sin(D_t(E) * 0.2 + c.ph) * 7 + clear(c, dt, E, c.y0, 12); },
     draw: (c, D) => {
       const g = D.g, N = 20, t = D.t, run = (t * 5 + c.ph * 3) % (N + 8);
@@ -318,8 +331,8 @@
       px(g, D.X(c.x + c.dir * 2), D.Y(c.y + Math.sin(t * 1.3 + c.ph) - 1), "#f2f9ff", 0.95 * D.a); px(g, D.X(c.x + c.dir), D.Y(c.y + Math.sin(t * 1.3 + c.ph) - 1), "#f2f9ff", 0.8 * D.a); // the float
     } });
 
-  define({ key: "squid", name: "Armhook squid", latin: "Gonatus fabricii", zone: [60, 140], real: "The Arctic's commonest squid; young near the surface, adults to about 2,700 m", band: "mid", layer: "back", n: 2,
-    make: (E, r) => ({ ...spawn(E, r, { len: 14 }), y0: inZone([60, 140], r, 6), per: 1.9 + r() * 0.5 }),
+  define({ key: "squid", name: "Armhook squid", latin: "Gonatus fabricii", zone: [150, 600], real: "The Arctic's commonest squid; young near the surface, adults to about 2,700 m", band: "mid", layer: "back", n: 2,
+    make: (E, r) => ({ ...spawn(E, r, { len: 14 }), y0: inZone([150, 600], r, 6), per: 1.9 + r() * 0.5 }),
     // Jet propulsion: a squeeze of the mantle, a surge, a glide.
     step: (c, dt, E) => { c.sq = pulse(D_t(E), c.ph, c.per); cruise(c, dt, E, 5 + c.sq * 15, 50); c.y = c.y0 + Math.sin(D_t(E) * 0.25 + c.ph) * 7 + clear(c, dt, E, c.y0, 6); },
     draw: (c, D) => {
@@ -328,8 +341,8 @@
       blit(D.g, A.squid, x, y, c.dir, null, D.a);
     } });
 
-  define({ key: "angler", name: "Humpback anglerfish", latin: "Melanocetus johnsonii", zone: [112, 196], real: "Open ocean worldwide, about 200 to 1,500 m; the lure is lit by bacteria", band: "deep", layer: "back", n: 2, lit: true,
-    make: (E, r) => ({ ...spawn(E, r, { len: 10 }), y0: inZone([112, 196], r, 6) }),
+  define({ key: "angler", name: "Humpback anglerfish", latin: "Melanocetus johnsonii", zone: [650, 1150], real: "Open ocean worldwide, about 200 to 1,500 m; the lure is lit by bacteria", band: "deep", layer: "back", n: 2, lit: true,
+    make: (E, r) => ({ ...spawn(E, r, { len: 10 }), y0: inZone([650, 1150], r, 6) }),
     step: (c, dt, E) => { cruise(c, dt, E, 2.6, 30); c.y = c.y0 + Math.sin(D_t(E) * 0.35 + c.ph) * 4 + clear(c, dt, E, c.y0, 8); },
     draw: (c, D) => {
       const x = D.X(c.x - 9), y = D.Y(c.y - 6), s = A.angler;
@@ -338,8 +351,8 @@
       halo(D, lx, y, LUME_B, glow * D.a, 3);
     } });
 
-  define({ key: "viper", name: "Sloane's viperfish", latin: "Chauliodus sloani", zone: [124, 200], real: "Deep open ocean, about 200 to 1,800 m; lights run along its belly", band: "deep", layer: "back", n: 2, lit: true,
-    make: (E, r) => ({ ...spawn(E, r, { len: 14 }), y0: inZone([124, 200], r, 4) }),
+  define({ key: "viper", name: "Sloane's viperfish", latin: "Chauliodus sloani", zone: [560, 1000], real: "Deep open ocean, about 200 to 1,800 m; lights run along its belly", band: "deep", layer: "back", n: 2, lit: true,
+    make: (E, r) => ({ ...spawn(E, r, { len: 14 }), y0: inZone([560, 1000], r, 4) }),
     step: (c, dt, E) => { cruise(c, dt, E, 7, 60); c.y = c.y0 + Math.sin(D_t(E) * 0.3 + c.ph) * 5 + clear(c, dt, E, c.y0, 5); },
     draw: (c, D) => {
       const x = D.X(c.x - 13), y = D.Y(c.y - 3), w = { amp: 1.1, k: 4, ph: D.t * 4 + c.ph, from: 0.25 };
@@ -347,8 +360,8 @@
       for (const [lx, ly, col, k] of A.viper.lights) { const u = 1 - lx / 25, dy = Math.round(Math.sin(w.ph - u * w.k) * w.amp * Math.max(0, (u - 0.25) / 0.75)); light(D, x + (c.dir < 0 ? 25 - lx : lx), y + ly + dy, col, k * (0.5 + 0.5 * Math.sin(D.t * 1.2 + lx)) * D.a); }
     } });
 
-  define({ key: "dumbo", name: "Dumbo octopus", latin: "Grimpoteuthis", zone: [140, 232], real: "Deep sea floors worldwide, about 1,000 to 7,000 m; it flies with its ear-like fins", band: "deep", layer: "back", n: 2,
-    make: (E, r) => ({ ...spawn(E, r, { len: 8 }), y0: inZone([140, 232], r, 6) }),
+  define({ key: "dumbo", name: "Dumbo octopus", latin: "Grimpoteuthis", zone: [1050, 1480], real: "Deep sea floors worldwide, about 1,000 to 7,000 m; it flies with its ear-like fins", band: "deep", layer: "back", n: 2,
+    make: (E, r) => ({ ...spawn(E, r, { len: 8 }), y0: inZone([1050, 1480], r, 6) }),
     step: (c, dt, E) => { cruise(c, dt, E, 2.2, 40); c.y = c.y0 - Math.cos(D_t(E) * 0.9 + c.ph) * 2 + Math.sin(D_t(E) * 0.18 + c.ph) * 6 + clear(c, dt, E, c.y0, 8); },
     draw: (c, D) => {
       const g = D.g, x = D.X(c.x), y = D.Y(c.y), flap = Math.sin(D.t * 0.9 + c.ph), a = D.a;
@@ -362,25 +375,112 @@
       }
     } });
 
-  define({ key: "shark", name: "Greenland shark", latin: "Somniosus microcephalus", zone: [150, 250], real: "Arctic and North Atlantic, surface to about 2,200 m; it can live for centuries", band: "deep", layer: "back", far: 0.72, n: 1,
-    make: (E, r) => ({ ...spawn(E, r, { len: 50, pf: 0.72 }), y0: inZone([150, 250], r, 12) }),
+  define({ key: "shark", name: "Greenland shark", latin: "Somniosus microcephalus", zone: [200, 1100], real: "Arctic and North Atlantic, surface to about 2,200 m; it can live for centuries", band: "deep", layer: "back", far: 0.72, n: 1,
+    make: (E, r) => ({ ...spawn(E, r, { len: 50, pf: 0.72 }), y0: inZone([200, 1100], r, 12) }),
     step: (c, dt, E) => { cruise(c, dt, E, 5.5, 520); c.y = c.y0 + Math.sin(D_t(E) * 0.1 + c.ph) * 8; },
     draw: (c, D) => blit(D.g, A.shark, D.X(c.x - 48), D.Y(c.y - 13), c.dir, { amp: 2.2, k: 2.4, ph: D.t * 1.5 + c.ph, from: 0.3 }, 0.6 * D.a) });
 
-  define({ key: "snail", name: "Hadal snailfish", latin: "Pseudoliparis swirei", zone: [222, 300], real: "The Mariana Trench, about 6,000 to 8,000 m; the deepest fish ever filmed", band: "abyss", layer: "back", n: 3,
-    make: (E, r) => ({ ...spawn(E, r, { len: 10 }), y0: inZone([222, 300], r, 4) }),
+  define({ key: "snail", name: "Hadal snailfish", latin: "Pseudoliparis swirei", zone: [1300, 1700], real: "The Mariana Trench, about 6,000 to 8,000 m; the deepest fish ever filmed", band: "abyss", layer: "back", n: 3,
+    make: (E, r) => ({ ...spawn(E, r, { len: 10 }), y0: inZone([1300, 1700], r, 4) }),
     step: (c, dt, E) => { cruise(c, dt, E, 3.6, 30); c.y = c.y0 + Math.sin(D_t(E) * 0.4 + c.ph) * 3 + clear(c, dt, E, c.y0, 5); },
     draw: (c, D) => { const x = D.X(c.x - 10), y = D.Y(c.y - 2); blit(D.g, A.snail, x, y, c.dir, { amp: 1.5, k: 4.4, ph: D.t * 3.2 + c.ph, from: 0.3 }, D.a); light(D, x + (c.dir < 0 ? 4 : 15), y + 2, "#dbe9f7", 0.16 * D.a); } });
 
-  define({ key: "spark", name: "Glowing plankton", latin: "Metridia longa", zone: [190, 330], real: "A copepod of cold deep water that flashes blue when disturbed", band: "abyss", layer: "back", n: 1, lit: true,
+  define({ key: "spark", name: "Glowing plankton", latin: "Metridia longa", zone: [600, 1300], real: "A copepod of cold deep water that flashes blue when disturbed", band: "abyss", layer: "back", n: 1, lit: true,
     make: (E, r) => ({ ...spawn(E, r, { len: 0 }), x: 0, sparks: Array.from({ length: 16 }, () => ({ fx: r(), fy: r(), ph: r() * 40, per: 5 + r() * 9 })) }),
     step: () => {},
     draw: (c, D) => c.sparks.forEach((s, i) => {
       if (D.low && i % 2) return;
       const u = ((D.t + s.ph) % s.per) / s.per, n = Math.floor((D.t + s.ph) / s.per); if (u > 0.16) return;
       const jx = Math.sin(n * 12.9898 + i) * 0.5 + 0.5, jy = Math.sin(n * 78.233 + i * 3) * 0.5 + 0.5; // a new place every flash
-      light(D, D.X(D.E.lo + ((s.fx + jx) % 1) * (D.E.hi - D.E.lo)), D.Y(yM(190 + ((s.fy + jy) % 1) * 140)), LUME, Math.sin(u / 0.16 * Math.PI) * 0.85);
+      light(D, D.X(D.E.lo + ((s.fx + jx) % 1) * (D.E.hi - D.E.lo)), D.Y(D.E.camY + (((s.fy + jy) % 1) - 0.5) * 220), LUME, Math.sin(u / 0.16 * Math.PI) * 0.85 * (D.E.m > 560 && D.E.m < 1350 ? 1 : 0));
     }) });
+
+
+  // ---------- Below the iceberg ----------
+  // Barreleye: a fish with a transparent dome for a head. Its green tube eyes look up through it. It hangs almost
+  // still, sculling with its big pectoral fins, and turns now and then.
+  define({ key: "barreleye", name: "Barreleye", latin: "Macropinna microstoma", zone: [420, 820], real: "North Pacific, about 600 to 800 m; its eyes look up through a clear, fluid-filled shield", band: "mid", layer: "back", n: 2, lit: true,
+    make: (E, r) => ({ ...spawn(E, r, { len: 9 }), y0: inZone([420, 820], r, 8), turn: 6 + r() * 8 }),
+    step: (c, dt, E) => { c.turn -= dt; if (c.turn < 0) { c.dir = -c.dir; c.turn = 7 + (c.ph * 3 % 6); } cruise(c, dt, E, 0.9, 30); c.y = c.y0 + Math.sin(D_t(E) * 0.4 + c.ph) * 2 + clear(c, dt, E, c.y0, 6); },
+    draw: (c, D) => {
+      const g = D.g, a = D.a, d = c.dir, x = D.X(c.x), y = D.Y(c.y), t = D.t, scull = Math.sin(t * 3.1 + c.ph);
+      // body: dark, with a silvery belly; the tail beats slowly
+      poly(g, [[x - 6 * d, y], [x - 2 * d, y - 2], [x + 4 * d, y - 2], [x + 6 * d, y], [x + 4 * d, y + 2], [x - 2 * d, y + 2]], "#2b2f3a", a);
+      for (let i = -2; i <= 3; i++) px(g, x + i * d, y + 1, "#8f98a6", a * 0.8);
+      const tb = Math.round(Math.sin(t * 2.2 + c.ph) * 1.2);
+      px(g, x - 7 * d, y - 1 + tb, "#3a4050", a); px(g, x - 7 * d, y + 1 + tb, "#3a4050", a); px(g, x - 8 * d, y - 2 + tb, "#3a4050", a * 0.8); px(g, x - 8 * d, y + 2 + tb, "#3a4050", a * 0.8);
+      // the clear shield over the head, and the two green tube eyes inside it, looking up
+      ell(g, x + 3 * d, y - 4, 3.2, 2.6, "rgba(170,220,240,.22)", a);
+      px(g, x + 2 * d, y - 6, "rgba(220,245,255,.7)", a); px(g, x + 4 * d, y - 6, "rgba(220,245,255,.5)", a);
+      px(g, x + 3 * d, y - 3, "#5fe08a", a); px(g, x + 3 * d, y - 4, "#9bffb8", a); px(g, x + 4 * d, y - 4, "#5fe08a", a * 0.8);
+      light(D, x + 3 * d, y - 4, "#9bffb8", 0.45 * a);
+      // pectoral fins, sculling
+      stroke(g, x, y + 1, x - 3 * d, y + 3 + Math.round(scull * 1.5), "#4a5264", a * 0.8);
+      stroke(g, x + d, y + 1, x - 2 * d, y + 4 + Math.round(scull * 1.5), "#4a5264", a * 0.6);
+    } });
+
+  // Fangtooth: small, armoured, with the largest teeth for its size of any fish. It cruises slowly, jaw open.
+  const fangPal = { b: "#2a1f22", d: "#1a1316", r: "#4a3438", T: "#f2ebe2", e: "#b9c7d6", m: "#0a0607", f: "#3a2a2e" };
+  A.fang = art([
+    "....rrrrr.....",
+    "f.rbbbbbbrr...",
+    "ffbbbbbbbbbe..",
+    "fdbbbbbbbbbTmT",
+    "ffdbbbbbbbmmmm",
+    "f.ddbbbbbbTmTm",
+    "....ddddbbbb..",
+  ], fangPal);
+  define({ key: "fang", name: "Fangtooth", latin: "Anoplogaster cornuta", zone: [700, 1250], real: "Deep oceans worldwide, about 500 to 2,000 m; the largest teeth for its size of any fish", band: "deep", layer: "back", n: 2,
+    make: (E, r) => ({ ...spawn(E, r, { len: 8 }), y0: inZone([700, 1250], r, 6), per: 2.4 + r() }),
+    step: (c, dt, E) => { c.sq = pulse(D_t(E), c.ph, c.per); cruise(c, dt, E, 2.2 + c.sq * 5, 40); c.y = c.y0 + Math.sin(D_t(E) * 0.3 + c.ph) * 3 + clear(c, dt, E, c.y0, 6); },
+    draw: (c, D) => {
+      const x = D.X(c.x - 7), y = D.Y(c.y - 3);
+      blit(D.g, A.fang, x, y, c.dir, { amp: 0.9 + c.sq * 0.6, k: 3.2, ph: D.t * (3 + c.sq * 4) + c.ph, from: 0.45 }, D.a);
+    } });
+
+  // Atolla jellyfish: a deep red crown that, when something touches it, throws a ring of blue light round and round
+  // its rim (the "alarm"), so that bigger hunters come for whatever is attacking it. One long tentacle trails behind.
+  define({ key: "atolla", name: "Atolla jellyfish", latin: "Atolla wyvillei", zone: [620, 1300], real: "Deep oceans worldwide, about 500 to 4,000 m; red, which is invisible down there, until it lights up", band: "deep", layer: "back", n: 2, lit: true,
+    make: (E, r) => ({ ...spawn(E, r, { len: 7 }), y0: inZone([620, 1300], r, 8), per: 3 + r(), alarm: 4 + r() * 10 }),
+    step: (c, dt, E) => { cruise(c, dt, E, 0.6, 20); c.sq = pulse(D_t(E), c.ph, c.per); c.y = c.y0 + Math.sin(D_t(E) * 0.18 + c.ph) * 4 - c.sq * 2 + clear(c, dt, E, c.y0, 7); c.alarm -= dt; if (c.alarm < -3.2) c.alarm = 9 + (c.ph * 5) % 9; },
+    draw: (c, D) => {
+      const g = D.g, x = D.X(c.x), y = D.Y(c.y), rx = 6 - c.sq * 1.6, ry = 2.6 + c.sq * 1.4, a = D.a, t = D.t;
+      limb(g, x - c.dir * 2, y + 1, 26, Math.PI / 2 + 0.35 * -c.dir, 0.35, t * 0.7 + c.ph, "#6a2030", 0.55 * a);   // the one long tentacle
+      for (let i = -4; i <= 4; i += 2) limb(g, x + i, y + 1, 4 + (i & 2), Math.PI / 2, 0.4, t * 1.6 + i, "#5a1a28", 0.5 * a);
+      bell(g, x, y, rx, ry, a, "rgba(120,20,36,.85)", "rgba(190,60,80,.9)", "rgba(150,40,60,.7)");
+      px(g, x, y - Math.round(ry) + 1, "#d06070", a * 0.8);
+      if (c.alarm < 0 && !D.low) {   // the alarm: a spot of blue light running round the rim
+        const k = -c.alarm / 3.2, n = 10;
+        for (let i = 0; i < n; i++) { const ang = (i / n) * TAU, run = ((t * 9 - i) % n + n) % n, on = run < 2 ? 1 - run / 2 : 0;
+          light(D, Math.round(x + Math.cos(ang) * (rx + 1)), Math.round(y + Math.sin(ang) * (ry * 0.6 + 0.5)), "#6fc8ff", on * Math.sin(k * Math.PI) * a); }
+      } else light(D, x, y - 1, "#d06070", 0.12 * a);
+    } });
+
+  // Amphipods: the scavengers of the trenches, finger-length crustaceans that swarm to anything that sinks.
+  define({ key: "amphipod", name: "Hadal amphipods", latin: "Hirondellea gigas", zone: [1320, 1720], real: "The deepest trenches, to nearly 11,000 m; swarms of scavengers that can digest sunken wood", band: "abyss", layer: "front", n: 2,
+    make: (E, r) => ({ ...spawn(E, r, { len: 18 }), y0: inZone([1320, 1720], r, 8), bits: Array.from({ length: 18 }, () => ({ ox: (r() * 2 - 1) * 16, oy: (r() * 2 - 1) * 7, ph: r() * TAU, v: 0.6 + r() * 0.9 })) }),
+    step: (c, dt, E) => { cruise(c, dt, E, 1.8, 30); c.y = c.y0 + Math.sin(D_t(E) * 0.2 + c.ph) * 4 + clear(c, dt, E, c.y0, 9); },
+    draw: (c, D) => c.bits.forEach((b, i) => {
+      if (D.low && i % 2) return;
+      const hop = Math.max(0, Math.sin(D.t * 2.4 * b.v + b.ph)) ** 6, x = D.X(c.x + b.ox + Math.sin(D.t * 0.7 * b.v + b.ph) * 3), y = D.Y(c.y + b.oy - hop * 3);
+      px(D.g, x, y, "#d8cfc2", 0.8 * D.a); px(D.g, x - c.dir, y, "#bfb3a4", 0.7 * D.a); px(D.g, x - c.dir * 2, y + ((D.t * 6 + i) & 1), "#a89a8a", 0.55 * D.a);
+    }) });
+
+  // Black smoke from the hydrothermal vents painted on the trench wall (iceberg.js, LAMPS marked vent), billowing up.
+  define({ key: "vent", name: "Hydrothermal vents", latin: "", zone: [1440, 1470], real: "Chimneys of mineral rock where heated water pours out of the sea floor, at 350 °C or more", band: "abyss", layer: "back", n: 1, scenery: true,
+    make: () => ({ x: 0, y: 0, len: 0, puffs: Array.from({ length: 24 }, (_, i) => ({ i, ph: i * 0.37, dx: (i * 7 % 5) - 2 })) }),
+    step: () => {},
+    draw: (c, D) => {
+      for (const L of I.LAMPS) {
+        if (!L.vent) continue;
+        for (const p of c.puffs) {
+          if (D.low && p.i % 2) continue;
+          const u = ((D.t * 0.18 + p.ph) % 1), x = D.X(L.x + p.dx * u * 2 + Math.sin(D.t * 0.9 + p.i) * u * 4), y = D.Y(L.y - u * 46);
+          const r = 1 + Math.round(u * 3), al = (1 - u) * 0.55 * D.a;
+          ell(D.g, x, y, r, r * 0.8, u < 0.15 ? "rgba(255,140,80,.5)" : "rgba(20,18,22,.9)", al);
+        }
+      }
+    } });
 
   // ---------- Encounters: the great squid ----------
   // Each is tied to a depth an answer has to reach. They pass behind the iceberg, slowly, and are not seen otherwise.
@@ -448,7 +548,41 @@
         const A = D.E.avoid, dim = A ? { l: D.X(A.l), r: D.X(A.r), t: D.Y(A.t), b: D.Y(A.b) } : null;
         window.Colossal.draw(D.g, D.L, sq, lights, { ambient: 0.02, fog: c.fog || 0, alpha: D.a, dim });
       } },
+    // The Unknown keeps things that should not be there. These two are inventions, and say so in the journal.
+    // A megalodon: the great prehistoric shark, officially extinct for over three million years. It cruises across the
+    // dark well behind you, slow and enormous, its outline lit only faintly.
+    { key: "megalodon", name: "Megalodon", latin: "Otodus megalodon", fiction: true, region: 1500, min: 0, real: "Officially extinct for about 3.6 million years. Officially.", line: "Something prehistoric passes in the dark",
+      start: (c, E, at, side) => { c.dir = -side; c.x = side > 0 ? at.hi + 140 : at.lo - 140; c.y0 = at.y + 40; c.len = 130; c.pf = 0.86; c.speed = 9; c.life = 60; },
+      step: (c, dt, E) => { c.x += c.dir * c.speed * dt; c.y = c.y0 + Math.sin(D_t(E) * 0.12 + c.ph) * 10; },
+      draw: (c, D) => {
+        const x = D.X(c.x - 60), y = D.Y(c.y - 17);
+        blit(D.g, A.megalodon, x, y, c.dir, { amp: 2.6, k: 2.2, ph: D.t * 1.1 + c.ph, from: 0.35 }, 0.75 * D.a);
+        lights(D, A.megalodon, x, y, c.dir, 0.6 * D.a);
+      } },
+    // The Coil: a vast serpent of the deepest dark, rows of lights down its length, looping slowly past.
+    { key: "coil", name: "The Coil", latin: "", fiction: true, region: 1700, min: 200, real: "No record of it exists. Nobody who has seen it has been believed.", line: "Something vast uncoils beneath you",
+      start: (c, E, at, side) => { c.dir = -side; c.x = side > 0 ? at.hi + 60 : at.lo - 60; c.y0 = at.y + 60; c.len = 320; c.pf = 0.9; c.life = 70; },
+      step: (c, dt, E) => { c.x += c.dir * 11 * dt; c.y = c.y0 + Math.sin(D_t(E) * 0.08 + c.ph) * 14; },
+      draw: (c, D) => {
+        const g = D.g, N = D.low ? 40 : 80, t = D.t;
+        let prev = null;
+        for (let i = 0; i < N; i++) {
+          const u = i / N, wx = c.x - c.dir * i * 4, wy = c.y + Math.sin(t * 0.7 - i * 0.16 + c.ph) * 12 * (0.4 + u), w = 6 * (1 - u * 0.75) + (i < 4 ? i : 0);
+          const x = D.X(wx), y = D.Y(wy);
+          ell(g, x, y, 2.4, w / 2, "#0f0a14", 0.95 * D.a);
+          if (prev && i % 2 === 0) px(g, x, y - Math.round(w / 2), "#2a1830", 0.8 * D.a);
+          if (i % 5 === 2) light(D, x, y + Math.round(w / 3), "#7df0df", (0.35 + 0.35 * Math.sin(t * 1.4 - i * 0.3)) * D.a);
+          prev = [x, y];
+        }
+        const hx = D.X(c.x + c.dir * 6), hy = D.Y(c.y);
+        ell(g, hx, hy, 7, 4.5, "#140c18", D.a); light(D, hx + c.dir * 3, hy - 1, "#ff6259", 0.9 * D.a); light(D, hx + c.dir * 3, hy + 2, "#ff6259", 0.5 * D.a);
+      } },
   ];
+  // When an encounter is due. Rarity is the answer's own (its depth, which is never raised by where you are); region is
+  // where the dive has got to. The great squid need a rare answer in water deep enough for them; the inventions of
+  // The Unknown come to anyone who gets that far, the Coil only to a rare answer there.
+  ENCOUNTERS.forEach(e => { e.region = e.region != null ? e.region : e.key === "giant" ? 300 : e.key === "bigfin" ? 600 : 300; });
+  const PRIORITY = ["giant", "bigfin", "megalodon", "coil", "colossal"];
   const D_t = E => E.t;
 
   // ---------- One question's water ----------
@@ -496,11 +630,12 @@
       const n = v.note;
       E.avoid = n ? { l: (n.l - v.x0) / u - 6, r: (n.r - v.x0) / u + 6, t: (n.t - v.y0) / u - 5, b: (n.b - v.y0) / u + 5 } : null;
       const top = -by - 40, bottom = top + cv.back.height + 80;
+      E.camY = v.camY; E.m = v.metres || 0;
       const D = { t, low, E, L: ctx.lume, g: null, a: 1, X: x => Math.round(x) + bx, Y: null, view: v };
       // ghost: a second, faint copy on the light layer, so a great animal still shows as a shape in the dark.
       const paint = (c, ghost) => {
         const pf = c.pf || 1, yy = v.camY + (c.y - v.camY) * pf;
-        if (c.sp.key !== "spark" && !c.sp.big && (yy < top - 80 || yy > bottom + 80)) return false;
+        if (c.sp.key !== "spark" && !c.sp.scenery && !c.sp.big && (yy < top - 80 || yy > bottom + 80)) return false;
         D.g = ctx[ghost ? "lume" : c.layer || "back"]; D.L = ghost ? null : ctx.lume; D.Y = y => Math.round(v.camY + (y - v.camY) * pf) + by;
         const a = E.avoid;
         // Behind the annotation an animal fades back; under the controls it all but disappears. Words always win.
@@ -517,7 +652,13 @@
         if (!low) for (let cy = 0; cy < cv.lume.height; cy++) { const sp = I.iceSpan(cy - by); if (sp) ctx.lume.clearRect(sp[0] + bx, cy, sp[1] - sp[0], 1); }
       }
       inView = [];
-      for (const c of animals) if (paint(c) && c.sp.key !== "spark") { note(c.sp); if (!inView.includes(c.sp.key)) inView.push(c.sp.key); }
+      for (const c of animals) if (paint(c) && c.sp.key !== "spark" && !c.sp.scenery) { note(c.sp); if (!inView.includes(c.sp.key)) inView.push(c.sp.key); }
+      // Lights fixed in the world (the research station, the vents, the ruins): they glow through the dark, some blinking.
+      for (const L of I.LAMPS) {
+        const lx = D.X(L.x), ly = Math.round(L.y) + by; if (lx < -4 || ly < -4 || lx > cv.lume.width + 4 || ly > cv.lume.height + 4) continue;
+        const on = L.blink ? (((t + L.x * 0.01) % L.blink) / L.blink < 0.5 ? 1 : 0.15) : 0.75 + 0.25 * Math.sin(t * 1.7 + L.x);
+        D.L = ctx.lume; if (L.r > 1) halo(D, lx, ly, L.col, L.k * on, L.r); else light(D, lx, ly, L.col, L.k * on);
+      }
       // If drawing is slow on this device, quietly thin the water out.
       if (!guests.some(c => c.sp.big)) { cost += performance.now() - t0; frames++; }   // the colossal squid is a one-off: it doesn't make the rest of the water thinner
       if (frames === 90) { if (!low && !auto && cost / frames > 7) { auto = true; low = true; populate(); } cost = 0; frames = 0; }
@@ -544,7 +685,11 @@
       // A new question: fresh water, the same every time for the same seed.
       reset(n) { seed = Math.max(1, Math.floor(n) % 2147483646); guests = []; seen.clear(); populate(); draw(); },
       // An answer has landed at this depth. Returns the animal that comes to meet it, if the depth earns one.
-      encounterFor(depth, already = []) { let best = null; for (const e of ENCOUNTERS) if (depth >= e.min && !already.includes(e.key)) best = e; return best; },
+      encounterFor(depth, already = [], at = 0) {
+        let best = null;
+        for (const e of ENCOUNTERS) if (depth >= e.min && at >= e.region && !already.includes(e.key) && (!e.fiction || depth > 0) && (!best || PRIORITY.indexOf(e.key) > PRIORITY.indexOf(best.key))) best = e;
+        return best;
+      },
       encounter(key, at) {
         const e = ENCOUNTERS.find(x => x.key === key); if (!e || guests.some(g => g.sp === e)) return null;
         const v = berg.view; range(v);
@@ -596,7 +741,7 @@
       const home = c.y0 != null ? c.y0 : c.y; s.step(c, 0, E);
       const yShift = y0 + (s.key === "bigfin" ? 12 : ch / 2) - (c.y != null ? c.y : home);
       const D = { t: time, low: false, E, L, g, a: 1, X: x => Math.round(x) + x0, Y: y => Math.round(y + yShift) };
-      if (s.key === "spark") { D.X = x => Math.round(x) + x0; D.Y = y => y0 + 10 + Math.round((y - yM(190)) / (140 * PXM) * (ch - 20)); }
+      if (s.key === "spark") { E.camY = 0; E.m = 800; D.X = x => Math.round(x) + x0; D.Y = y => y0 + ch / 2 + Math.round(y * (ch - 20) / 220); }
       g.save(); g.beginPath(); g.rect(x0, y0, cw, ch); g.clip(); L.save(); L.beginPath(); L.rect(x0, y0, cw, ch); L.clip();
       s.draw(c, D); g.restore(); L.restore();
     });
@@ -624,7 +769,7 @@
     create, sheet, portrait, PORTRAITS,
     // The cast, for anything that wants to list it (a collection screen, the README).
     species: () => [...SPECIES.map(s => ({ key: s.key, name: s.name, latin: s.latin, band: s.band, zone: s.zone, real: s.real, rare: false })),
-      ...ENCOUNTERS.map(s => ({ key: s.key, name: s.name, latin: s.latin, band: "abyss", min: s.min, real: s.real, line: s.line, rare: true }))],
-    ENCOUNTERS: ENCOUNTERS.map(e => ({ key: e.key, name: e.name, min: e.min, line: e.line })),
+      ...ENCOUNTERS.map(s => ({ key: s.key, name: s.name, latin: s.latin, band: "abyss", min: s.min, region: s.region, fiction: !!s.fiction, real: s.real, line: s.line, rare: true }))].filter(s => !SPECIES.find(x => x.key === s.key && x.scenery)),
+    ENCOUNTERS: ENCOUNTERS.map(e => ({ key: e.key, name: e.name, min: e.min, region: e.region, fiction: !!e.fiction, line: e.line })),
   };
 })();

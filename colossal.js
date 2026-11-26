@@ -45,7 +45,7 @@
     if (u < FIN0 || u > FIN1) return 0;
     const v = (u - FIN0) / (FIN1 - FIN0);
     const lobe = Math.pow(Math.sin(Math.PI * Math.pow(v, 0.5)), 0.42) * (1 - 0.12 * v);
-    return 56 * lobe * (1 + wave * Math.sin(t * 1.5 - v * 4.6));
+    return 56 * lobe * (1 + wave * Math.sin(t * 2.1 - v * 5.2) + wave * 0.5 * Math.sin(t * 3.4 - v * 9));
   };
   // The head: a short neck behind the eye, the eye's bulge, the narrower crown where the arms begin.
   const headH = x => { const k = -x / HEAD; return 24 + 4.2 * Math.sin(Math.min(1, k * 1.25) * Math.PI) - 5 * Math.max(0, k - 0.8) / 0.2; };
@@ -56,12 +56,13 @@
   function limbsFor(rnd) {
     const L = [];
     // Thick, muscular arms that leave the head as one heavy bundle and loosen towards the tips.
-    const arm = (y, ang, len, r0, near) => L.push({ kind: "arm", y, ang, len, r0, near, f1: 0.3 + rnd() * 0.18, f2: 0.11 + rnd() * 0.07, p1: rnd() * TAU, p2: rnd() * TAU, a1: 0.026 + rnd() * 0.012, a2: 0.016 + rnd() * 0.008, curl: (rnd() - 0.5) * 0.012 + y * 0.0004 });
+    const arm = (y, ang, len, r0, near) => L.push({ kind: "arm", y, ang, len, r0, near, f1: 0.3 + rnd() * 0.18, f2: 0.11 + rnd() * 0.07, p1: rnd() * TAU, p2: rnd() * TAU, a1: 0.03 + rnd() * 0.014, a2: 0.018 + rnd() * 0.008, curl: (rnd() - 0.5) * 0.012 + y * 0.0004,
+      f3: 0.55 + rnd() * 0.35, p3: rnd() * TAU, a3: 0.05 + rnd() * 0.03 });   // f3/a3: the tips coil and uncoil on their own, quicker than the arm
     arm(-12, -0.15, 94, 6.2, false); arm(-4, -0.05, 102, 6.8, false); arm(4, 0.04, 100, 6.8, false); arm(11, 0.14, 92, 6.2, false);
     arm(-14, -0.19, 88, 6.6, true); arm(-5, -0.07, 98, 7.2, true); arm(5, 0.07, 96, 7.2, true); arm(13, 0.18, 86, 6.6, true);
     // The tentacles: longer and thinner, each ending in a hooked club.
-    L.push({ kind: "tent", y: -2, ang: -0.02, len: 186, r0: 3.2, near: false, f1: 0.21, f2: 0.09, p1: rnd() * TAU, p2: rnd() * TAU, a1: 0.014, a2: 0.01, curl: -0.004 });
-    L.push({ kind: "tent", y: 3, ang: 0.03, len: 178, r0: 3.4, near: true, f1: 0.19, f2: 0.08, p1: rnd() * TAU, p2: rnd() * TAU, a1: 0.015, a2: 0.011, curl: 0.004 });
+    L.push({ kind: "tent", y: -2, ang: -0.02, len: 186, r0: 3.2, near: false, f1: 0.21, f2: 0.09, p1: rnd() * TAU, p2: rnd() * TAU, a1: 0.016, a2: 0.011, curl: -0.004, f3: 0.4, p3: rnd() * TAU, a3: 0.035 });
+    L.push({ kind: "tent", y: 3, ang: 0.03, len: 178, r0: 3.4, near: true, f1: 0.19, f2: 0.08, p1: rnd() * TAU, p2: rnd() * TAU, a1: 0.017, a2: 0.012, curl: 0.004, f3: 0.45, p3: rnd() * TAU, a3: 0.04 });
     return L;
   }
   const SEG = 30;
@@ -76,7 +77,8 @@
         ? (s < 0.8 ? l.r0 * (1 - 0.5 * s) : l.r0 * (0.6 + 0.8 * Math.sin((s - 0.8) / 0.2 * Math.PI)) * (1 - 0.55 * Math.max(0, s - 0.92) / 0.08))
         : l.r0 * (1.08 - 0.9 * Math.pow(s, 1.1));
       pts.push({ x, y, r: Math.max(0.6, r), s });
-      const bend = stream * ((0.25 + 0.75 * s) * l.a1 * Math.sin(sq.t * l.f1 * TAU - s * 2.6 + l.p1) + (0.4 + 0.6 * s) * l.a2 * Math.sin(sq.t * l.f2 * TAU - s * 4.3 + l.p2)) + l.curl * stream;
+      const bend = stream * ((0.25 + 0.75 * s) * l.a1 * Math.sin(sq.t * l.f1 * TAU - s * 2.6 + l.p1) + (0.4 + 0.6 * s) * l.a2 * Math.sin(sq.t * l.f2 * TAU - s * 4.3 + l.p2)
+        + s * s * s * (l.a3 || 0) * Math.sin(sq.t * (l.f3 || 0) * TAU - s * 7 + (l.p3 || 0))) + l.curl * stream;
       a += bend * ds * 0.55;
       x += Math.cos(a) * ds; y += Math.sin(a) * ds;
     }
@@ -105,13 +107,18 @@
   // ---------- Drawing ----------
   const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16 - 0.5);
   const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-  let buf = null, glowBuf = null, cnv = null, gcnv = null, W = 0, H = 0, data = null, gdata = null;
+  let buf = null, glowBuf = null, cnv = null, gcnv = null, W = 0, H = 0, data = null, gdata = null, stamp = null, frameNo = 0;
+  // Only the part of the buffers the animal covered is cleared and copied each frame (box), not the whole screen.
+  let box = null, prevBox = null;
   function surface(w, h) {
     if (w === W && h === H && buf) return;
-    W = w; H = h;
+    W = w; H = h; prevBox = null;
     cnv = document.createElement("canvas"); cnv.width = w; cnv.height = h; buf = cnv.getContext("2d").createImageData(w, h); data = buf.data;
     gcnv = document.createElement("canvas"); gcnv.width = w; gcnv.height = h; glowBuf = gcnv.getContext("2d").createImageData(w, h); gdata = glowBuf.data;
+    stamp = new Uint32Array(w * h);   // which limb last wrote each pixel this frame: overlapping discs are shaded once
   }
+  const grow = (X, Y) => { if (!box) box = { l: X, r: X, t: Y, b: Y }; else { if (X < box.l) box.l = X; if (X > box.r) box.r = X; if (Y < box.t) box.t = Y; if (Y > box.b) box.b = Y; } };
+  function clearBox(b) { if (!b) return; for (let Y = b.t; Y <= b.b; Y++) { const i0 = (Y * W + b.l) * 4, i1 = (Y * W + b.r + 1) * 4; data.fill(0, i0, i1); gdata.fill(0, i0, i1); } }
 
   // Light reaching one point with the given surface normal: the lights in the scene, falling off with distance,
   // a faint wet sheen where a light catches the skin, and almost nothing else.
@@ -138,6 +145,7 @@
   let DIM = null;
   function put(X, Y, cr, cg, cb, a, fog) {
     if (X < 0 || Y < 0 || X >= W || Y >= H) return;
+    grow(X, Y);
     cr = roll(cr); cg = roll(cg); cb = roll(cb);
     if (DIM && X > DIM.l && X < DIM.r && Y > DIM.t && Y < DIM.b) { cr *= 0.3; cg *= 0.3; cb *= 0.3; }   // behind words: stay back
     const d = BAYER[(Y & 3) * 4 + (X & 3)] / 34, i = (Y * W + X) * 4;
@@ -149,6 +157,7 @@
   }
   function glowAt(X, Y, r, g, b, a) {
     if (X < 0 || Y < 0 || X >= W || Y >= H || a <= 0.01) return;
+    grow(X, Y);
     const i = (Y * W + X) * 4, k = Math.min(1, a);
     gdata[i] = Math.max(gdata[i], r * k); gdata[i + 1] = Math.max(gdata[i + 1], g * k); gdata[i + 2] = Math.max(gdata[i + 2], b * k); gdata[i + 3] = 255;
   }
@@ -157,7 +166,7 @@
   function draw(body, glow, sq, lights, o = {}) {
     const t0 = performance.now();
     surface(body.canvas.width, body.canvas.height);
-    data.fill(0); gdata.fill(0);
+    clearBox(prevBox); box = null; frameNo = (frameNo + 1) & 0xfffff;
     const ambient = o.ambient == null ? 0.022 : o.ambient, fog = o.fog || 0, alpha = o.alpha == null ? 1 : o.alpha, sc = sq.scale, dir = sq.dir;
     DIM = o.dim || null;
     const ca = Math.cos(sq.angle), sa = Math.sin(sq.angle);
@@ -168,8 +177,9 @@
 
     // The limbs, as tubes: far ones first, darker; the near ones after the body.
     const limbs = sq.limbs.map(l => ({ l, pts: limbPoints(sq, l) }));
+    let limbNo = 0;
     const drawLimb = ({ l, pts }) => {
-      const dark = l.near ? 1 : 0.42;
+      const dark = l.near ? 1 : 0.42, mark = frameNo * 16 + (++limbNo);
       // Fill the limb continuously: discs placed closer together than their own radius, so thin tips stay solid.
       const dense = [];
       for (let j = 0; j < pts.length - 1; j++) {
@@ -184,6 +194,8 @@
         for (let oy = -ri; oy <= ri; oy++) for (let ox = -ri; ox <= ri; ox++) {
           const X = Math.round(cx) + ox, Y = Math.round(cy) + oy, ddx = X - cx, ddy = Y - cy;
           if (ddx * ddx + ddy * ddy > R * R + 0.25) continue;
+          if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
+          const si = Y * W + X; if (stamp[si] === mark) continue; stamp[si] = mark;   // already shaded by this limb's previous disc
           const v = Math.max(-1, Math.min(1, (ddx * -ty + ddy * tx) / Math.max(0.8, R)));      // across the tube, -1..1
           const nz = Math.sqrt(Math.max(0, 1 - v * v));
           // a proper unit normal for a tube lying in the picture: round across, facing the viewer in the middle
@@ -222,7 +234,7 @@
       const lxr = dx * ca + dy * sa, ly = -dx * sa + dy * ca, lx = lxr * dir;
       L_X = lx; L_Y = ly;
       if (lx >= 0 && lx <= ML * FIN1) {
-        const u = lx / ML, cy = sag(u), h = mantleH(u, sq.squeeze), f = finF(u, sq.t, 0.06);
+        const u = lx / ML, cy = sag(u), h = mantleH(u, sq.squeeze), f = finF(u, sq.t, 0.085);
         const vv = (ly - cy) / Math.max(1, h), rim = 9 * Math.pow(Math.abs(vv), 2.6);                 // the mantle's opening curves back at top and bottom
         if (Math.abs(ly - cy) <= h && lx >= rim) { L_V = vv; L_U = u; return 1; }
         if (f > 0 && ly < cy && cy - ly <= f) { L_V = (cy - ly - h) / Math.max(1, f - h); L_U = u; return 2; }
@@ -238,8 +250,11 @@
       return 0;
     };
     let L_X = 0, L_Y = 0, L_U = 0, L_V = 0;
-    for (let Y = y0; Y <= y1; Y++) for (let X = x0; X <= x1; X++) {
-      const k = classify(X, Y); if (!k) continue;
+    const span = Math.max(0, x1 - x0 + 1), rowA = new Uint8Array(span), rowB = new Uint8Array(span);
+    let above = rowA, here = rowB;
+    if (y0 > 0) for (let X = x0; X <= x1; X++) above[X - x0] = classify(X, y0 - 1);
+    for (let Y = y0; Y <= y1; Y++) { for (let X = x0; X <= x1; X++) {
+      const k = classify(X, Y); here[X - x0] = k; if (!k) continue;
       const lx = L_X, ly = L_Y, u = L_U, v = L_V;
       let tr, tg, tb, nx = 0, ny, nz, sheen = 0.5;
       if (k === 1 || k === 4) {
@@ -281,7 +296,7 @@
       put(X, Y, tr * c[0], tg * c[1], tb * c[2], alpha, fog);
       // Rim: the outline catches what little light there is, so the shape reads even in the dark. Only the upper
       // edge, as if from far above.
-      if (k <= 4 && !classify(X, Y - 1)) glowAt(X, Y, 120, 58, 56, rim * alpha * (k === 3 ? 0.4 : 1));
+      if (k <= 4 && !above[X - x0]) glowAt(X, Y, 120, 58, 56, rim * alpha * (k === 3 ? 0.4 : 1));
       if (k === 6) {
         // Eyeshine: the eye throws back whatever light reaches it, a pale grey-green, strongest at the lens.
         const rr = Math.hypot(u, v);
@@ -289,7 +304,7 @@
         if (lens > 0) glowAt(X, Y, 150, 190, 186, (0.05 + 0.32 * lightIn) * lens * alpha * (1 - fog * 0.6));
         if ((u + 0.34) * (u + 0.34) + (v + 0.36) * (v + 0.36) < 0.028) glowAt(X, Y, 230, 236, 240, (0.12 + 0.6 * lightIn) * alpha * (1 - fog * 0.5));   // the small bright highlight on the lens
       }
-    }
+    } const sw = above; above = here; here = sw; }
     // The light organ beside each lens: a long, steady band of pale blue-green that never goes out. In the dark it is
     // the first thing anyone sees.
     for (let j = -6; j <= 6; j++) for (let w = 0; w < 2; w++) {
@@ -299,10 +314,19 @@
     }
     limbs.filter(x => x.l.near).forEach(drawLimb);
 
-    cnv.getContext("2d").putImageData(buf, 0, 0);
-    gcnv.getContext("2d").putImageData(glowBuf, 0, 0);
-    body.drawImage(cnv, 0, 0);
-    if (glow) { const op = glow.globalCompositeOperation; glow.globalCompositeOperation = "lighter"; glow.drawImage(gcnv, 0, 0); glow.globalCompositeOperation = op; }
+    // Copy out only what changed: this frame's box and last frame's (which has just been cleared).
+    const u2 = box && prevBox ? { l: Math.min(box.l, prevBox.l), r: Math.max(box.r, prevBox.r), t: Math.min(box.t, prevBox.t), b: Math.max(box.b, prevBox.b) } : box || prevBox;
+    if (u2) {
+      const bw = u2.r - u2.l + 1, bh = u2.b - u2.t + 1;
+      cnv.getContext("2d").putImageData(buf, 0, 0, u2.l, u2.t, bw, bh);
+      gcnv.getContext("2d").putImageData(glowBuf, 0, 0, u2.l, u2.t, bw, bh);
+      if (box) {
+        const w = box.r - box.l + 1, h = box.b - box.t + 1;
+        body.drawImage(cnv, box.l, box.t, w, h, box.l, box.t, w, h);
+        if (glow) { const op = glow.globalCompositeOperation; glow.globalCompositeOperation = "lighter"; glow.drawImage(gcnv, box.l, box.t, w, h, box.l, box.t, w, h); glow.globalCompositeOperation = op; }
+      }
+    }
+    prevBox = box;
     lastMs = lastMs ? lastMs * 0.9 + (performance.now() - t0) * 0.1 : performance.now() - t0;
   }
 

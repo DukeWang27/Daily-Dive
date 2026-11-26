@@ -1,5 +1,4 @@
-// The dive goes on between questions (the camera keeps the depth the last question reached instead of rising to the
-// tip), and Enter sends a typed guess wherever the focus is; typing with the focus elsewhere goes into the box.
+// The dive goes on between questions (one continuous descent: the camera never rises back to the tip), and Enter sends a typed guess wherever the focus is; typing with the focus elsewhere goes into the box.
 // Usage: node tests/carry.cjs
 const { chromium, serve } = require('./lib.cjs');
 let pass = 0, fail = 0;
@@ -28,7 +27,7 @@ const ok = (name, cond, extra) => { if (cond) { pass++; console.log('PASS  ' + n
     const common = await p.evaluate(() => window.ICEBERG_TEST.cats[1].answers[0].a);
     await p.keyboard.type(common); await p.keyboard.press('Enter'); await p.waitForTimeout(5000);
     const c = await T(); ok(`${tag}: typing with no focus goes into the box, and Enter sends it`, c.n === 1, JSON.stringify(c));
-    ok(`${tag}: a common answer still travels back up to its own depth`, c.camY < q2.camY - 200, JSON.stringify(c));
+    ok(`${tag}: a common answer never takes the camera back up (the dive only goes down)`, c.camY >= q2.camY - 1, JSON.stringify({ q2: q2.camY, c: c.camY }));
     ok(`${tag}: no page errors`, !errs.length, errs.join(' | '));
     await p.close();
   }

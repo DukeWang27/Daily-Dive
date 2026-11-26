@@ -385,6 +385,14 @@
     ns.connect(nf); nf.connect(na); na.connect(A.deep); ns.start(0, rnd() * 3);
     const br = c.createOscillator(), bg = c.createGain(); br.frequency.value = 0.045; bg.gain.value = 0.3; br.connect(bg); bg.connect(na.gain); br.start();
     const dv = c.createGain(); dv.gain.value = 0.35; A.deep.connect(dv); dv.connect(g.verbIn);
+    // The Unknown: a faint chord that shouldn't be there, three close tones beating slowly against each other, and a
+    // slow tremolo, as if something far off were breathing on it.
+    A.unk = c.createGain(); A.unk.gain.value = 0; A.unk.connect(g.amb);
+    const uf = c.createBiquadFilter(); uf.type = "lowpass"; uf.frequency.value = 700; uf.Q.value = 0.8; uf.connect(A.unk);
+    const trem = c.createGain(); trem.gain.value = 0.7; trem.connect(uf);
+    const tl = c.createOscillator(), tg = c.createGain(); tl.frequency.value = 0.11; tg.gain.value = 0.3; tl.connect(tg); tg.connect(trem.gain); tl.start();
+    [[146.8, 0.4], [155.6, 0.3], [207.7, 0.18], [233.1, 0.1]].forEach(([f, amp]) => { const o = c.createOscillator(), a = c.createGain(); o.type = "triangle"; o.frequency.value = f; a.gain.value = amp; o.connect(a); a.connect(trem); o.start(); });
+    const uv = c.createGain(); uv.gain.value = 0.6; A.unk.connect(uv); uv.connect(g.verbIn);
     return A;
   }
   function applyDepth(A, c, d, level) {
@@ -399,10 +407,12 @@
     A.oscs.forEach((o, i) => o.detune.setTargetAtTime(-d * 250 + (i === 1 ? 10 : 0), t, 1.5));
     A.level.gain.setTargetAtTime(level * (1 - 0.85 * ambBeyond), t, 0.8);
     A.deep.gain.setTargetAtTime(0.32 * ambBeyond * (level ? 1 : 0), t, 1.2);
+    const unk = Math.max(0, Math.min(1, (ambM - 1450) / 160));
+    A.unk.gain.setTargetAtTime(0.05 * unk * (level ? 1 : 0), t, 1.5);
   }
 
   // ---------- Live engine ----------
-  let A = null, ambMode = "off", ambDepth = 0, ambBeyond = 0, lastSubmit = 0, lastHover = 0, lastThrust = 0, eventTimer = 0;
+  let A = null, ambMode = "off", ambDepth = 0, ambBeyond = 0, ambM = 0, lastSubmit = 0, lastHover = 0, lastThrust = 0, eventTimer = 0;
   const AMB_LEVEL = { off: 0, home: 0.8, play: 0.9, race: 0.9, end: 0.8 };
 
   // The engine can be built ahead of time (prepare(), while the page is idle). Browsers keep it paused until the
@@ -445,8 +455,10 @@
     try { SOUNDS[name](out, now + 0.005, o); } catch { /* never let sound break the game */ }
   }
   // beyond: 0 on the iceberg, 1 in the open water beneath it.
-  function setAmbience(mode, depth, beyond) {
+  // metres: where the dive is (the running total), for the sounds of each region below the iceberg.
+  function setAmbience(mode, depth, beyond, metres) {
     ambMode = mode; if (depth != null) ambDepth = Math.max(0, Math.min(1, depth));
+    ambM = mode === "play" || mode === "race" ? Math.max(0, metres || 0) : 0;
     ambBeyond = mode === "play" || mode === "race" ? Math.max(0, Math.min(1, beyond || 0)) : 0;
     const d = mode === "play" || mode === "race" ? ambDepth : 0;
     if (A && ctx) {
@@ -459,6 +471,14 @@
     if (!ctx || ctx.state !== "running" || prefs.muted || !prefs.amb || (ambMode !== "play" && ambMode !== "race")) return;
     const d = ambDepth, t = ctx.currentTime, g = { ...out, sfx: out.amb };
     try {
+      const m = ambM;
+      // Each region below the iceberg has its own sounds. The Unknown: once in a long while, a call from something
+      // enormous, far below, sliding down into the floor of hearing.
+      if (m > 1500) { if (rnd() < 0.05) tone(g, { f: 62, f0: 92, glide: 3.2, t, gain: 0.05, attack: 1.2, decay: 4.5, wet: 0.95, pan: rnd() - 0.5, dest: out.amb }); else if (rnd() < 0.06) glass(g, { f: note(69 + Math.floor(rnd() * 3) * 3), t, gain: 0.012, decay: 3, index: 2.2, wet: 0.95, pan: rnd() - 0.5 }); return; }
+      // The trenches: the rock itself, creaking and settling under the weight of the water.
+      if (m > 1250) { if (rnd() < 0.09) wash(g, { t, dur: 1.6, gain: 0.03, type: "bandpass", sweep: [180 + rnd() * 80, 90], q: 6, attack: 0.3, wet: 0.8, pan: [rnd() - 0.5, rnd() - 0.5], dest: out.amb }); return; }
+      // The Midnight Zone: the odd bright twinkle of something alive making light.
+      if (m > 600 && m < 1000 && rnd() < 0.07) { glass(g, { f: note(88 + Math.floor(rnd() * 4) * 2), t, gain: 0.008, decay: 0.9, index: 1.4, wet: 0.9, pan: rnd() - 0.5 }); }
       if (ambBeyond > 0.6) {
         // Beneath the iceberg: now and then a sonar pulse going out a long way, and very rarely a slow groan of water.
         if (rnd() < 0.11) ping(g, { f: note(rnd() < 0.5 ? 74 : 79), t, gain: 0.02 * ambBeyond, decay: 1.8, echoes: 3, gap: 0.8 + rnd() * 0.4, wet: 0.95, pan: rnd() - 0.5 });

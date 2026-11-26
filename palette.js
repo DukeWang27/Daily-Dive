@@ -2,12 +2,12 @@
 // anything drawn on canvas. Change a colour here and it changes everywhere.
 (function () {
   const TIERS = {
-    tip:      { name: "The Tip",         hex: "#F1F8FF" },
-    shallows: { name: "Shallows",        hex: "#B5E5FF" },
-    mid:      { name: "Midwater",        hex: "#65C5F5" },
-    deep:     { name: "The Deep",        hex: "#528FFF", glow: 0.28 },
-    abyss:    { name: "The Abyss",       hex: "#49E8CC", glow: 0.38 },
-    beyond:   { name: "Challenger Deep", hex: "#FF6259", glow: 0.45 },
+    tip:      { name: "Common",          hex: "#F1F8FF" },
+    shallows: { name: "Uncommon",        hex: "#B5E5FF" },
+    mid:      { name: "Rare",            hex: "#65C5F5" },
+    deep:     { name: "Very rare",       hex: "#528FFF", glow: 0.28 },
+    abyss:    { name: "Exceptional",     hex: "#49E8CC", glow: 0.38 },
+    beyond:   { name: "Unfathomable",    hex: "#FF6259", glow: 0.45 },
   };
   const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(", ");
   const mix = (hex, w, k) => "#" + [1, 3, 5].map(i => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k) + w * k).toString(16).padStart(2, "0")).join("");

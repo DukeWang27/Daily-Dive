@@ -1,4 +1,4 @@
-// The shareable iceberg: one picture of how deep you went on each of today's five questions.
+// The shareable dive: one picture of the day's descent, from the iceberg down to where your five answers took you.
 // Spoiler-free by design: it shows depths and zones, never the answers or the questions.
 // Drawn on a canvas (1200 × 1500) from the same artwork as the game, so it can be saved as a PNG.
 (function () {
@@ -23,47 +23,49 @@
   async function draw(canvas, data, o = {}) {
     try { await Promise.race([Promise.all([document.fonts.load(`800 100px ${UI}`), document.fonts.load(`600 60px ${UI}`), document.fonts.load(`600 80px ${PIXEL}`)]), new Promise(r => setTimeout(r, 1500))]); } catch { /* fall back to system fonts */ }
     const g = canvas.getContext("2d"), CW = canvas.width, CH = canvas.height;
-    if (!art) { art = document.createElement("canvas"); art.width = WW; art.height = SH; I.paint(art); }
-    // Left: the iceberg, top to bottom, at exactly 2× so pixels stay square.
-    // A find beneath the iceberg moves the picture down so it is in it: the lower iceberg above, open water below.
-    const deepY = Math.max(0, ...data.rounds.filter(r => r && I.isBeyond(r.depth)).map(r => I.depthY(r.share)));
-    const S = 2, SX = CX - 135, SY = deepY ? Math.round(deepY + 60 - CH / S) : 15, AW = 540;
+    if (!art) { art = document.createElement("canvas"); art.width = WW; art.height = I.XH; I.paint(art); }
+    // Left: the whole dive, from the iceberg's tip down to where the day ended. A long dive is drawn smaller to fit; a
+    // short one at the game's own scale. The path you came down runs through it, with a mark where each question left
+    // you, coloured by how rare that question's best answer was. Red only for an Unfathomable answer.
+    const AW = 540, total = data.total || 0, yEnd = I.yX(total);
+    const top = 28, bottom = Math.max(yEnd + 70, I.WORLD.BOTTOM + 40), S = Math.min(2, (CH - 40) / (bottom - top));
+    const SX = CX - AW / S / 2, SY = top - (CH - (bottom - top) * S) / S / 2;
     g.imageSmoothingEnabled = false;
     g.fillStyle = "#040917"; g.fillRect(0, 0, CW, CH);
     g.drawImage(art, SX, SY, AW / S, CH / S, 0, 0, AW, CH);
-    // Deep water fades to black, as in the game.
-    const shade = g.createLinearGradient(0, CH * 0.45, 0, CH); shade.addColorStop(0, "rgba(1,3,10,0)"); shade.addColorStop(1, "rgba(1,3,10,.55)");
+    const Y = wy => (wy - SY) * S, Xc = (CX - SX) * S;
+    // The darkness of the deep, lifted a little so the picture reads: a soft pool of light along the path.
+    const shade = g.createLinearGradient(0, Y(I.yX(300)), 0, CH); shade.addColorStop(0, "rgba(1,3,10,0)"); shade.addColorStop(1, "rgba(1,3,10,.35)");
     g.fillStyle = shade; g.fillRect(0, 0, AW, CH);
-    // Depth marks every 100 m along the left edge.
-    g.font = `600 20px ${UI}`; g.textBaseline = "middle"; g.textAlign = "left";
-    for (const m of [0, 100, 200, 300, 350]) { const y = (I.yOfDepth(m) - SY) * S; if (y < 20 || y > CH - 20 || (m === 350 && !deepY)) continue; const red = I.isBeyond(m); g.fillStyle = red ? "rgba(224,100,91,.6)" : "rgba(188,216,242,.5)"; g.fillRect(0, y, 14, 2); g.fillText(m + " m", 22, y + 1); }
-    if (deepY) { const y = (I.yOfDepth(I.BEYOND_M) - SY) * S; g.fillStyle = "rgba(224,100,91,.75)"; g.font = `700 17px ${UI}`; g.fillText("UNFATHOMABLE", 22, y + 28); g.font = `600 20px ${UI}`; }
-    // Your five markers. Labels alternate sides and never overlap.
-    const all = data.rounds.map((r, i) => r ? { i, r, y: (I.depthY(r.share) - SY) * S, x: (CX - SX + [16, -16, 0, 22, -22][i]) * S } : null).filter(Boolean);
-    // With the picture moved down to a find beneath the iceberg, answers higher up are summed up in one line at the top.
-    const above = all.filter(m => m.y < 30), marks = all.filter(m => m.y >= 30).sort((a, b) => a.y - b.y);
-    if (above.length) { g.font = `600 22px ${UI}`; g.fillStyle = "rgba(188,216,242,.75)"; g.textAlign = "left"; g.fillText(`↑ ${above.length} more higher up (${above.map(m => m.i + 1).join(", ")})`, 22, 30); }
-    // Each label goes beside its marker: sides alternate, switch if there's no room, and stack rather than overlap.
-    let lastRight = -99, lastLeft = -99;
-    g.font = `800 30px ${UI}`;
-    marks.forEach((m, k) => {
-      m.label = `${m.r.depth} m`; m.w = g.measureText(m.label).width + 64;
-      m.side = k % 2 === 0 ? 1 : -1;
-      if (m.side < 0 && m.x - 40 - m.w < 74) m.side = 1;            // would run into the depth scale on the left
-      if (m.side > 0 && m.x + 40 + m.w > AW - 10) m.side = -1;      // would run off the picture on the right
-      const prev = m.side > 0 ? lastRight : lastLeft; m.ly = Math.max(m.y, prev + 56);
-      if (m.side > 0) lastRight = m.ly; else lastLeft = m.ly;
-    });
-    for (const m of marks) {
-      const w = m.w, h = 46, lx = m.side > 0 ? m.x + 40 : m.x - 40 - w, ly = m.ly - h / 2;
-      const red = m.r.tier === "beyond", line = red ? "rgba(224,112,102,.6)" : "rgba(190,225,250,.5)";
-      if (red) { const glow = g.createRadialGradient(m.x, m.y, 0, m.x, m.y, 120); glow.addColorStop(0, "rgba(224,92,80,.28)"); glow.addColorStop(1, "rgba(224,92,80,0)"); g.fillStyle = glow; g.fillRect(m.x - 120, m.y - 120, 240, 240); }
-      g.strokeStyle = line; g.lineWidth = 2; g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(m.side > 0 ? lx : lx + w, m.ly); g.stroke();
-      diamond(g, m.x, m.y, 9, ZONE[m.r.tier], red ? RED : "#eaf6ff");
-      pill(g, lx, ly, w, h, red ? "rgba(14,3,5,.92)" : "rgba(5,11,27,.9)", line);
-      g.fillStyle = red ? "#c98f88" : "#93a9cc"; g.font = `700 22px ${UI}`; g.textAlign = "left"; g.fillText(String(m.i + 1), lx + 18, m.ly + 1);
-      g.fillStyle = ZONE[m.r.tier] || "#eaf3ff"; g.font = `800 30px ${UI}`; g.fillText(m.label, lx + 44, m.ly + 1);
+    const pool = g.createLinearGradient(Xc - 160, 0, Xc + 160, 0); pool.addColorStop(0, "rgba(120,170,230,0)"); pool.addColorStop(0.5, "rgba(120,170,230,.07)"); pool.addColorStop(1, "rgba(120,170,230,0)");
+    g.fillStyle = pool; g.fillRect(Xc - 160, Y(I.WORLD.W), 320, Math.max(0, Y(yEnd) - Y(I.WORLD.W)));
+    // Region names along the left edge, where each begins (only those the dive reached).
+    g.textBaseline = "middle"; g.textAlign = "left";
+    for (const r of I.REGIONS.slice(1)) {
+      if (r.from > total) break;
+      const y = Y(I.yX(r.from)); if (y < 30 || y > CH - 30) continue;
+      g.fillStyle = "rgba(188,216,242,.35)"; g.fillRect(0, y, 18, 2);
+      g.font = `700 17px ${UI}`; g.fillStyle = r.key === "unknown" ? "rgba(224,122,134,.8)" : "rgba(188,216,242,.6)"; g.letterSpacing = "2px"; g.fillText(r.name.toUpperCase(), 26, y + 1); g.letterSpacing = "0px";
+      g.font = `600 16px ${UI}`; g.fillStyle = "rgba(188,216,242,.4)"; g.fillText(`${r.from.toLocaleString("en-US")} m`, 26, y + 22);
     }
+    // The path: from the waterline down to the end of the dive.
+    g.fillStyle = "rgba(200,230,250,.35)"; g.fillRect(Math.round(Xc) - 1, Y(I.WORLD.W), 2, Math.max(0, Y(yEnd) - Y(I.WORLD.W)));
+    // Where each question left you.
+    let run = 0, lastY = -99;
+    data.rounds.forEach((r, i) => {
+      if (!r || !r.depth) return;
+      run += r.depth;
+      const y = Y(I.yX(run)), red = r.tier === "beyond";
+      if (red) { const glow = g.createRadialGradient(Xc, y, 0, Xc, y, 110); glow.addColorStop(0, "rgba(224,92,80,.3)"); glow.addColorStop(1, "rgba(224,92,80,0)"); g.fillStyle = glow; g.fillRect(Xc - 110, y - 110, 220, 220); }
+      diamond(g, Xc, y, 8, ZONE[r.tier], red ? RED : "#eaf6ff");
+      const ly = Math.max(y, lastY + 34); lastY = ly;
+      g.font = `700 22px ${UI}`; g.fillStyle = red ? "#e8a39c" : "rgba(220,236,250,.8)"; g.textAlign = "left"; g.fillText(String(i + 1), Xc + 22, ly + 1);
+    });
+    // You: the end of the dive, with its depth.
+    const ey = Y(yEnd), label = `${total.toLocaleString("en-US")} m`;
+    g.font = `800 32px ${UI}`; const lw = g.measureText(label).width + 36;
+    pill(g, Xc - lw / 2, Math.min(CH - 56, ey + 26), lw, 46, "rgba(5,11,27,.92)", "rgba(190,225,250,.55)");
+    g.fillStyle = "#eaf6ff"; g.textAlign = "center"; g.fillText(label, Xc, Math.min(CH - 56, ey + 26) + 24); g.textAlign = "left";
     if (o.only) return;
     // Right: the numbers.
     const X = AW + 60, RW = CW - X - 60;
@@ -74,25 +76,26 @@
     B.drawMark(g, X, 72, 40);
     g.font = `600 52px ${PIXEL}`; g.fillStyle = "#eaf3ff"; g.fillText(B.name, X + 54, 112);
     g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.textAlign = "right"; g.fillText(`#${data.day}`, X + RW, 110); g.textAlign = "left";
-    g.font = `700 24px ${UI}`; g.fillStyle = "#93a9cc"; g.letterSpacing = "4px"; g.fillText("TOTAL DEPTH", X, 250); g.letterSpacing = "0px";
-    const total = data.total.toLocaleString("en-US");
-    g.font = `800 ${total.length > 4 ? 160 : 190}px ${UI}`; g.fillStyle = "#eaf6ff"; g.fillText(total, X - 8, 420);
-    const tw = g.measureText(total).width; g.font = `800 64px ${UI}`; g.fillText("m", X + tw + 2, 420);
-    // One row per question: number, zone, depth. No answers, no questions.
-    let y = 540;
+    g.font = `700 24px ${UI}`; g.fillStyle = "#93a9cc"; g.letterSpacing = "4px"; g.fillText("DIVE DEPTH", X, 250); g.letterSpacing = "0px";
+    const totalText = total.toLocaleString("en-US");
+    g.font = `800 ${totalText.length > 4 ? 160 : 190}px ${UI}`; g.fillStyle = "#eaf6ff"; g.fillText(totalText, X - 8, 420);
+    const tw = g.measureText(totalText).width; g.font = `800 64px ${UI}`; g.fillText("m", X + tw + 2, 420);
+    g.font = `700 30px ${UI}`; g.fillStyle = total >= 1500 ? "#e07a86" : "#8fd0f5"; g.fillText(I.regionOf(total).name, X, 476);
+    // One row per question: number, how rare its best answer was, how far it took you. No answers, no questions.
+    let y = 580;
     data.rounds.forEach((r, i) => {
       g.fillStyle = "rgba(143,208,245,.14)"; g.fillRect(X, y - 62, RW, 2);
       diamond(g, X + 18, y - 12, 15, r ? ZONE[r.tier] : "rgba(98,121,158,.5)");
       g.font = `800 22px ${UI}`; g.fillStyle = "#06112a"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), X + 18, y - 11);
       g.textBaseline = "alphabetic"; g.textAlign = "left"; g.font = `600 34px ${UI}`; g.fillStyle = r ? (ZONE[r.tier] || "#eaf3ff") : "#62799e"; g.fillText(r ? r.tierName : "No depth", X + 62, y);
-      g.textAlign = "right"; g.font = `800 44px ${UI}`; g.fillStyle = r ? "#eaf3ff" : "#62799e"; g.fillText(r ? `${r.depth} m` : "–", X + RW, y + 2);
+      g.textAlign = "right"; g.font = `800 44px ${UI}`; g.fillStyle = r ? "#eaf3ff" : "#62799e"; g.fillText(r ? `+${r.depth} m` : "–", X + RW, y + 2);
       g.textAlign = "left"; y += 96;
     });
     g.fillStyle = "rgba(143,208,245,.14)"; g.fillRect(X, y - 62, RW, 2);
     y += 10;
     if (data.deepest) {
-      const v = `${data.deepest.depth} m · ${data.deepest.tierName}`;
-      g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.fillText("Deepest find", X, y); const lw = g.measureText("Deepest find").width;
+      const v = `+${data.deepest.depth} m · ${data.deepest.tierName}`;
+      g.font = `600 30px ${UI}`; g.fillStyle = "#93a9cc"; g.fillText("Rarest answer", X, y); const lw = g.measureText("Rarest answer").width;
       g.font = `800 34px ${UI}`; const vw = g.measureText(v).width; if (lw + vw + 24 > RW) y += 44;   // no room on one line: the value goes beneath
       g.textAlign = "right"; g.fillStyle = I.isBeyond(data.deepest.depth) ? RED : "#7df0df"; g.fillText(v, X + RW, y); g.textAlign = "left"; y += 56;
     }
@@ -107,9 +110,9 @@
   function text(data) {
     // Beneath the iceberg the bar runs off the end, past the ice: a full bar and a mark beyond it.
     const bar = d => { const n = Math.max(0, Math.min(10, Math.round(d / 30))); return "▓".repeat(n) + "░".repeat(10 - n) + (I.isBeyond(d) ? " ◆" : ""); };
-    const lines = data.rounds.map((r, i) => `${i + 1} ${bar(r ? r.depth : 0)} ${r ? r.depth + " m" + (I.isBeyond(r.depth) ? " · Challenger Deep" : "") : "–"}`);
-    const last = [data.deepest ? `Deepest: ${data.deepest.depth} m (${data.deepest.tierName})` : "", data.streak > 1 ? `streak ${data.streak}` : ""].filter(Boolean).join(" · ");
-    return [`${B.name} #${data.day} · ${data.total.toLocaleString("en-US")} m`, ...lines, last, B.tagline.join(" "), data.link || ""].filter(Boolean).join("\n");
+    const lines = data.rounds.map((r, i) => `${i + 1} ${bar(r ? r.depth : 0)} ${r ? "+" + r.depth + " m" + (I.isBeyond(r.depth) ? " · Unfathomable" : "") : "–"}`);
+    const last = [data.deepest ? `Rarest: +${data.deepest.depth} m (${data.deepest.tierName})` : "", data.streak > 1 ? `streak ${data.streak}` : ""].filter(Boolean).join(" · ");
+    return [`${B.name} #${data.day} · ${data.total.toLocaleString("en-US")} m down · ${I.regionOf(data.total).name}`, ...lines, last, B.tagline.join(" "), data.link || ""].filter(Boolean).join("\n");
   }
   window.IcebergShare = { draw, blob, text };
 })();

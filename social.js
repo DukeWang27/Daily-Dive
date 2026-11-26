@@ -99,7 +99,7 @@
       detail.textContent = ""; detail.className = "cal-day" + (d ? " has" : "");
       const head = h("div.cd-head", h("b", dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: dt.getFullYear() === end.getFullYear() ? undefined : "numeric" })), h("span", `Daily #${day}`));
       if (!d) { add(head, h("span.cd-state", day > today ? "not yet" : day === today ? "not finished yet" : "no dive")); add(detail, head); return; }
-      if (d.max_depth >= BENEATH) add(head, h("span.cd-beyond", "Challenger Deep find")); else if (d.max_depth >= RARE_FIND) add(head, h("span.cd-abyss", "Rare find"));
+      if (d.max_depth >= BENEATH) add(head, h("span.cd-beyond", "Unfathomable find")); else if (d.max_depth >= RARE_FIND) add(head, h("span.cd-abyss", "Rare find"));
       const facts = h("div.cd-facts",
         h("span", h("b", m(d.total)), "total"),
         h("span", "deepest", h("b", m(d.max_depth)), d.deepest_answer ? h("i.tier-" + window.Iceberg.tierOfDepth(d.max_depth).key, `(${d.deepest_answer})`) : null),
@@ -116,7 +116,7 @@
         const dt = new Date(first); dt.setDate(first.getDate() + k);
         const day = Math.round((dt - game.dateOf(1)) / 86400000) + 1, d = byDay.get(day);
         const cls = day < 1 ? "pre" : day > today ? "future" : d ? levelOf(d.total) + findClass(d) : day === today ? "open" : "none";
-        const state = day < 1 ? "" : day > today ? "not yet" : d ? `${m(d.total)}${d.max_depth >= BENEATH ? ", with a Challenger Deep find" : d.max_depth >= RARE_FIND ? `, with a ${RARE_FIND} m+ find` : ""}` : day === today ? "not finished yet" : "no dive";
+        const state = day < 1 ? "" : day > today ? "not yet" : d ? `${m(d.total)}${d.max_depth >= BENEATH ? ", with an Unfathomable find" : d.max_depth >= RARE_FIND ? `, with a ${RARE_FIND} m+ find` : ""}` : day === today ? "not finished yet" : "no dive";
         const cell = h("button." + cls.replace(/ /g, ".") + (day === today ? ".today" : ""), { type: "button", tabIndex: day < 1 ? -1 : 0, disabled: day < 1, "aria-label": day < 1 ? null : `${dt.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })}: ${state}`, "data-day": day });
         if (day >= 1) { cell.onclick = () => pick(day, cell); cell.onmouseenter = () => { if (matchMedia("(hover: hover)").matches) pick(day, cell); }; }
         add(grid, cell);

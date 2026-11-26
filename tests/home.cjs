@@ -38,7 +38,7 @@ const junk = p => p.evaluate(() => { const t = document.body.innerText; const m 
     // How to play: opens, holds the six zones, closes with Escape and gives focus back.
     await p.click('#howto-btn'); await p.waitForTimeout(350);
     const how = await p.evaluate(() => ({ open: document.querySelector('#howto').open, zones: document.querySelectorAll('#howto .depths li').length, text: document.querySelector('#howto').innerText }));
-    ok(T('How to play opens, with all six depth zones and the race explained'), how.open && how.zones === 6 && /Challenger Deep/.test(how.text) && /Submarine Race/i.test(how.text) && /seconds a question|no clock/.test(how.text));
+    ok(T('How to play opens, with all six rarity tiers, the regions and the race explained'), how.open && how.zones === 6 && /Unfathomable/.test(how.text) && /Twilight Zone/.test(how.text) && /Submarine Race/i.test(how.text) && /seconds a question|no clock/.test(how.text));
     ok(T('How to play fits the screen'), await p.evaluate(() => { const r = document.querySelector('#howto').getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight + 1; }));
     await p.keyboard.press('Escape'); await p.waitForTimeout(250);
     ok(T('Escape closes How to play'), !(await p.evaluate(() => document.querySelector('#howto').open)));

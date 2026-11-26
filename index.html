@@ -412,7 +412,8 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-glow.beyond { width: 520px; height: 520px; margin: -260px 0 0 -260px; background: radial-gradient(circle, rgba(var(--beyond-glow), .3) 0%, rgba(var(--beyond-glow), .1) 26%, rgba(var(--beyond-glow), .03) 46%, rgba(var(--beyond-glow), 0) 64%); animation: beyond-breathe 6s ease-in-out infinite; }
 @keyframes beyond-breathe { 50% { filter: brightness(.72); } }
 .ib-shade { transition: none; }
-.ib-beneath .ib-shade { background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(0, 1, 4, 0) 0, rgba(0, 1, 4, 0) calc(var(--r, 200px) * .55), rgba(0, 1, 4, .985) calc(var(--r, 200px) * 1.9)); }
+.ib[data-region="unknown"] .ib-shade { filter: hue-rotate(calc(var(--unknown, 0) * -18deg)); }
+.ib-beneath .ib-shade { background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(0, 1, 4, 0) 0, rgba(0, 1, 4, 0) calc(var(--r, 200px) * .55), rgba(0, 1, 4, .86) calc(var(--r, 200px) * 1.9)); }
 .ib-layer { position: absolute; inset: 0; pointer-events: none; }
 /* Between questions the answers fade while the camera rises; out of the deep, the dark closes and lifts (.ib-veil). */
 .ib-layer, .ib-lines, .ib-bestline { transition: opacity .2s var(--ease-out); }
@@ -460,6 +461,15 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-share b { font-size: 19px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .ib-below { font-size: 14.5px; color: var(--muted); }
 .ib-below b { font-weight: 700; color: var(--tier); font-variant-numeric: tabular-nums; }
+/* The dive so far: a faint line from the waterline down to you, a small mark where each question ended. */
+.ib-route { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.ib-rope { position: absolute; left: 0; top: 0; width: 1px; margin-left: -.5px; background: linear-gradient(rgba(200, 230, 250, .0), rgba(200, 230, 250, .22) 60px); }
+.ib-way { position: absolute; left: 0; top: 0; width: 9px; height: 1px; margin-left: -4.5px; background: rgba(200, 230, 250, .45); }
+.ib-way::after { content: attr(data-label); position: absolute; right: 13px; top: -7px; font: 700 9.5px/14px var(--ui); letter-spacing: .08em; color: rgba(200, 230, 250, .5); }
+.ib-region { margin-top: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--lumen); }
+.ib-region b { font-weight: 800; }
+.ib-scale span.region-twilight { color: #7fb5e6; } .ib-scale span.region-midnight { color: #8f86e8; } .ib-scale span.region-abyss { color: #6fb0b8; }
+.ib-scale span.region-trench { color: #b89a7a; } .ib-scale span.region-unknown { color: #e07a86; }
 .ib-zone { font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: var(--tier); white-space: nowrap; margin-left: 3px; opacity: .9; }
 .ib-rank { margin-top: 3px; font-size: 13px; color: var(--muted); }
 .ib-meta { margin-top: 7px; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -486,7 +496,7 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-mark.tier-beyond.best::before { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .92), 0 0 0 2.5px var(--t-beyond), 0 0 18px rgba(var(--beyond-glow), .7); }
 .ib-mark.tier-beyond.focus::after { border-color: rgba(var(--beyond-glow), .6); }
 .ib-pill.tier-beyond span, .ib-pill.tier-beyond.best span { color: var(--t-beyond); } .ib-pill.tier-beyond b { color: var(--beyond-soft); }
-.ib-bestline { transition: border-color .6s; } .ib-beneath .ib-bestline { border-top-color: rgba(var(--beyond-glow), .22); }
+.ib-bestline { transition: border-color .6s; } .ib-beneath .ib-bestline { border-top-color: rgba(125, 240, 223, .2); }
 .ib-stack .ib-note { max-width: min(250px, calc(100% - 64px)); }
 .ib-stack .ib-name { font-size: 23px; } .ib-stack .ib-share b { font-size: 17px; }
 .ib-compact .ib-rank, .ib-compact .ib-meta, .ib-compact .ib-blurb, .ib-compact .ib-tag, .ib-compact .ib-sight, .ib-compact .ib-zone, .ib-compact .ib-nav { display: none; }
@@ -893,7 +903,7 @@ html.in-play .acct-btn { display: none; }
 .jn-record .jn-src { flex-basis: 100%; }
 .jn-region h3 { display: flex; justify-content: space-between; align-items: baseline; }
 .jn-count { color: var(--muted); font-weight: 500; font-size: 13px; }
-.jn-region.beyond h3 { color: var(--t-beyond); }
+.jn-region.beyond h3 { color: #e07a86; } .jn-fiction { font-size: 12px; font-weight: 600; color: #e07a86; }
 .jn-list { list-style: none; margin: 0; padding: 0; }
 .jn-row { display: grid; grid-template-columns: 92px 1fr; gap: 4px 12px; align-items: center; padding: 8px 4px; border-top: 1px solid rgba(143, 208, 245, .1); }
 .jn-row[role=button] { cursor: pointer; }
@@ -1108,7 +1118,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
     </div>
     <a class="race-teaser" id="race-btn" href="#race"><canvas class="sub-art" id="home-sub" width="40" height="24" aria-hidden="true"></canvas><span><span class="eyebrow">Submarine Race</span><b>Race other players, live</b></span><svg class="go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     <ol class="depth-ruler" aria-hidden="true">
-      <li class="tier-tip">The Tip</li><li class="tier-shallows">Shallows</li><li class="tier-mid">Midwater</li><li class="tier-deep">The Deep</li><li class="tier-abyss">The Abyss</li><li class="tier-beyond">Challenger Deep</li>
+      <li class="tier-tip">Surface</li><li class="tier-shallows">The Iceberg</li><li class="tier-mid">Twilight</li><li class="tier-deep">Midnight</li><li class="tier-abyss">The Abyss</li><li class="tier-beyond">The Unknown</li>
     </ol>
   </section>
 
@@ -1202,10 +1212,10 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
   <!-- End of day -->
   <section data-screen="end" class="end" hidden>
     <!-- Just the iceberg with today's five markers. The full card (iceberg and numbers) is drawn off screen for "Save image". -->
-    <div class="end-berg"><canvas id="end-berg" width="540" height="1500" role="img" aria-label="Your iceberg: the depth you reached on each question"></canvas></div>
+    <div class="end-berg"><canvas id="end-berg" width="540" height="1500" role="img" aria-label="Your dive: from the iceberg down to where your five answers took you"></canvas></div>
     <canvas id="share-canvas" width="1200" height="1500" hidden></canvas>
     <div class="end-side">
-      <div><p class="eyebrow">Today's total depth</p><div class="total"><span id="e-total">0</span><small>m</small></div></div>
+      <div><p class="eyebrow">Today's dive</p><div class="total"><span id="e-total">0</span><small>m</small></div></div>
       <div class="end-facts"><span id="e-deepest"></span><span id="e-rank"></span><span class="streak" id="e-streak"></span><span class="e-days" id="e-days" role="img" hidden></span><span id="e-seen"></span></div>
       <div class="e-social" id="e-social" hidden></div>
       <a class="race-teaser end-race" id="end-race" href="#race"><canvas class="sub-art" width="40" height="24" aria-hidden="true"></canvas><span><span class="eyebrow">Done for today?</span><b>Race other players, live</b></span><svg class="go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
@@ -1228,22 +1238,22 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
     <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 17 11H7z" fill="currentColor"/><path d="M5 13h14l-3.5 7h-7z" fill="currentColor" opacity=".55"/></svg>Icebreaker<span class="howto-sub"> · the daily five</span></h3>
     <ol class="howto-steps">
       <li><span><b>Five questions a day.</b> Things like <i>Name a bird</i>. Everyone gets the same five.</span></li>
-      <li><span><b>Three guesses each.</b> The fewer players who give your answer, the deeper it sinks.</span></li>
-      <li><span><b>Your deepest guess counts.</b> Add up all five for today's depth. Come back tomorrow to keep your streak.</span></li>
+      <li><span><b>Three guesses each.</b> The fewer players who give your answer, the further it takes you down.</span></li>
+      <li><span><b>One long dive.</b> Your rarest guess on each question takes you deeper, and you never come back up: the five add up to today's depth. Past the iceberg the ocean goes on, and what lives down there is for you to find.</span></li>
     </ol>
     <p class="howto-fine" id="howto-time">You have 20 seconds a question. The clock only runs while you can type.</p>
   </section>
   <section>
-    <h3>Depth zones</h3>
+    <h3>How rare, how far</h3>
     <ul class="depths">
-      <li class="tier-tip"><i></i><b>The Tip</b><span>above water · 1 in 10 players or more</span></li>
-      <li class="tier-shallows"><i></i><b>Shallows</b><span>0 to 50 m · 1 in 10 to 1 in 30</span></li>
-      <li class="tier-mid"><i></i><b>Midwater</b><span>50 to 100 m · 1 in 30 to 1 in 100</span></li>
-      <li class="tier-deep"><i></i><b>The Deep</b><span>100 to 200 m · 1 in 100 to 1 in 1,000</span></li>
-      <li class="tier-abyss"><i></i><b>The Abyss</b><span>200 to 299 m · 1 in 1,000 to 1 in 10,000</span></li>
-      <li class="tier-beyond"><i></i><b>Challenger Deep</b><span>beneath the iceberg · rarer than 1 in 10,000</span></li>
+      <li class="tier-tip"><i></i><b>Common</b><span>+0 m · 1 in 10 players or more</span></li>
+      <li class="tier-shallows"><i></i><b>Uncommon</b><span>+1 to 49 m · 1 in 10 to 1 in 30</span></li>
+      <li class="tier-mid"><i></i><b>Rare</b><span>+50 to 99 m · 1 in 30 to 1 in 100</span></li>
+      <li class="tier-deep"><i></i><b>Very rare</b><span>+100 to 199 m · 1 in 100 to 1 in 1,000</span></li>
+      <li class="tier-abyss"><i></i><b>Exceptional</b><span>+200 to 299 m · 1 in 1,000 to 1 in 10,000</span></li>
+      <li class="tier-beyond"><i></i><b>Unfathomable</b><span>+300 m or more · rarer than 1 in 10,000</span></li>
     </ul>
-    <p class="howto-fine">An answer only goes beneath the iceberg once enough players have given it for its rarity to be trusted.</p>
+    <p class="howto-fine">How rare an answer is decides how far it takes you. An answer is only Unfathomable once enough players have given it for its rarity to be trusted. Where you end up depends on all five: the Twilight Zone starts at 300 m, the Midnight Zone at 600 m, the Abyss at 1,000 m, the Trenches at 1,300 m. Below that, nobody is sure.</p>
   </section>
   <section>
     <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c0-2.5 2.6-4.5 7-4.5h3c3.3 0 6 2 6 4.5S17.3 18 14 18h-3c-4.4 0-7-2-7-4.5z" fill="currentColor"/><path d="M10 9V6h4v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Submarine Race</h3>

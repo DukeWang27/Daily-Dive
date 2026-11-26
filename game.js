@@ -148,6 +148,33 @@ const okGuesses = r => r.guesses.filter(g => g.status === "ok");
 const bestOf = r => okGuesses(r).reduce((b, g) => !b || g.share < b.share ? g : b, null);
 const scoreOf = r => { const b = bestOf(r); return b ? depthOf(b.share) : 0; };
 const totalSoFar = () => state ? state.rounds.reduce((s, r) => s + scoreOf(r), 0) : 0;
+// ---------- The dive: one calculation for where you are ----------
+// Your depth is the running total: every finished question's score plus the best verified answer so far in this one.
+// It is always worked out from the saved guesses, never from the camera, so a reload, another screen or the next
+// question can't lose it. Only an answer that beats your best for a question takes you further down, and only by the
+// difference. Four things are kept apart: how rare an answer is (its share of players), how far it takes you (its depth
+// in metres, the question's score if it is your best), where you are (this running total), and your deepest discovery
+// (your single rarest answer of the day).
+const diveBefore = i => state ? state.rounds.slice(0, i).reduce((s, r) => s + scoreOf(r), 0) : 0;
+const diveNow = () => totalSoFar();
+// One guess, as it played out: where its question started, what it added, where it left you.
+function diveOf(r, g) {
+  const i = state.rounds.indexOf(r), base = diveBefore(i);
+  let best = null;
+  for (const x of r.guesses) {
+    if (x === g) break;
+    if (x.status === "ok" && (!best || x.share < best.share)) best = x;
+  }
+  const d = depthOf(g.share), had = best ? depthOf(best.share) : 0, beats = !best || g.share < best.share;
+  return { base, depth: d, gain: beats ? Math.max(0, d - had) : 0, at: base + (beats ? Math.max(d, had) : had), keep: beats ? null : had, beats };
+}
+// The marks along the way: where each finished question left you.
+function syncRoute() {
+  if (!berg || !state) return;
+  const ways = [];
+  for (let i = 0; i < state.round && i < CATS.length; i++) if (state.rounds[i].done || i < state.round) ways.push({ m: diveBefore(i + 1), label: `Q${i + 1}` });
+  berg.setRoute(ways);
+}
 // Another real name for the same answer ("Mexican Hairless Dog" for Xoloitzcuintli) is shown as the player wrote it.
 const guessName = (cat, g) => { if (g.aka) return g.aka; const row = g.name && cat.answers.find(a => a.a === g.name); return row ? display(row) : g.typed; };
 
@@ -266,7 +293,9 @@ function timeUp() {
 // ---------- A question ----------
 function bergItem(cat, r, g, n) {
   const row = g.name ? cat.answers.find(a => a.a === g.name) : null, players = r.players || SAMPLE_PLAYERS;
+  const dv = state && state.rounds.includes(r) ? diveOf(r, g) : null;
   return { n, name: guessName(cat, g), share: g.share, shareText: pctText(g.share), blurb: row && row.b || "",
+    ...(dv ? { at: dv.at, gain: dv.gain, keep: dv.keep } : {}),
     // A count of players only from real ones: a simulated sample is never presented as people.
     countText: row && liveStats(r) ? `${fmt(r.stats.counts.get(g.name) || 1)} of ${fmt(r.stats.players)}` : "", rankText: g.rank || "", sight: sightLine(g.sight) };
 }
@@ -274,7 +303,7 @@ const sightLine = key => { const e = key && Wildlife && Wildlife.ENCOUNTERS.find
 function ensureBerg() {
   if (berg) return;
   berg = window.Iceberg.create($("#ib"), { speed: SPEED });
-  berg.onDepth((d, b) => { if (screen === "play") Sound.setAmbience("play", d, b); });
+  berg.onDepth((d, b) => { if (screen === "play") Sound.setAmbience("play", d, b, berg.view.metres); });
   berg.onRender(placeSlab); berg.onResize(placeSlab);
   berg.onFocus(i => { document.querySelectorAll("#slots .slot, #sum li").forEach(n => n.classList.toggle("active", +n.dataset.bi === i)); });
   // The animals that live in the water (wildlife.js). The game runs the same without them.
@@ -366,15 +395,18 @@ async function startQuestion(animated) {
   r.stats = null;
   const shown = okGuesses(r);
   let ready = Promise.resolve();
-  if (shown.length || done) { shown.forEach((g, i) => { g.bi = i; }); berg.restore(shown.map(g => bergItem(cat, r, g, r.guesses.indexOf(g) + 1))); tagBest(cat, r); }
-  else if (rising) ready = berg.carry(sceneFrame());   // the dive goes on from the depth the last question reached
+  const base = diveBefore(state.round);
+  if (shown.length || done) { shown.forEach((g, i) => { g.bi = i; }); berg.restore(shown.map(g => bergItem(cat, r, g, r.guesses.indexOf(g) + 1)), { base, at: diveNow() }); tagBest(cat, r); }
+  else if (rising) ready = berg.carry(sceneFrame(), 620, base);   // the dive goes on from where the last question left you
   else {
     // Pressing Play: the camera comes down the iceberg from the summit to the waterline before the first question.
-    const descent = animated === true && state.round === 0 && !state.practice;
-    ready = berg.enter(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches, { descent }) || ready;
+    // Coming back to a dive already under way (a reload, another screen): you are simply where you were.
+    const descent = animated === true && state.round === 0 && !state.practice && base === 0;
+    ready = berg.enter(animated && !matchMedia("(prefers-reduced-motion: reduce)").matches, { descent, at: base }) || ready;
     if (descent) { const slab = $(".q-berg"); slab.classList.add("arriving"); ready.then(() => slab.classList.remove("arriving")); const skip = e => { if (e.type === "keydown" && e.key === "Tab") return; berg.skipIntro(); off(); }, off = () => { removeEventListener("pointerdown", skip, true); removeEventListener("keydown", skip, true); };
       addEventListener("pointerdown", skip, true); addEventListener("keydown", skip, true); ready.then(off); }
   }
+  syncRoute();
   // The clock. A reload never hands time back: whatever passed while the page was away has gone too.
   clearInterval(clock.timer); cancelAnimationFrame(clock.raf); clock.on = false; clock.shown = -1;
   $("#melt").hidden = !TIME_MS;
@@ -426,8 +458,8 @@ function renderSlots(revealing = -1, landed = -1) {
       b.dataset.bi = g.bi;
       const sub = el("span", "slot-sub"); sub.append(pctText(g.share), el("span", "wide", " of players · "), el("b", null, tier.name));
       main.append(el("span", "slot-name", guessName(cat, g)), sub);
-      depth.append(String(d), el("small", null, "m"));
-      if (g === best && okGuesses(r).length > 1) b.append(el("span", "slot-tag", "Deepest"));
+      depth.append("+" + d, el("small", null, "m"));
+      if (g === best && okGuesses(r).length > 1) b.append(el("span", "slot-tag", "Counts"));
       b.title = "Show on the iceberg";
       b.onclick = () => berg.focus(g.bi);
     } else {
@@ -442,8 +474,9 @@ function renderSlots(revealing = -1, landed = -1) {
   // Finishing early: one tap, with what you'd keep and what you'd leave unused in plain sight.
   const left = GUESSES - r.guesses.length, fin = $("#finish"), note = $("#finish-note");
   fin.hidden = !(r.guesses.length > 0 && left > 0 && revealing < 0);
-  fin.textContent = best ? `Finish with ${depthOf(best.share)} m` : "Finish this question";
-  note.textContent = fin.hidden ? (r.guesses.length === 0 ? "3 guesses. Only your deepest counts." : "") : `${left} guess${left === 1 ? "" : "es"} unused`;
+  fin.textContent = best ? `Finish with +${depthOf(best.share)} m` : "Finish this question";
+  // While a guess is being revealed the row keeps its place (an empty row would collapse and nudge the scene).
+  note.textContent = fin.hidden ? (r.guesses.length === 0 ? "3 guesses. Only your rarest counts." : revealing >= 0 || left > 0 ? "\u00a0" : "") : `${left} guess${left === 1 ? "" : "es"} unused`;
   updateHeader();
 }
 
@@ -551,11 +584,12 @@ async function reveal(cat, r, g) {
   // Beneath the iceberg: its own long descent and its own discovery sound, whether or not it is your deepest.
   // The great squid that comes for an answer this deep sets off while the camera is still on its way down, so it is
   // already rising beside the answer when the camera arrives.
-  const guest = life && life.encounterFor(d, r.guests || []); let early = 0;
+  const dv = diveOf(r, g);
+  const guest = life && life.encounterFor(d, r.guests || [], dv.at); let early = 0;
   berg.onTravel((it, dir, ms) => {
     if (beneath && dir > 0) Sound.play("descend", { seconds: ms / 1000 }); else { Sound.play("travel", { dir, seconds: ms / 1000 }); if (special && !beneath) Sound.play("rare", { lead: ms / 1000 }); }
     if (life) life.calm(ms + 2600);
-    if (guest && dir > 0 && it && !early) early = setTimeout(() => { early = -1; if (state && cur() === r) { life.encounter(guest.key, { x: it.x, y: it.y }); Sound.play("encounter", { kind: guest.key }); } }, Math.max(0, ms - 1100));
+    if (guest && dir > 0 && it && !early) early = setTimeout(() => { early = -1; if (state && cur() === r) { life.encounter(guest.key, { x: it.x, y: it.y }); Sound.play("encounter", { kind: guest.key }); } }, Math.max(0, ms - 2400));   // already rising, and beside the answer as you arrive
   });
   // An exceptional find has the stage to itself: the question's column steps aside while it is revealed.
   const col = $(".q-berg"); if (special) col.classList.add("aside");
@@ -579,9 +613,10 @@ async function reveal(cat, r, g) {
   const counted = /^(Counted as|Spelling corrected)/.test($("#hint").textContent) ? $("#hint").textContent + " " : "";
   setTimeout(() => {
     if (!state || cur() !== r || state.phase !== "play") return;
-    if (!prevBest) setHint(counted + (d === 0 ? `On the tip: ${pctText(g.share)} of players said this. Can you go rarer?` : `${d} m down. Can you go deeper?`) + more, d >= 100 ? "good" : "");
-    else if (deeper) { if (!special) Sound.play("deeper", { depth: Math.min(1, d / 260), m: d }); setHint(`${counted}New deepest: ${d} m, ${d - depthOf(prevBest.share)} m further down.${more}`, "good"); }
-    else { Sound.play("neutral"); setHint(counted + (g.share === prevBest.share ? `Level with your deepest (${depthOf(prevBest.share)} m).` : `Not deeper. Your ${depthOf(prevBest.share)} m still counts.`) + more); }
+    const at = fmt(dv.at);
+    if (!prevBest) setHint(counted + (d === 0 ? `${pctText(g.share)} of players said this: no distance. Can you go rarer?` : `+${d} m. You're down to ${at} m.`) + more, d >= 100 ? "good" : "");
+    else if (deeper) { if (!special) Sound.play("deeper", { depth: Math.min(1, d / 260), m: d }); setHint(`${counted}+${d} m beats your +${depthOf(prevBest.share)} m: ${dv.gain} m further down, to ${at} m.${more}`, "good"); }
+    else { Sound.play("neutral"); setHint(counted + (g.share === prevBest.share ? `+${d} m, level with your best. You stay at ${at} m.` : `+${d} m. Your +${depthOf(prevBest.share)} m still counts: you stay at ${at} m.`) + more); }
   }, 260 / SPEED);
   afterGuess(special, beneath);
   if (queued) { queued = false; if (r.guesses.length < GUESSES) setTimeout(submit, 0); }
@@ -682,7 +717,7 @@ function finishQuestion() {
   renderDone(cat, r);
   Sound.play("round");
   // The panel slides in and the iceberg glides aside for it, ending on your deepest answer.
-  if (best && berg.focused !== best.bi) { syncFrame(0); berg.focus(best.bi); } else syncFrame(520);
+  if (best && berg.focused !== best.bi) { syncFrame(0); berg.focus(best.bi, { auto: true }); } else syncFrame(520);
 }
 
 // Real counts for a question, once enough real players have answered it (released only after you finish it).
@@ -712,9 +747,10 @@ function boardFor(cat, r) {
 function renderDone(cat, r) {
   const best = bestOf(r), board = boardFor(cat, r), left = GUESSES - r.guesses.length;
   $("#done-q").textContent = `Question ${state.round + 1} of ${CATS.length} · ${cat.prompt || cat.title}`;
-  $("#best-lbl").textContent = best ? "Deepest discovery" : r.timeout && !r.guesses.length ? "Time ran out" : "No depth this time";
+  const at = diveBefore(state.round + 1), reg = Iceberg.regionOf(at);
+  $("#best-lbl").textContent = best ? `Best answer · now ${fmt(at)} m down, ${reg.name}` : r.timeout && !r.guesses.length ? `Time ran out · still ${fmt(at)} m down` : `No distance this time · still ${fmt(at)} m down`;
   $("#best-name").textContent = best ? guessName(cat, best) : "Nothing counted";
-  const bd = $("#best-depth"); bd.textContent = ""; bd.append(String(scoreOf(r)), el("small", null, "m"));
+  const bd = $("#best-depth"); bd.textContent = ""; bd.append("+" + scoreOf(r), el("small", null, "m"));
   // Your guesses, in the order you made them. Tapping one flies the camera to it.
   const sum = $("#sum"); sum.textContent = "";
   $("#sum-aside").textContent = r.timeout ? `time ran out${left ? ` · ${left} unused` : ""}` : okGuesses(r).length > 1 ? "tap one to compare" : left ? `${left} unused` : "";
@@ -732,7 +768,7 @@ function renderDone(cat, r) {
       if (g.aka && row) sub.append(el("span", "aka", `Also known as ${display(row)}`));
       const crowd = crowdLine(r, g.name); if (crowd) sub.append(el("span", "crowd" + (crowd.startsWith("Nobody") ? " alone" : ""), crowd));
       if (g.note) sub.append(el("span", null, g.note)); else if (typed) sub.append(el("span", null, `you typed “${shown}”`));
-      const dep = el("span", "sum-depth"); dep.textContent = `${d} m`;
+      const dep = el("span", "sum-depth"); dep.textContent = `+${d} m`;
       b.append(n, el("span", "sum-name", guessName(cat, g)), dep, sub);
       b.onclick = () => berg.focus(g.bi);
       li.append(b);
@@ -859,7 +895,10 @@ const dateOf = day => new Date(LAUNCH[0], LAUNCH[1] - 1, LAUNCH[2] + day - 1);
 // A finished day on this device, as the guesses the database scores: what was typed and what it counted as.
 function guessesOf(game) {
   const out = [];
-  game.rounds.forEach((r, i) => r.guesses.slice(0, GUESSES).forEach((g, j) => out.push({ round: i + 1, slot: j + 1, typed: String(g.typed || "").slice(0, 60), answer: g.status === "ok" ? g.name || null : null, status: g.status, sight: g.sight || null })));
+  // The database records only the encounters it knows (supabase/0002: giant, bigfin, colossal). The newer ones are
+  // kept on this device until supabase/0009 widens that list; sending them would make the whole dive fail to save.
+  const known = ["giant", "bigfin", "colossal"];
+  game.rounds.forEach((r, i) => r.guesses.slice(0, GUESSES).forEach((g, j) => out.push({ round: i + 1, slot: j + 1, typed: String(g.typed || "").slice(0, 60), answer: g.status === "ok" ? g.name || null : null, status: g.status, sight: known.includes(g.sight) ? g.sight : null })));
   return out;
 }
 const finishedGame = day => { const g = store.get("game:" + day, null); return g && g.v === 3 && g.finished && !g.practice ? g : null; };
@@ -952,10 +991,12 @@ function renderEnd(day, fresh, practice) {
     const main = el("div", "e-main"); main.append(el("span", "e-name", r.name || "No depth"));
     const cat = el("span", "e-cat"); cat.append(`${i + 1} · ${r.title}`); if (r.name) cat.append(" · ", el("b", null, r.tierName)); main.append(cat);
     if (r.name) main.firstChild.title = r.name;
-    const depth = el("span", "e-depth"); depth.append(String(r.depth), el("small", null, "m"));
+    const depth = el("span", "e-depth"); depth.append("+" + r.depth, el("small", null, "m"));
     li.append(ic, main, depth); list.append(li);
   });
-  $("#e-deepest").textContent = ""; if (data.deepest) $("#e-deepest").append("Deepest find: ", el("b", null, `${data.deepest.name} · ${data.deepest.depth} m`));
+  // Where the dive ended (the running total), and separately the single rarest answer of the day.
+  $("#e-deepest").textContent = ""; $("#e-deepest").append(el("b", null, Iceberg.regionOf(day.total).name), data.deepest ? " · rarest answer " : "");
+  if (data.deepest) $("#e-deepest").append(el("b", null, `${data.deepest.name} (+${data.deepest.depth} m)`));
   $("#e-rank").textContent = "";
   if (!practice) live.ranking(day.day, day.total).then(rk => { if (rk && screen === "end") $("#e-rank").textContent = `Deeper than ${Math.round(100 * rk.below / rk.players)}% of ${fmt(rk.players)} players today`; });
   // A link back to the game, when it is hosted somewhere people can open.

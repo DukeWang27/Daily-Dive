@@ -92,6 +92,15 @@
     if (x.verdict) b.append(el("h4", null, "Researcher's verdict"), el("p", null, `${x.verdict[0] || "—"}: ${x.verdict[1] || ""}`));
     if (x.granularity) b.append(el("p", "rv-meta", `One answer is: ${x.granularity}${x.mechanic ? ` · round: ${x.mechanic}` : ""}`));
     if (x.invalid && x.invalid.length) { const ul = el("ul", "rv-rules"); x.invalid.forEach(t => ul.append(el("li", null, t))); b.append(el("h4", null, "Plausible answers that don't count"), ul); }
+    if (x.gaps && x.gaps.length) {
+      // Answers an independent tester (who never saw this list) gave as valid, that the list doesn't have yet.
+      b.append(el("h4", null, `Missing, found by the independent test (${x.gaps.length})`));
+      const ul = el("ul", "rv-rules");
+      x.gaps.forEach(t => { const li = el("li", null, t + " "), added = (d.added || []).some(a => norm(a.a) === norm(t));
+        const bt = el("button", "rv-link", added ? "added" : "add as an answer"); bt.disabled = added;
+        bt.onclick = () => { d.added = d.added || []; d.added.push({ a: t, al: [], from: "challenge test" }); save(x.id); render(); }; li.append(bt); ul.append(li); });
+      b.append(ul);
+    }
     if (x.notes) b.append(el("h4", null, "Research notes"), el("p", "rv-meta", x.notes));
     if (x.sources_urls && x.sources_urls.length) { const p = el("p", "rv-meta", "Sources: "); x.sources_urls.forEach((u, i) => { if (/^https:\/\//.test(u)) { const a = el("a", null, u.replace(/^https:\/\/(www\.)?/, "").slice(0, 60)); a.href = u; a.target = "_blank"; a.rel = "noopener"; p.append(i ? " · " : "", a); } }); b.append(p); }
     if (x.reference) b.append(el("p", "rv-meta", `Reference list ${x.reference.name}: ${x.reference.size} entries, ${Math.round(100 * x.reference.covered)}% already on this question's own list. Not on it, for example: ${x.reference.missing.join(", ")}.`));

@@ -63,7 +63,8 @@
     "dirty", "clean", "empty", "full", "wooden", "metal", "plastic", "electric", "pink", "purple", "orange", "yellow", "green", "blue", "red", "black", "white", "brown", "grey", "gray"]);
   const NOT_REAL = new Set(["teddy", "toy", "stuffed", "plush", "plastic", "fake", "cartoon", "robot", "robotic", "lego", "paper", "chocolate", "gummy", "inflatable", "pretend", "imaginary"]);
 
-  let COMMON = new Set(), REAL = new Set();
+  let COMMON = new Set(), REAL = new Set(), KNOWN = new Set();
+  const setKnownNames = names => { KNOWN = new Set(names); };
   const setCommonWords = text => { COMMON = new Set(String(text || "").split(" ")); };
   // A larger dictionary of real (rarer) English words, loaded in the background (realwords.txt). A real word is never
   // "corrected" into a different answer: "farrier" is not a typo of farmer. It goes for review instead.
@@ -314,7 +315,17 @@
   // How far a spelling may be from an answer, by length (letters only): short words need far more care, since one
   // letter can make a different word ("crow", "craw", "cow").
   const allowFor = L => L <= 3 ? 0 : L <= 4 ? 1.6 : L <= 6 ? 2 : L <= 9 ? 2.6 : 3.2;
-  const autoFor = L => L <= 4 ? 1 : L <= 6 ? 1 : L <= 9 ? 1.6 : 2.2;
+  function classicSlip(a, b) {
+    if (a === b) return true;
+    if (a.length === b.length) { const d = []; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d.push(i); return d.length === 2 && d[1] === d[0] + 1 && a[d[0]] === b[d[1]] && a[d[1]] === b[d[0]]; }
+    const [lo, hi] = a.length < b.length ? [a, b] : [b, a];
+    if (hi.length - lo.length !== 1) return false;
+    for (let i = 0; i < hi.length; i++) if (hi.slice(0, i) + hi.slice(i + 1) === lo) return i > 0 && hi[i] === hi[i - 1] || i < hi.length - 1 && hi[i] === hi[i + 1];
+    return false;
+  }
+  // Corrected without asking only for a small slip: in short names a swapped or doubled letter (Rhone is not Rhine),
+  // otherwise about one letter, two in long names. Anything bigger is asked about first.
+  const autoFor = L => L <= 5 ? 0.6 : L <= 9 ? 1.1 : 1.6;
 
   // Candidates come from this question's answers only. Ranked by a noisy-channel score: how likely this spelling is
   // for each answer (edit cost, sound) plus how likely a player is to mean that answer at all (its share).
@@ -323,7 +334,11 @@
     if (!allow) return null;
     const snd = sound(n), firsts = new Set([n[0], n[1]]);
     const scored = new Map();   // row -> best { cost, key }
-    for (const info of P.keys) {
+    // Only names that start with one of the first two letters typed, or sound the same, can be candidates (below), so
+    // only those are scanned: a large list costs no more than a small one.
+    if (!P.byChar) { P.byChar = new Map(); P.bySnd = new Map(); for (const info of P.keys) { for (const c of new Set([info.k[0], info.k[1]])) { if (!P.byChar.has(c)) P.byChar.set(c, []); P.byChar.get(c).push(info); } if (!P.bySnd.has(info.snd)) P.bySnd.set(info.snd, []); P.bySnd.get(info.snd).push(info); } }
+    const pool = new Set([...(P.byChar.get(n[0]) || []), ...(P.byChar.get(n[1]) || []), ...(P.bySnd.get(snd) || [])]);
+    for (const info of pool) {
       // Spelt as it sounds ("vulchur", "nightengale"): a sound-alike gets more room, as long as the sound key says enough.
       const alike = info.snd === snd && snd.length >= 3, room = alike ? allow + 1.5 : allow;
       const d = Math.abs(info.k.length - n.length);
@@ -342,6 +357,9 @@
     const margin = second ? best.ll - second.ll : 9;
     // Confidence. High: close, clearly ahead of any other answer, and what was typed isn't itself an English word.
     // Medium: plausible and ahead, worth one question to the player. Anything else: low, and nothing is guessed.
+    // A name that is itself a real thing somewhere in the game's lists (Slovenia, the Rhone, Enron) is never
+    // corrected into a different answer: it is probably what the player meant, and simply doesn't fit here.
+    if (KNOWN.has(n)) return { row: best.row, cost: +best.cost.toFixed(2), margin: 9, level: "low" };
     const realWord = n.split(" ").every(w => isWord(w)) && n.length > 2;
     // A correctly spelt real word is never turned into a different answer (it may be a real answer missing from the list).
     if (realWord && n.split(" ").some(w => w.length >= 4 || REAL.has(w))) return { row: best.row, cost: +best.cost.toFixed(2), margin: +margin.toFixed(2), level: "low" };
@@ -354,7 +372,10 @@
     const startsAlike = compact(best.key).slice(0, 2) === compact(n).slice(0, 2), soundsAlike = sound(best.key) === snd && snd.length >= 2;
     const askable = (best.row.s || 0) >= 0.001 && (startsAlike || soundsAlike || best.cost <= 1);
     let level = "low";
-    if (lenOk && margin >= 0.8 && best.cost <= autoFor(L) && !realWord) level = "high";
+    // In a short name only a classic slip (two letters swapped, a letter doubled or dropped from a double) is corrected
+    // without asking: "Rhone" sounds like "Rhin", and is a different river.
+    const slipOnly = L > 5 || classicSlip(compact(n), compact(best.key));
+    if (lenOk && margin >= 0.8 && best.cost <= autoFor(L) && !realWord && slipOnly) level = "high";
     // ...and never when much of the word would change (under about a third of its letters, more if it sounds the same).
     else if (lenOk && margin >= 0.5 && best.cost <= Math.min(allow, 0.3 * L + 0.4) + (soundsAlike ? 1.5 : 0) && askable) level = "medium";
     return { row: best.row, cost: +best.cost.toFixed(2), margin: +margin.toFixed(2), level };
@@ -399,6 +420,13 @@
     const dupOf = row => given && given.rows.has(row.a);
     const ok = (row, via) => Object.assign(res, dupOf(row) ? { status: "dup", row, via } : { status: "ok", row, via });
 
+    // Several answers in one ("Zune, Kin and Windows Phone", "Prada and Miu Miu"): one at a time. Only when the whole
+    // thing isn't itself a name ("Marks and Spencer", "Tom and Jerry").
+    if (/,|;|&| and | or /i.test(" " + String(text) + " ") && !lookup(n, P)) {
+      const segs = String(text).split(/\s*(?:,|;|&|\band\b|\bor\b)\s*/i).map(x => normalize(x).replace(/^(the|a|an)\s+/, "")).filter(Boolean);
+      const known = segs.filter(x => lookup(x, P)).length, short = segs.every(x => x.split(" ").length <= 3);
+      if (segs.length >= 2 && (known >= 2 || (known >= 1 && short && /,|;/.test(String(text))))) return Object.assign(res, { status: "invalid", reason: "One answer at a time" });
+    }
     // Brands, models and descriptions on questions that take them, before anything is ruled out as "not one answer".
     if ((P.products || P.cat.describe) && !lookup(n, P) && n.split(" ").length <= 14) { const sp = specific(n, P, res); if (sp) return sp.status === "ok" && dupOf(sp.row) ? Object.assign(sp, { status: "dup" }) : sp; }
     if (P.general.has(n) || variants(n).some(v => P.general.has(v))) return Object.assign(res, { status: "invalid", reason: "Too general" });
@@ -512,11 +540,25 @@
     const n = normalize(text); if (!n || n.length < 3) return null;
     let row = null, fixed = false;
     const hit = lookup(n, LEXP); if (hit) row = hit.row;
-    if (!row) { const t = correct(n, LEXP); if (t && t.level !== "low") { row = t.row; fixed = true; } }
+    // A slip: only names that start with the same two letters or sound the same are compared, so this stays well
+    // under a millisecond on a 28,000-name dictionary. One or two letters out, by length; the closest wins.
+    if (!row && n.length >= 5) {
+      // Buckets: first two letters; letters two and three (a silent first letter: "terrodactyl" for pterodactyl); sound.
+      if (!LEXP.pre2) { LEXP.pre2 = new Map(); LEXP.snd2 = new Map(); const put = (m, k, v) => { if (!m.has(k)) m.set(k, []); m.get(k).push(v); };
+        for (const info of LEXP.keys) { put(LEXP.pre2, info.k.slice(0, 2), info); put(LEXP.pre2, "_" + info.k.slice(1, 3), info); put(LEXP.snd2, info.snd, info); } }
+      const room = n.length >= 9 ? 2 : n.length >= 6 ? 1.5 : 1, snd = sound(n);
+      let best = null, bc = room + 0.01;
+      for (const info of [...(LEXP.pre2.get(n.slice(0, 2)) || []), ...(LEXP.pre2.get("_" + n.slice(0, 2)) || []), ...(LEXP.snd2.get(snd) || [])]) {
+        if (Math.abs(info.k.length - n.length) > 2) continue;
+        let c = editCost(n, info.k, room + 0.5); if (info.snd === snd && snd.length >= 3) c -= 0.5;
+        if (c < bc) { bc = c; best = info.row; }
+      }
+      if (best && !KNOWN.has(n) && !n.split(" ").every(w => isWord(w))) { row = best; fixed = true; }   // a real word is meant as itself
+    }
     if (!row) return null;
     const labels = row.ids.map(i => lex.labels[i]).filter(l => l !== skipLabel);
     return labels.length ? { name: row.a, labels, fixed } : null;
   }
 
-  window.IcebergValidate = { mergeKb, elsewhere, normalize, variants, prepare, judge, remember, gibberish, setCommonWords, setRealWords, editCost, sound, correct, sameSpelling };
+  window.IcebergValidate = { setKnownNames, mergeKb, elsewhere, normalize, variants, prepare, judge, remember, gibberish, setCommonWords, setRealWords, editCost, sound, correct, sameSpelling };
 })();

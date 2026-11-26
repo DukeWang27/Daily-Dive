@@ -93,6 +93,8 @@ def main(out):
                 e = Q.get(cq["key"])
                 if e is not None:
                     e["verdict"] = [q.get("verdict"), q.get("verdict_reason", "")]; e["granularity"] = q.get("granularity", ""); e["mechanic"] = q.get("mechanic", "")
+                    gp = os.path.join(ROOT, "content", "curated", "challenge", "gaps.json")
+                    e["gaps"] = json.load(open(gp)).get(q["id"], []) if os.path.exists(gp) else []
                     e["invalid"] = q.get("invalid_but_plausible", []); e["notes"] = q.get("notes", ""); e["sources_urls"] = q.get("sources", [])[:8]
         except Exception as ex: print("curated review data:", ex)
     exp = os.path.join(ROOT, "content", "experiments", "questions.json")

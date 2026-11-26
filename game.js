@@ -161,8 +161,9 @@ function loadKb(cat) {
 }
 // The other categories' answers, to explain an answer that belongs elsewhere (loaded once, in the background).
 let LEXICON = null;
-const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("content/kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; if (x) idle(() => V.elsewhere("warm", x)); }).catch(() => {}); };   // prepared in idle time, never on a guess
-const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
+const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("content/kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; if (x) { V.setKnownNames(Object.keys(x.names)); idle(() => V.elsewhere("warmup", x)); } }).catch(() => {}); };   // prepared in idle time, never on a guess
+// Each question's spelling index is built in idle time too, so even the first unknown answer is judged at once.
+const prep = cat => { if (!prepared.has(cat.key)) { const P = V.prepare(cat); prepared.set(cat.key, P); idle(() => V.correct("warmup", P)); } return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
 const save = () => { if (state) store.set(saveKey(state), state); };
 function newGame(practice) {
@@ -746,7 +747,8 @@ function submit() {
     // Only when it looks like a slip of something on the list does the first Enter stop to say so (and that attempt
     // is remembered too, in case the player moves on).
     // On another category's list ("terrodactyl" on birds: pterodactyl, a prehistoric animal): said once, at no cost.
-    const other = !unknownKey || unknownKey !== j.key ? V.elsewhere(j.text, LEXICON, String(cat.prompt || "").replace(/^Name /, "")) : null;
+    let other = !unknownKey || unknownKey !== j.key ? V.elsewhere(j.text, LEXICON, String(cat.prompt || "").replace(/^Name /, "")) : null;
+    if (other && V.judge(other.name, P, null).status === "ok") other = null;   // it's a slip of an answer to this question: the usual warning below
     if (other && unknownKey !== j.key) {
       unknownKey = j.key; Sound.play("pending"); input.select(); tried(r, j.text, "other list");
       setHint(`${other.fixed ? `“${j.text}” looks like ${other.name}: ` : `${other.name.replace(/^./, c => c.toUpperCase())} `}that's on our list for ${other.labels.slice(0, 2).join(" and ")}, not this question. Not sent: try another, or press Enter again if you think it counts here (uses a guess).`, "warn");

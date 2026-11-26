@@ -10,6 +10,7 @@ global.window = {}; global.localStorage = { getItem: () => null, setItem: () => 
 require('../../validate.js');
 const V = window.IcebergValidate;
 V.setRealWords(fs.readFileSync(path.join(ROOT, 'realwords.txt'), 'utf8'));
+try { V.setKnownNames(Object.keys(JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'kb', 'lexicon.json'), 'utf8')).names)); } catch { }   // as the game does once loaded
 const words = JSON.parse(fs.readFileSync(path.join(ROOT, 'words.json'), 'utf8')); if (words.commonWords) V.setCommonWords(words.commonWords);
 let fails = 0;
 for (const f of fs.readdirSync(path.join(__dirname, 'coverage')).filter(f => f.endsWith('.json'))) {

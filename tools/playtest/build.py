@@ -72,6 +72,10 @@ for i, day in enumerate(sample["days"]):
                    "review": {"format": q.get("format"), "framework": q.get("framework"), "pool": q.get("estimated_pool_size", {}).get("estimate")}})
     put(101 + i, {"v": 3, "questions": qs}, "new", f"sample-14-days-v4 day {day['day']}")
 
+# Experimental round types, themes, routes and chains (tools/playtest/experiments.py): playtest only.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import experiments
+days += experiments.build(out, widen)
 json.dump({"days": days}, open(os.path.join(out, "pt", "list.json"), "w"), separators=(",", ":"))
 json.dump(coverage, open(os.path.join(out, "pt", "coverage.json"), "w"), indent=1)
 print(len(days), "days")

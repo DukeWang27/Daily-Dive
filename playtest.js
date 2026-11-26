@@ -12,7 +12,8 @@
     del(k) { try { localStorage.removeItem("iceberg-pt:" + k); } catch { /* fine */ } },
   };
   const day = local.get("pt-day", 1);
-  const GROUPS = { live: "Live days (already played on the site)", prepared: "Prepared days (scheduled, not yet public)", new: "New sample days (for review, rough rarity)" };
+  const GROUPS = { live: "Live days (already played on the site)", prepared: "Prepared days (scheduled, not yet public)", new: "New sample days (for review, rough rarity)",
+    experimental: "Experimental round types (practice days 191-194, full expeditions 201-208)", prototype: "Prototypes: a route choice (209) and an answer chain (210)" };
 
   // ---------- Notes: device first, the artifact database when there is one ----------
   let db = null, dbState = "device";

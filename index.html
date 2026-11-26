@@ -1060,6 +1060,28 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 }
 @media (max-width: 920px) and (max-height: 520px) { .rdock.playing .r-standing, .rdock.playing .finish-row { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* ---------- Round types (experimental) ---------- */
+.round-extra { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 2px 0 8px; font-size: 12.5px; color: var(--muted); }
+.round-extra .rx-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.round-extra.forbid .chip { padding: 2px 8px; border-radius: 999px; background: rgba(255, 140, 120, .12); color: #ffb3a6; text-decoration: line-through; text-decoration-color: rgba(255, 140, 120, .7); font-weight: 600; }
+.round-extra.sonar { flex-direction: column; gap: 4px; width: 100%; }
+.sonar-strip { position: relative; width: 100%; height: 22px; border-radius: 6px; background: linear-gradient(90deg, rgba(143, 208, 245, .06), rgba(143, 208, 245, .14)); box-shadow: inset 0 0 0 1px var(--line-2); overflow: visible; margin-bottom: 12px; }
+.sonar-band { position: absolute; top: 0; bottom: 0; background: rgba(125, 240, 223, .28); box-shadow: 0 0 12px rgba(125, 240, 223, .45), inset 0 0 0 1px rgba(125, 240, 223, .7); border-radius: 4px; animation: sonar 2.4s ease-in-out infinite; }
+@keyframes sonar { 50% { box-shadow: 0 0 22px rgba(125, 240, 223, .65), inset 0 0 0 1px rgba(125, 240, 223, .9); } }
+@media (prefers-reduced-motion: reduce) { .sonar-band { animation: none; } }
+.sonar-tick { position: absolute; top: 100%; margin-top: 2px; transform: translateX(-50%); font-size: 9.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.sonar-ping { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 2px rgba(4, 9, 23, .9); }
+.sonar-ping.near { background: var(--accent); } .sonar-ping.hit { background: var(--lumen); box-shadow: 0 0 0 2px rgba(4, 9, 23, .9), 0 0 10px var(--lumen); }
+.round-extra.riskline .rx-lbl { color: var(--warn); }
+.round-card { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(2, 6, 16, .55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.round-card .rc { width: min(460px, 100%); padding: 22px 22px 18px; border-radius: 16px; background: var(--panel-solid); box-shadow: 0 0 0 1px var(--line-2), 0 20px 60px rgba(0, 0, 0, .5); }
+.round-card h3 { margin: 4px 0 8px; font-size: 22px; line-height: 1.2; text-wrap: balance; }
+.round-card .rc-body { margin: 0 0 12px; color: var(--muted); font-size: 15px; line-height: 1.45; }
+.round-card .round-extra { justify-content: flex-start; }
+.round-card .rc-actions { display: grid; gap: 8px; margin-top: 8px; }
+.round-card .rc-actions .btn { text-align: left; padding: 12px 14px; font-size: 15px; }
+.round-card .rc-actions .btn small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; opacity: .8; }
 </style>
 </head>
 <body>
@@ -1133,6 +1155,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
         <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
         <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
         <p class="q-hint" id="q-hint"></p>
+        <div class="round-extra" id="round-extra" hidden></div>
         <form class="entry" id="entry" autocomplete="off" novalidate>
           <div class="melt" id="melt" role="timer" aria-label="Time left" hidden><canvas id="melt-ice" aria-hidden="true"></canvas><span class="melt-n" id="melt-n">20</span></div>
           <label class="sr" for="answer">Your guess</label>
@@ -1147,6 +1170,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
         <div class="finish-row"><button class="btn ghost" id="finish" type="button" hidden>Finish</button><span class="finish-note" id="finish-note"></span></div>
       </div>
     </div>
+    <div class="round-card" id="round-card" hidden role="dialog" aria-live="polite"></div>
     <div class="dock"></div>
 
     <div id="done-panel" class="done-panel drawer" hidden>
@@ -1309,6 +1333,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 <script src="ranked.js"></script>
 <script src="race.js"></script>
 <script src="demo.js"></script>
+<script src="rounds.js"></script>
 <script src="game.js"></script>
 <script src="playtest.js"></script>
 </body>

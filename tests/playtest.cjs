@@ -21,7 +21,7 @@ const shots = process.env.SHOTS || '';
     const tab = async () => { if (await p.locator('.pt-tog').isVisible() && await p.evaluate(() => document.querySelector('.pt-bar').classList.contains('pt-min'))) await p.click('.pt-tog'); };
     await tab(); await p.click('.pt-day'); await p.waitForSelector('.pt-row');
     const rows = await p.locator('.pt-row').count(), groups = await p.locator('.pt-days h4').allTextContents();
-    ok(`${tag}: picker lists every day in three groups`, rows === 107 && groups.length === 3, `${rows} ${groups}`);
+    ok(`${tag}: picker lists every day, grouped`, rows >= 107 && groups.length >= 3, `${rows} ${groups}`);
     await p.fill('.pt-filter', 'bookmark'); ok(`${tag}: search narrows the list`, (await p.locator('.pt-row').count()) >= 1 && (await p.locator('.pt-row').count()) < 5);
     if (shots) await p.screenshot({ path: `${shots}/pt-days-${tag}.png` });
     await p.click('.pt-row:has-text("Day 101")'); await p.waitForFunction(() => !document.querySelector('#play').disabled && /101/.test(document.querySelector('.pt-day').textContent));

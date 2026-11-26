@@ -741,8 +741,9 @@
       const zone = document.createElement("span"); zone.className = "ib-zone"; zone.textContent = it.tier.name;
       add("ib-share", b(it.shareText), " of players ", zone);
       if (it.at == null) { if (it.depth > 0) add("ib-below", b(it.depth + " m"), " deep"); }
-      else if (it.gain > 0) add("ib-below", b("+" + it.depth + " m"), it.depth > it.gain ? ` (${it.gain} m further than your last best)` : "", " · down to ", b(it.at.toLocaleString("en-US") + " m"));
-      else if (it.keep != null) add("ib-below", b("+" + it.depth + " m"), it.depth === it.keep ? " · level with your best, no further down" : ` · your +${it.keep} m still counts`);
+      else if (it.gain > 0) add("ib-below", b("+" + (it.earn != null ? it.earn : it.depth) + " m"), (it.earn != null ? it.earn : it.depth) > it.gain ? ` (${it.gain} m further than your last best)` : "", " · down to ", b(it.at.toLocaleString("en-US") + " m"));
+      else if (it.keep != null) add("ib-below", b("+" + (it.earn != null ? it.earn : it.depth) + " m"), (it.earn != null ? it.earn : it.depth) === it.keep ? " · level with your best, no further down" : ` · your +${it.keep} m still counts`);
+      else if (it.mode === "risk") add("ib-below", b("+" + (it.earn != null ? it.earn : it.depth) + " m"), " · on offer: your choice next");
       else add("ib-below", b("+0 m"), " · said by too many to take you down");
       if (it.at != null && it.gain > 0) { const r = regionOf(it.at), was = regionOf(it.at - it.gain); if (r !== was) add("ib-region", "Into ", b(r.name)); }
       if (it.rankText) add("ib-rank", it.rankText);
@@ -776,7 +777,7 @@
       const m = document.createElement("button"); m.type = "button"; m.className = "ib-mark dim tier-" + it.tier.key + (a.who === "them" ? " them" : ""); m.setAttribute("aria-label", `${a.label ? a.label + ": " : "Guess " + it.n + ": "}${it.name}, ${depth} metres`);
       m.onclick = () => focus(i); layer.append(m); it.mark = m;
       const p = document.createElement("button"); p.type = "button"; p.className = "ib-pill dim tier-" + it.tier.key + (a.who === "them" ? " them" : ""); p.title = it.name;
-      const nm = document.createElement("span"); nm.textContent = (a.label ? a.label + " · " : "") + it.name; const d = document.createElement("b"); d.textContent = (a.at != null ? "+" : "") + depth + " m";
+      const nm = document.createElement("span"); nm.textContent = (a.label ? a.label + " · " : "") + it.name; const d = document.createElement("b"); d.textContent = (a.at != null ? "+" : "") + (a.earn != null ? a.earn : depth) + " m";
       p.append(nm, d); p.onclick = () => focus(i); layer.append(p); it.pill = p;
       items.push(it);
       return it;

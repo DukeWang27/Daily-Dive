@@ -85,10 +85,11 @@
     let y = 580;
     data.rounds.forEach((r, i) => {
       g.fillStyle = "rgba(143,208,245,.14)"; g.fillRect(X, y - 62, RW, 2);
-      diamond(g, X + 18, y - 12, 15, r ? ZONE[r.tier] : "rgba(98,121,158,.5)");
+      diamond(g, X + 18, y - 12, 15, r && !r.none ? ZONE[r.tier] : "rgba(98,121,158,.5)");
       g.font = `800 22px ${UI}`; g.fillStyle = "#06112a"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), X + 18, y - 11);
-      g.textBaseline = "alphabetic"; g.textAlign = "left"; g.font = `600 34px ${UI}`; g.fillStyle = r ? (ZONE[r.tier] || "#eaf3ff") : "#62799e"; g.fillText(r ? r.tierName : "No depth", X + 62, y);
-      g.textAlign = "right"; g.font = `800 44px ${UI}`; g.fillStyle = r ? "#eaf3ff" : "#62799e"; g.fillText(r ? `+${r.depth} m` : "–", X + RW, y + 2);
+      const named = r && !r.none, kn = kindName(r);
+      g.textBaseline = "alphabetic"; g.textAlign = "left"; g.font = `600 34px ${UI}`; g.fillStyle = named ? (ZONE[r.tier] || "#eaf3ff") : "#62799e"; g.fillText(named ? (kn ? `${kn}${r.risk === "won" ? " ✓" : r.risk === "lost" ? " ✗" : ""}` : r.tierName) : (kn || "No depth"), X + 62, y);
+      g.textAlign = "right"; g.font = `800 44px ${UI}`; g.fillStyle = r && !r.none ? "#eaf3ff" : "#62799e"; g.fillText(r && !r.none ? `+${r.depth} m` : "–", X + RW, y + 2);
       g.textAlign = "left"; y += 96;
     });
     g.fillStyle = "rgba(143,208,245,.14)"; g.fillRect(X, y - 62, RW, 2);
@@ -107,10 +108,14 @@
   const blob = canvas => new Promise(resolve => canvas.toBlob(resolve, "image/png"));
 
   // Plain text for chats: one bar per question, drawn with block characters so it looks the same everywhere.
+  // Round types (experimental days): a mark for each, and how a risk went. Rarity rounds keep the plain diamond.
+  const KIND = { target: "◎", forbidden: "⊘", risk: "▲", wildcard: "✦" };
+  const riskWord = r => r && r.risk ? ({ won: " · risk paid off", lost: " · risk lost", secure: " · secured", continue: "" })[r.risk] || "" : "";
+  const kindName = r => r && r.kind && r.kind !== "standard" ? ({ target: "Target", forbidden: "Forbidden", risk: "Risk", wildcard: "Wildcard" })[r.kind] : "";
   function text(data) {
     // Beneath the iceberg the bar runs off the end, past the ice: a full bar and a mark beyond it.
     const bar = d => { const n = Math.max(0, Math.min(10, Math.round(d / 30))); return "▓".repeat(n) + "░".repeat(10 - n) + (I.isBeyond(d) ? " ◆" : ""); };
-    const lines = data.rounds.map((r, i) => `${i + 1} ${bar(r ? r.depth : 0)} ${r ? "+" + r.depth + " m" + (I.isBeyond(r.depth) ? " · Unfathomable" : "") : "–"}`);
+    const lines = data.rounds.map((r, i) => `${i + 1}${r && KIND[r.kind] ? KIND[r.kind] : ""} ${bar(r ? r.depth : 0)} ${r && !r.none ? "+" + r.depth + " m" + (r.tier === "beyond" ? " · Unfathomable" : "") : "–"}${riskWord(r)}`);
     const last = [data.deepest ? `Rarest: +${data.deepest.depth} m (${data.deepest.tierName})` : "", data.streak > 1 ? `streak ${data.streak}` : ""].filter(Boolean).join(" · ");
     return [`${B.name} #${data.day} · ${data.total.toLocaleString("en-US")} m down · ${I.regionOf(data.total).name}`, ...lines, last, B.tagline.join(" "), data.link || ""].filter(Boolean).join("\n");
   }

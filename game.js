@@ -132,6 +132,8 @@ const shareOf = row => row.s;
 // ---------- State (saved after every change, so a reload never resets a question) ----------
 // Run something when the browser has a quiet moment (falls back to a short timeout where that isn't available).
 const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 1500 }) : setTimeout(f, 60));
+// DAYX: the whole day as loaded (its theme, and any route choice or answer chain: experimental, playtest only).
+let DAYX = null;
 let CATS = [], state = null, berg = null, life = null, cameFrom = "home", screen = "home", busy = false, unknownKey = "", autoFinish = 0;
 const prepared = new Map();
 const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
@@ -145,8 +147,11 @@ function newGame(practice) {
 const cur = () => state.rounds[state.round];
 const okGuesses = r => r.guesses.filter(g => g.status === "ok");
 // The deepest answer wins; equal shares keep the earlier guess.
-const bestOf = r => okGuesses(r).reduce((b, g) => !b || g.share < b.share ? g : b, null);
-const scoreOf = r => { const b = bestOf(r); return b ? depthOf(b.share) : 0; };
+// Which question a round belongs to, and what its answers are worth there (rounds.js: rarity, target, forbidden, risk).
+const catOf = r => (state && CATS[state.rounds.indexOf(r)]) || { answers: [] };
+const bestOf = r => Rounds.best(catOf(r), r);
+const scoreOf = r => Rounds.score(catOf(r), r);
+const valueOf = (r, g) => Rounds.value(catOf(r), g);
 const totalSoFar = () => state ? state.rounds.reduce((s, r) => s + scoreOf(r), 0) : 0;
 // ---------- The dive: one calculation for where you are ----------
 // Your depth is the running total: every finished question's score plus the best verified answer so far in this one.
@@ -159,14 +164,10 @@ const diveBefore = i => state ? state.rounds.slice(0, i).reduce((s, r) => s + sc
 const diveNow = () => totalSoFar();
 // One guess, as it played out: where its question started, what it added, where it left you.
 function diveOf(r, g) {
-  const i = state.rounds.indexOf(r), base = diveBefore(i);
-  let best = null;
-  for (const x of r.guesses) {
-    if (x === g) break;
-    if (x.status === "ok" && (!best || x.share < best.share)) best = x;
-  }
-  const d = depthOf(g.share), had = best ? depthOf(best.share) : 0, beats = !best || g.share < best.share;
-  return { base, depth: d, gain: beats ? Math.max(0, d - had) : 0, at: base + (beats ? Math.max(d, had) : had), keep: beats ? null : had, beats };
+  const i = state.rounds.indexOf(r), cat = CATS[i], base = diveBefore(i), n = r.guesses.indexOf(g);
+  const had = Rounds.score(cat, r, n, false), now = Rounds.score(cat, r, n + 1, false), v = Rounds.value(cat, g);
+  const beats = now > had;
+  return { base, depth: v, gain: Math.max(0, now - had), at: base + Math.max(now, had), keep: beats ? null : had, beats, had, now };
 }
 // The marks along the way: where each finished question left you.
 function syncRoute() {
@@ -217,7 +218,8 @@ function openHowTo() { const d = $("#howto"); if (!d.open) { d.showModal(); stor
 let nextTimer = 0;
 function renderHome() {
   const today = todayResult(), n = streakNow().count;
-  $("#home-day").textContent = today ? `Daily #${dayNumber()} done · ${fmt(today.total)} m` : `Daily #${dayNumber()} · ${CATS.length || 5} questions${TIME_MS ? ` · ${TIME_MS / 1000} s each` : ""}`;
+  const theme = DAYX && DAYX.theme ? ` · ${DAYX.theme.name}` : "";
+  $("#home-day").textContent = today ? `Daily #${dayNumber()}${theme} done · ${fmt(today.total)} m` : `Daily #${dayNumber()}${theme} · ${CATS.length || 5} questions${TIME_MS ? ` · ${TIME_MS / 1000} s each` : ""}`;
   $("#home-streak").textContent = n ? `${n}-day streak` : "";
   if (!$("#play").disabled) $("#play").textContent = PLAYTEST ? (today ? `Play day ${dayNumber()} again` : `Play day ${dayNumber()}`) : today ? "See today's results" : "Play today's Icebreaker";
   const tick = () => {
@@ -295,7 +297,7 @@ function bergItem(cat, r, g, n) {
   const row = g.name ? cat.answers.find(a => a.a === g.name) : null, players = r.players || SAMPLE_PLAYERS;
   const dv = state && state.rounds.includes(r) ? diveOf(r, g) : null;
   return { n, name: guessName(cat, g), share: g.share, shareText: pctText(g.share), blurb: row && row.b || "",
-    ...(dv ? { at: dv.at, gain: dv.gain, keep: dv.keep } : {}),
+    ...(dv ? { at: dv.at, gain: dv.gain, keep: dv.keep, earn: dv.depth, mode: Rounds.kind(cat) } : {}),
     // A count of players only from real ones: a simulated sample is never presented as people.
     countText: row && liveStats(r) ? `${fmt(r.stats.counts.get(g.name) || 1)} of ${fmt(r.stats.players)}` : "", rankText: g.rank || "", sight: sightLine(g.sight) };
 }
@@ -348,6 +350,77 @@ function logSighting(r, key) {
   r.seen.push(key); save();
   const all = store.get("sightings", {}); all[key] = all[key] || { n: 0, first: state.day }; all[key].n++; store.set("sightings", all);
 }
+// ---------- Round types: what each one shows, and the risk decision (rounds.js holds the rules) ----------
+// Under the question: the forbidden answers as small chips, or, for a target, a sonar strip of popularity (common on the
+// left, rare on the right) with the target band lit and a ping for each guess so far.
+function roundExtras(cat, r) {
+  const box = $("#round-extra"); if (!box) return;
+  box.textContent = ""; box.className = "round-extra"; const k = Rounds.kind(cat);
+  if (k === "forbidden") {
+    box.classList.add("forbid"); box.append(el("span", "rx-lbl", "Off limits"));
+    (cat.mode.forbid || []).forEach(a => { const row = cat.answers.find(x => x.a === a); box.append(el("span", "chip", row ? display(row) : a)); });
+  } else if (k === "target") {
+    box.classList.add("sonar");
+    const b = Rounds.band(cat), lo = -5, hi = 0, x = s => 100 * (1 - (Math.log10(Math.max(1e-5, Math.min(1, s))) - lo) / (hi - lo));
+    const strip = el("div", "sonar-strip"), zone = el("i", "sonar-band");
+    zone.style.left = x(Math.min(1, b.hi)) + "%"; zone.style.width = Math.max(1.2, x(b.lo) - x(Math.min(1, b.hi))) + "%"; strip.append(zone);
+    for (const [s, t] of [[1, "100%"], [0.1, "10%"], [0.01, "1%"], [0.001, "0.1%"], [0.0001, "0.01%"]]) { const m = el("span", "sonar-tick", t); m.style.left = x(s) + "%"; strip.append(m); }
+    okGuesses(r).forEach(g => { const v = valueOf(r, g), p = el("b", "sonar-ping" + (v >= Rounds.TARGET_MAX ? " hit" : v > 0 ? " near" : "")); p.style.left = x(g.share) + "%"; p.title = `${guessName(cat, g)}: ${pctText(g.share)}`; strip.append(p); });
+    box.append(el("span", "rx-lbl", `Target: ${b.text}`), strip);
+  } else if (k === "risk" && r.choice) {
+    box.classList.add("riskline");
+    box.append(el("span", "rx-lbl", r.choice.kind === "risk" ? `At risk: +${r.choice.stake} m. Beat it for ×${Rounds.RISK_MULT}.` : r.choice.kind === "secure" ? `Secured +${r.choice.stake} m` : "Playing on: best of three"));
+  } else box.hidden = true;
+  if (box.childNodes.length) box.hidden = false;
+}
+// A card over the scene, for a round's rules or a decision. Resolves with the chosen button's value. Enter takes the
+// first; number keys pick by position. The clock is never running while one is open.
+function roundCard({ eyebrow, title, body, extra, buttons }) {
+  return new Promise(resolve => {
+    const host = $("#round-card"); host.textContent = ""; host.hidden = false;
+    const card = el("div", "rc"); if (eyebrow) card.append(el("p", "eyebrow", eyebrow));
+    card.append(el("h3", null, title)); if (body) card.append(el("p", "rc-body", body)); if (extra) card.append(extra);
+    const row = el("div", "rc-actions"), bs = buttons.map((b, i) => { const x = el("button", "btn" + (i ? " ghost" : ""), b.label); x.type = "button"; if (b.note) x.append(el("small", null, b.note)); x.onclick = () => done(b.value); row.append(x); return x; });
+    card.append(row); host.append(card);
+    const key = e => { if (e.key === "Enter") { e.preventDefault(); done(buttons[0].value); } else { const n = +e.key; if (n >= 1 && n <= buttons.length && buttons.length > 1) { e.preventDefault(); done(buttons[n - 1].value); } } };
+    const done = v => { removeEventListener("keydown", key, true); host.hidden = true; host.textContent = ""; $("#answer").focus({ preventScroll: true }); resolve(v); };
+    addEventListener("keydown", key, true); setTimeout(() => bs[0].focus({ preventScroll: true }), 30);
+  });
+}
+// The rules of a new kind of round, once per question, before its clock starts.
+async function roundIntro(cat, r) {
+  const k = Rounds.kind(cat);
+  if (k === "standard" || r.introduced || !state || cur() !== r || state.phase !== "play") return;
+  const extra = el("div"); extra.append($("#round-extra").cloneNode(true)); extra.firstChild.removeAttribute("id");
+  await roundCard({ eyebrow: `Question ${state.round + 1} · ${Rounds.label(cat)}${DAYX && DAYX.theme ? " · " + DAYX.theme.name : ""}`, title: cat.prompt || cat.title, body: Rounds.rule(cat), extra: k === "standard" ? null : extra,
+    buttons: [{ label: "Start", value: 1 }] });
+  r.introduced = true; save();
+}
+// Risk and reward: decide once the first verified answer is in (and there is a guess left to use).
+// (A first answer worth nothing has nothing to stake: that round simply plays on.)
+const riskPending = (cat, r) => { if (Rounds.kind(cat) !== "risk" || r.choice || r.done || !okGuesses(r).length || r.guesses.length >= GUESSES) return false;
+  if (valueOf(r, okGuesses(r)[0]) <= 0) { r.choice = { kind: "continue", stake: 0, at: r.guesses.length, auto: true }; save(); return false; } return true; };
+async function askRisk(cat, r) {
+  clockStop();
+  const first = okGuesses(r)[0], stake = valueOf(r, first), left = GUESSES - r.guesses.length;
+  const v = await roundCard({ eyebrow: "Risk and reward", title: `${guessName(cat, first)} is worth +${stake} m`,
+    body: `It hasn't moved you yet. Choose what happens to it. Earlier questions are safe whatever you choose.`,
+    buttons: [
+      { label: `Keep +${stake} m`, note: " and finish this question", value: "secure" },
+      { label: "Play on", note: ` · best of three, nothing at stake`, value: "continue" },
+      { label: `Risk it`, note: ` · beat +${stake} m with your ${left === 1 ? "last guess" : left + " guesses"} for ×${Rounds.RISK_MULT}; miss and this question earns 0`, value: "risk" },
+    ] });
+  if (!state || cur() !== r) return;
+  r.choice = { kind: v, stake, at: r.guesses.length }; save();
+  roundExtras(cat, r); renderSlots(); updateHeader();
+  if (v === "secure") { finishQuestion(); return; }
+  if (v === "continue" || v === "risk") {
+    // The first answer's distance now counts (play on) or is staked (risk): move down for play on, stay for risk.
+    if (v === "continue" && stake > 0) { berg.setDive({ base: diveBefore(state.round), at: diveNow() }); syncFrame(0); }
+    const left2 = GUESSES - r.guesses.length;
+    setHint(v === "risk" ? `Risked +${stake} m. Beat it with your next ${left2 === 1 ? "guess" : left2 + " guesses"} for ×${Rounds.RISK_MULT}, or this question earns nothing.` : `+${stake} m counts. Best of three from here.`, v === "risk" ? "warn" : "good");
+  }
+}
 function setHint(text, kind) { const h = $("#hint"); h.className = "hint" + (kind ? " " + kind : ""); h.textContent = text || ""; const a = $("#q-ask"); if (a && !a.dataset.keep) a.hidden = true; }
 // "Did you mean Raven?" inside the ice panel, under the box: Enter (or the button) for yes; Escape, or editing the
 // answer, to keep it as typed. It says nothing about rarity, offers one answer only, and the clock keeps running.
@@ -375,11 +448,55 @@ function declineCorrection() {
 }
 
 // animated: true for the first question (the push in to the tip), "surface" between questions (rise to the tip).
+// ---------- Routes and chains (experimental, playtest only) ----------
+// A route: at one point in the day the player picks which questions the rest of the dive uses. A chain: a question
+// whose exact version depends on the answer that counted in an earlier one (a country, then an animal native to it).
+// What was picked is saved (state.paths: round -> question key), so a reload rebuilds the same day.
+function allVariants() {
+  const out = new Map(), add = q => { if (q && q.key) out.set(q.key, q); };
+  CATS.forEach(add);
+  if (DAYX && DAYX.branch) DAYX.branch.routes.forEach(r => r.questions.forEach(add));
+  CATS.forEach(q => { if (q.chain) Object.values(q.chain.by).forEach(add); });
+  return out;
+}
+let VARIANTS = null;
+function applyPaths(paths) {
+  VARIANTS = VARIANTS || allVariants();
+  for (const [i, key] of Object.entries(paths)) { const q = VARIANTS.get(key); if (q && /^\d+$/.test(i)) CATS[+i] = paths["p" + i] ? { ...q, prompt: paths["p" + i] } : q; }
+}
+function setPath(i, q) {
+  VARIANTS = VARIANTS || allVariants();
+  CATS[i] = q; state.paths = state.paths || {}; state.paths[i] = q.key; state.rounds[i].key = q.key;
+  if (VARIANTS.get(q.key) && VARIANTS.get(q.key).prompt !== q.prompt) state.paths["p" + i] = q.prompt;   // a chain question written for your answer
+}
+async function resolvePaths() {
+  const i = state.round; if (!DAYX || i >= CATS.length || state.phase !== "play" || state.rounds[i].guesses.length) return;
+  const b = DAYX.branch;
+  if (b && i === b.at && !(state.paths && state.paths.route)) {
+    const v = await roundCard({ eyebrow: "The water splits", title: "Choose your route", body: "The rest of today's dive follows the route you pick. (Prototype: routes aren't scored against each other yet.)",
+      buttons: b.routes.map(r => ({ label: r.label, note: " · " + r.blurb, value: r.key })) });
+    const route = b.routes.find(r => r.key === v) || b.routes[0];
+    route.questions.forEach((q, k) => setPath(b.at + k, q)); state.paths.route = route.key; save();
+    if (berg) { const v2 = berg.view; berg.setDive({ base: diveBefore(i), at: diveNow() }); }   // the camera stays where you are
+  }
+  const cat = CATS[i];
+  if (cat && cat.chain && !(state.paths && state.paths[i])) {
+    const from = state.rounds[cat.chain.from], fromCat = CATS[cat.chain.from], b1 = bestOf(from);
+    let key = b1 && b1.name;
+    if (cat.chain.fam) { const c0 = bestOf(state.rounds[cat.chain.country_from]), row = b1 && fromCat.answers.find(a => a.a === b1.name); key = c0 && row ? `${c0.name}|${row.fam}` : null; }
+    let next = (key && cat.chain.by[key]) || Object.values(cat.chain.by)[0];
+    if (/\{last\}/.test(next.prompt)) next = { ...next, prompt: next.prompt.replace("{last}", b1 ? guessName(fromCat, b1) : "last one") };
+    setPath(i, next); save();
+  }
+}
 async function startQuestion(animated) {
+  await resolvePaths();
   const cat = CATS[state.round], r = cur(), rising = animated === "surface" && berg && berg.count > 0 && screen === "play";
   ensureBerg(); prep(cat); // build the lookup now, so the first guess is judged instantly
   clearTimeout(autoFinish); busy = false; unknownKey = ""; queued = false; confirmFor = null; keepTyped = "";
-  $("#q-num").textContent = `Question ${state.round + 1} of ${CATS.length}`;
+  const kind = Rounds.kind(cat);
+  $("#q-num").textContent = `Question ${state.round + 1} of ${CATS.length}` + (kind !== "standard" || CATS.some(c => c.mode) ? ` · ${Rounds.label(cat)}` : "");
+  roundExtras(cat, r);
   Icons.put($("#q-icon"), cat.icon);
   $("#q-title").textContent = cat.prompt || cat.title;
   $("#q-hint").textContent = cat.hint || "";
@@ -417,8 +534,11 @@ async function startQuestion(animated) {
     if (clock.ice) clock.ice.reset();
     if (panel()) { frost.reset(`${state.day}-${state.round}`); frost.set(r.left / TIME_MS); ready.then(() => { if (state && cur() === r && state.phase === "play") frost.form(); }); }
     clockDraw();
-    // It starts once the question is in view and the box is ready.
-    ready.then(() => { if (state && cur() === r && state.phase === "play") clockStart(); });
+    // It starts once the question is in view and the box is ready, and, for a new kind of round, once its rules have
+    // been read (the card waits for a key or a tap; the clock doesn't run behind it). A risk decision left open by a
+    // reload is asked again before the clock carries on.
+    ready.then(() => roundIntro(cat, r)).then(() => riskPending(cat, r) ? askRisk(cat, r) : null)
+      .then(() => { if (state && cur() === r && state.phase === "play" && !busy) clockStart(); });
   }
   if (done) { renderDone(cat, r); syncFrame(0); return ready; }
   renderSlots(); if (!rising) syncFrame(0);
@@ -433,11 +553,13 @@ async function startQuestion(animated) {
 }
 function tagBest(cat, r) {
   const b = bestOf(r);
-  okGuesses(r).forEach(g => berg.setTag(g.bi, g === b && okGuesses(r).length > 1 ? "Deepest discovery · this one counts" : ""));
+  const tag = Rounds.kind(cat) === "target" ? "Closest to the target · this one counts" : "Deepest discovery · this one counts";
+  okGuesses(r).forEach(g => berg.setTag(g.bi, g === b && okGuesses(r).length > 1 ? tag : ""));
 }
 
 function renderSlots(revealing = -1, landed = -1) {
   const cat = CATS[state.round], r = cur(), best = bestOf(r), list = $("#slots");
+  if (revealing < 0) roundExtras(cat, r);
   list.textContent = "";
   for (let i = 0; i < GUESSES; i++) {
     const g = r.guesses[i], li = el("li");
@@ -458,7 +580,7 @@ function renderSlots(revealing = -1, landed = -1) {
       b.dataset.bi = g.bi;
       const sub = el("span", "slot-sub"); sub.append(pctText(g.share), el("span", "wide", " of players · "), el("b", null, tier.name));
       main.append(el("span", "slot-name", guessName(cat, g)), sub);
-      depth.append("+" + d, el("small", null, "m"));
+      depth.append("+" + valueOf(r, g), el("small", null, "m"));
       if (g === best && okGuesses(r).length > 1) b.append(el("span", "slot-tag", "Counts"));
       b.title = "Show on the iceberg";
       b.onclick = () => berg.focus(g.bi);
@@ -474,7 +596,8 @@ function renderSlots(revealing = -1, landed = -1) {
   // Finishing early: one tap, with what you'd keep and what you'd leave unused in plain sight.
   const left = GUESSES - r.guesses.length, fin = $("#finish"), note = $("#finish-note");
   fin.hidden = !(r.guesses.length > 0 && left > 0 && revealing < 0);
-  fin.textContent = best ? `Finish with +${depthOf(best.share)} m` : "Finish this question";
+  fin.textContent = best ? `Finish with +${scoreOf(r)} m` : "Finish this question";
+  if (Rounds.kind(cat) === "risk" && r.choice && r.choice.kind === "risk") fin.textContent = scoreOf(r) ? `Finish with +${scoreOf(r)} m` : "Give up the risk (earns 0)";
   // While a guess is being revealed the row keeps its place (an empty row would collapse and nudge the scene).
   note.textContent = fin.hidden ? (r.guesses.length === 0 ? "3 guesses. Only your rarest counts." : revealing >= 0 || left > 0 ? "\u00a0" : "") : `${left} guess${left === 1 ? "" : "es"} unused`;
   updateHeader();
@@ -560,6 +683,14 @@ function submit() {
 // the server's check matches exactly) and what was typed is kept to show beside it.
 function place(cat, r, row, raw, via) {
   const input = $("#answer"); unknownKey = ""; confirmFor = null; keepTyped = "";
+  // Forbidden in this round: the answer itself or any of its other names and spellings (they all lead to this row).
+  if (row && Rounds.isForbidden(cat, row)) {
+    r.misses++; r.rejects.push({ text: raw, reason: `${display(row)} is off limits this round` });
+    Sound.play("invalid"); const form = $("#entry"); form.classList.remove("shake"); void form.offsetWidth; form.classList.add("shake");
+    if (r.misses > FREE_MISSES) { r.guesses.push({ status: "miss", typed: raw, key: V.normalize(raw), reason: "Off limits this round" }); input.value = ""; setHint(`${display(row)} is off limits this round. That used a guess.`, "warn"); save(); renderSlots(); afterGuess(false); }
+    else { setHint(`${display(row)} is off limits this round. No guess used.`, "warn"); input.select(); save(); }
+    return;
+  }
   // Anything not typed exactly is sent as the answer's own name, so the server scores it as that answer: the same
   // depth, the same counts, one answer however it was written.
   const share = row ? shareOf(row) : REVIEWED_SHARE, canon = !!row && via !== "exact";
@@ -596,7 +727,12 @@ async function reveal(cat, r, g) {
   await berg.add(bergItem(cat, r, g, index + 1), { special });
   col.classList.remove("aside");
   if (!state || cur() !== r) return;
-  busy = false; clockStart();
+  busy = false;
+  // A risk round: the first verified answer waits for a decision (the clock waits too).
+  let decided = false;
+  if (riskPending(cat, r)) { await askRisk(cat, r); decided = true; }
+  if (!state || cur() !== r) return;
+  if (state.phase === "play" && !r.done) clockStart();
   // An answer this deep does not go unnoticed. Each of the great squid comes once per question, at its own depth.
   if (guest) {
     r.guests = (r.guests || []).concat(guest.key); g.sight = guest.key; logSighting(r, guest.key);
@@ -612,8 +748,12 @@ async function reveal(cat, r, g) {
   const left = GUESSES - r.guesses.length, more = left ? ` ${plural(left, "guess")} left.` : "";
   const counted = /^(Counted as|Spelling corrected)/.test($("#hint").textContent) ? $("#hint").textContent + " " : "";
   setTimeout(() => {
-    if (!state || cur() !== r || state.phase !== "play") return;
-    const at = fmt(dv.at);
+    if (!state || cur() !== r || state.phase !== "play" || decided) return;
+    const at = fmt(dv.at), vt = Rounds.verdict(cat, g, dv.had, dv.now);
+    if (vt) { setHint(counted + vt + more, dv.gain > 0 ? "good" : ""); return; }
+    if (Rounds.kind(cat) === "risk" && r.choice && r.choice.kind === "risk") {
+      const won = dv.now > 0; setHint(counted + (won ? `Risk paid off: +${valueOf(r, g)} m beats +${r.choice.stake} m, ×${Rounds.RISK_MULT} makes +${dv.now} m.` : `+${valueOf(r, g)} m doesn't beat your +${r.choice.stake} m.${more ? more : " The risk is lost: this question earns nothing."}`) + (won ? more : ""), won ? "good" : "warn"); return;
+    }
     if (!prevBest) setHint(counted + (d === 0 ? `${pctText(g.share)} of players said this: no distance. Can you go rarer?` : `+${d} m. You're down to ${at} m.`) + more, d >= 100 ? "good" : "");
     else if (deeper) { if (!special) Sound.play("deeper", { depth: Math.min(1, d / 260), m: d }); setHint(`${counted}+${d} m beats your +${depthOf(prevBest.share)} m: ${dv.gain} m further down, to ${at} m.${more}`, "good"); }
     else { Sound.play("neutral"); setHint(counted + (g.share === prevBest.share ? `+${d} m, level with your best. You stay at ${at} m.` : `+${d} m. Your +${depthOf(prevBest.share)} m still counts: you stay at ${at} m.`) + more); }
@@ -768,7 +908,7 @@ function renderDone(cat, r) {
       if (g.aka && row) sub.append(el("span", "aka", `Also known as ${display(row)}`));
       const crowd = crowdLine(r, g.name); if (crowd) sub.append(el("span", "crowd" + (crowd.startsWith("Nobody") ? " alone" : ""), crowd));
       if (g.note) sub.append(el("span", null, g.note)); else if (typed) sub.append(el("span", null, `you typed “${shown}”`));
-      const dep = el("span", "sum-depth"); dep.textContent = `+${d} m`;
+      const dep = el("span", "sum-depth"); dep.textContent = `+${valueOf(r, g)} m`;
       b.append(n, el("span", "sum-name", guessName(cat, g)), dep, sub);
       b.onclick = () => berg.focus(g.bi);
       li.append(b);
@@ -959,8 +1099,10 @@ function adoptDive(dive) {
 // ---------- End of day ----------
 function daySummary() {
   const rounds = state.rounds.map((r, i) => {
-    const b = bestOf(r), d = scoreOf(r);
-    return b ? { title: CATS[i].title, icon: CATS[i].icon, name: guessName(CATS[i], b), share: b.share, depth: d, tier: tierOfDepth(d).key, tierName: tierOfDepth(d).name } : { title: CATS[i].title, icon: CATS[i].icon, name: null, depth: 0 };
+    const b = bestOf(r), d = scoreOf(r), kind = Rounds.kind(CATS[i]), c = r.choice;
+    // tier: how rare the best answer itself was (its colour, the red for Unfathomable), whatever the round paid for it.
+    const extra = { kind, risk: kind === "risk" && c ? (c.kind === "risk" ? (d > 0 ? "won" : "lost") : c.kind) : null, stake: c ? c.stake : null };
+    return b ? { title: CATS[i].title, icon: CATS[i].icon, name: guessName(CATS[i], b), share: b.share, depth: d, tier: tierOfDepth(depthOf(b.share)).key, tierName: tierOfDepth(depthOf(b.share)).name, ...extra } : { title: CATS[i].title, icon: CATS[i].icon, name: null, depth: 0, ...extra };
   });
   return { v: 3, day: state.day, total: rounds.reduce((s, r) => s + r.depth, 0), rounds };
 }
@@ -979,7 +1121,7 @@ function shareData(day, practice) {
   const streak = practice ? 0 : streakNow().count;
   const found = day.rounds.filter(r => r.name).sort((a, b) => b.depth - a.depth)[0];
   return { day: day.day, total: day.total, streak, sample: !live.on(),
-    rounds: day.rounds.map(r => r.name ? { depth: r.depth, share: r.share, tier: r.tier, tierName: r.tierName } : null),
+    rounds: day.rounds.map(r => r.name ? { depth: r.depth, share: r.share, tier: r.tier, tierName: r.tierName, kind: r.kind, risk: r.risk } : (r.kind ? { depth: 0, none: true, kind: r.kind, risk: r.risk } : null)),
     deepest: found ? { depth: found.depth, tierName: found.tierName, name: found.name } : null };
 }
 function renderEnd(day, fresh, practice) {
@@ -1096,7 +1238,7 @@ async function boot() {
     (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => fetch("realwords.txt").then(r => r.ok ? r.text() : "").then(t => { if (t && V.setRealWords) V.setRealWords(t); }).catch(() => {}));
     let day = await dayContent(want);
     if (!day && !BACKEND.url) day = await dayContent(((want - 1) % LEGACY_DAYS) + 1);
-    CATS = day.questions || []; DAY_COUNT = index.count || 1;
+    CATS = day.questions || []; DAY_COUNT = index.count || 1; DAYX = day;
     SAMPLE_PLAYERS = day.samplePlayers || index.samplePlayers || SAMPLE_PLAYERS;
   } catch { CATS = []; }
   if (!CATS.length) { $("#play").textContent = "Couldn't load today's questions"; $("#home-streak").textContent = "Check your connection, then refresh the page to try again."; show("home"); return; }
@@ -1204,6 +1346,7 @@ async function boot() {
   }
   // Pick up where you left off: a game in progress is never reset by a reload.
   const saved = [store.get("game:" + dayNumber(), null), store.get("game:practice", null)].find(g => g && !g.finished);
+  if (saved && saved.paths) applyPaths(saved.paths);
   if (saved && saved.v === 3 && saved.day === dayNumber() && saved.rounds && saved.rounds.length === CATS.length && saved.rounds.every((r, i) => r.key === CATS[i].key)) {
     state = saved; state.rounds.forEach(r => { r.guesses.forEach(g => { g.checking = false; delete g.bi; }); });
     recheckPending(); save();

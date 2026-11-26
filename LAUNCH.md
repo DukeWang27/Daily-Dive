@@ -18,13 +18,13 @@ only. Nothing was changed, bought or switched on.
 | **AI answer checking** | **Off.** The game's checking address is empty and no provider is set. Unknown answers go to "pending" and wait for review. Nothing is billed. |
 | **Analytics** | **None.** No analytics, no error monitoring. |
 | **Privacy page** | `privacy.html` exists. It must be updated when analytics is added. |
-| **Domain** | None (only the vercel.app address). |
+| **Domain** | **deeplegame.com** (Cloudflare Registrar), live: www.deeplegame.com serves the game, deeplegame.com redirects to it; Supabase sign-in allows it (26 Nov 2026). |
 
 ## What you need to do
 
 Most urgent first. **(R)** = required before a public launch; **(O)** = optional.
 
-### 1. Buy a domain (R): about $10–11 a year
+### 1. Buy a domain (R): about $10–11 a year — DONE (deeplegame.com)
 
 Availability checked in the registries' own records (RDAP), 26 Nov 2026:
 
@@ -54,7 +54,7 @@ Before you pay, check the price your registrar shows: .com wholesale prices were
 
 **No credentials needed by me.** Tell me which name you bought.
 
-### 2. Point the domain at Vercel (R): free
+### 2. Point the domain at Vercel (R): free — DONE
 
 1. In [Vercel → your project → Settings → Domains](https://vercel.com/dashboard), add `deeplegame.com` and
    `www.deeplegame.com`. Choose to redirect `www` to the bare name.
@@ -97,7 +97,7 @@ Without this, password-reset emails never reach players. Options:
 
 **Check:** trigger "Forgot password" for a test account and confirm the email arrives and the link opens the game.
 
-### 4. A support address (R): free
+### 4. A support address (R): free — DONE (support@deeplegame.com forwards via Cloudflare Email Routing)
 
 Reddit players will want somewhere to write.
 1. In Cloudflare → your domain → **Email → Email Routing**, enable it.

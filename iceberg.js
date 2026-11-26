@@ -741,6 +741,7 @@
       const zone = document.createElement("span"); zone.className = "ib-zone"; zone.textContent = it.tier.name;
       add("ib-share", b(it.shareText), " of players ", zone);
       if (it.at == null) { if (it.depth > 0) add("ib-below", b(it.depth + " m"), " deep"); }
+      else if (it.mine) add("ib-below", b("Mine"), " · no distance, guess spent", it.keep ? ` · your +${it.keep} m still counts` : "");
       else if (it.gain > 0) add("ib-below", b("+" + (it.earn != null ? it.earn : it.depth) + " m"), (it.earn != null ? it.earn : it.depth) > it.gain ? ` (${it.gain} m further than your last best)` : "", " · down to ", b(it.at.toLocaleString("en-US") + " m"));
       else if (it.keep != null) add("ib-below", b("+" + (it.earn != null ? it.earn : it.depth) + " m"), (it.earn != null ? it.earn : it.depth) === it.keep ? " · level with your best, no further down" : ` · your +${it.keep} m still counts`);
       else if (it.mode === "risk") add("ib-below", b("+" + (it.earn != null ? it.earn : it.depth) + " m"), " · on offer: your choice next");

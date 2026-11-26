@@ -109,7 +109,7 @@
 
   // Plain text for chats: one bar per question, drawn with block characters so it looks the same everywhere.
   // Round types (experimental days): a mark for each, and how a risk went. Rarity rounds keep the plain diamond.
-  const KIND = { target: "◎", forbidden: "⊘", risk: "▲", wildcard: "✦" };
+  const KIND = { target: "◎", forbidden: "⊘", risk: "▲", wildcard: "✦", mines: "✺" };
   const riskWord = r => r && r.risk ? ({ won: " · risk paid off", lost: " · risk lost", secure: " · secured", continue: "" })[r.risk] || "" : "";
   const kindName = r => r && r.kind && r.kind !== "standard" ? ({ target: "Target", forbidden: "Forbidden", risk: "Risk", wildcard: "Wildcard" })[r.kind] : "";
   function text(data) {

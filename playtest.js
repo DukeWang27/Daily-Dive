@@ -13,7 +13,8 @@
   };
   const day = local.get("pt-day", 1);
   const GROUPS = { live: "Live days (already played on the site)", prepared: "Prepared days (scheduled, not yet public)", new: "New sample days (for review, rough rarity)",
-    experimental: "Experimental round types (practice days 191-194, full expeditions 201-208)", prototype: "Prototypes: a route choice (209) and an answer chain (210)" };
+    mix: "The rotating daily mix (211-224): two rarity rounds, a target, a forbidden and one special, in a different order each day",
+    experimental: "Experimental round types (practice days 191-195, full expeditions 201-208)", prototype: "Prototypes: routes (209), chains (210, 226-227), the community sounding (225)" };
 
   // ---------- Notes: device first, the artifact database when there is one ----------
   let db = null, dbState = "device";

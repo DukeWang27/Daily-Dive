@@ -24,6 +24,7 @@
     wildcard: { label: "Wildcard", rule: "An odd one. The rarer your answer, the further down. Only your rarest counts." },
     forbidden: { label: "Forbidden", rule: "The obvious answers are off limits, and so are their other names. Rarest counts." },
     target: { label: "Rarity target", rule: "Not the rarest: hit the target. The closer your answer's popularity is to it, the further you go." },
+    mines: { label: "Sea mines", rule: "Two bands of popularity are mined. An answer inside one blows up: no distance, and that guess is spent. Pass close by a mine for a 25% bonus." },
     risk: { label: "Risk and reward", rule: "After your first answer: keep it with a 20% bonus, play on, or risk it to beat it for 1.5× the gain." },
   };
   const kind = cat => (cat && cat.mode && KINDS[cat.mode.type]) ? cat.mode.type : "standard";
@@ -47,11 +48,31 @@
     return Math.round(TARGET_MAX * Math.max(0, 1 - miss(band(cat), g.share) / TARGET_FALLOFF));
   }
 
+  // ---------- Sea mines ----------
+  // Marked bands of popularity, shown on the sonar before the clock starts. Nothing is hidden: you know where the mines
+  // are, and the question is only how popular you think your answer is. Only measured answers can set one off (an
+  // estimate isn't good enough to blow up a guess); answers within 2× of a mine, either side, earn MINE_BONUS more.
+  const MINE_BONUS = 0.25, MINE_NEAR = Math.log10(2);
+  const rowOf = (cat, g) => g && g.name && cat.answers.find(a => a.a === g.name);
+  function mineAt(cat, g) {
+    if (kind(cat) !== "mines" || !g || g.status !== "ok") return -1;
+    const row = rowOf(cat, g); if (!row || row.pv) return -1;
+    return (cat.mode.mines || []).findIndex(b => g.share >= b.lo && g.share <= b.hi);
+  }
+  function skims(cat, g) {
+    if (kind(cat) !== "mines" || !g || g.status !== "ok" || mineAt(cat, g) >= 0) return -1;
+    const row = rowOf(cat, g); if (!row || row.pv) return -1;
+    return (cat.mode.mines || []).findIndex(b => miss(b, g.share) <= MINE_NEAR);
+  }
+
   // ---------- One guess, and a whole question ----------
   // The distance one verified answer is worth in this round, on its own.
   function value(cat, g) {
     if (!g || g.status !== "ok") return 0;
-    return kind(cat) === "target" ? targetValue(cat, g) : depthOf(g.share);
+    const k = kind(cat);
+    if (k === "target") return targetValue(cat, g);
+    if (k === "mines") { if (mineAt(cat, g) >= 0) return 0; const d = depthOf(g.share); return skims(cat, g) >= 0 ? Math.round(d * (1 + MINE_BONUS)) : d; }
+    return depthOf(g.share);
   }
   const keepValue = stake => Math.round(stake * (1 + KEEP_BONUS));
   const riskValue = (stake, later) => stake + Math.round(RISK_MULT * (later - stake));
@@ -86,8 +107,13 @@
       const m = miss(b, g.share), f = Math.pow(10, m), where = m === 0 ? "on target" : `${f < 1.95 ? "a little" : `about ${Math.round(f)}×`} too ${g.share < b.lo ? "rare" : "common"}`;
       return `${pct(g.share)} of players: ${where}. Worth +${value(cat, g)} m${gain > 0 ? `, ${gain} m further down` : had ? `; your +${had} m still counts` : ""}.`;
     }
+    if (k === "mines") {
+      const i = mineAt(cat, g), j = skims(cat, g), b = i >= 0 ? cat.mode.mines[i] : j >= 0 ? cat.mode.mines[j] : null;
+      if (i >= 0) return `Mine! ${pct(g.share)} of players: inside the ${pct(b.lo)} to ${pct(b.hi)} minefield. No distance, and that guess is spent.${had ? ` Your +${had} m still counts.` : ""}`;
+      if (j >= 0) return `${pct(g.share)} of players: close past the ${pct(b.lo)} to ${pct(b.hi)} mine. +25% for nerve: +${value(cat, g)} m${gain > 0 ? `, ${gain} m further down` : had ? `; your +${had} m still counts` : ""}.`;
+    }
     return null;   // the game's own wording for rarity rounds
   }
   window.Rounds = { KINDS, kind, label: cat => KINDS[kind(cat)].label, rule: cat => (cat.mode && cat.mode.rule) || KINDS[kind(cat)].rule,
-    band, miss, value, score, best, isForbidden, verdict, pct, TARGET_MAX, RISK_MULT, KEEP_BONUS, keepValue, riskValue };
+    band, miss, value, score, best, isForbidden, verdict, pct, TARGET_MAX, RISK_MULT, KEEP_BONUS, keepValue, riskValue, mineAt, skims, MINE_BONUS };
 })();

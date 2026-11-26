@@ -100,6 +100,11 @@ def days():
     D.append((209, "prototype", "Branching expedition", ("Choose your route", "Halfway down, the water splits four ways."), first + routes[0]["questions"], {"branch": {"at": 2, "routes": routes}}))
     # Answer chain: the country you choose decides the next two questions.
     D.append(chain_day())
+    # The rotating daily mix: two weeks of it.
+    used = set()
+    for n in range(211, 225): D.append((n, "mix", f"Daily mix #{n - 210}", None, mix_day(n, used)))
+    # One of each new prototype on its own.
+    D.append((191 + 4, "practice", "Practice: Sea mines", None, [mines("animals"), mines("countries"), mines("fish")]))
     return D
 
 # Answer chains: curated, verified relationships only (no model-written answers). Country -> its native animals ->
@@ -156,6 +161,58 @@ def build(out, widen=None):
                 if (q.get("mode") or {}).get("type") != "target": widen(q)
         day = {"v": 3, "day": n, "questions": qs, "experimental": True, "label": name, **({"theme": {"name": theme[0], "line": theme[1]}} if theme else {}), **extra}
         json.dump(day, open(os.path.join(out, "pt", f"{n}.json"), "w"), separators=(",", ":"))
-        entries.append({"n": n, "group": "experimental" if group != "prototype" else "prototype", "source": name,
+        entries.append({"n": n, "group": {"prototype": "prototype", "mix": "mix"}.get(group, "experimental"), "source": name,
                         "questions": [f"[{(q.get('mode') or {}).get('type', 'rarity')}] " + (q.get("prompt") or q.get("title")) for q in qs]})
     return entries
+
+# ---------- The rotating daily mix ----------
+# A day is five questions. Most days: two rarity rounds, one target, one forbidden and one special (risk, wildcard or
+# sea mines). Some days swap the target or the forbidden round for a third rarity round, so the mix never feels set.
+# Everything comes from the day number alone (a fixed seed), so every player gets the same mix, order, bans, bands and
+# mines on the same day. The first question is always an ordinary rarity round, to settle in.
+MIX = {
+    "std": ["animals", "birds", "countries", "kitchen", "wheels", "buildings", "bread", "soup", "boats", "space", "jobs", "fish", "veg", "myth", "bugs",
+            "trees", "drinks", "furniture", "dessert", "capitals", "tools", "emotions", "reptiles", "flowers", "languages", "gods", "clothing", "body",
+            "e-afraid-of", "e-tin", "e-hotel", "black-and-white-things", "has-head-not-alive", "three-d-shape", "kind-of-parrot", "drink-served-hot",
+            "sea", "e-night-job", "backstage-at-a-theatre", "has-electronic-screen", "e-animal-material", "something-naturally-red", "e-expiry"],
+    "target": ["animals", "countries", "carbrands", "dogbreeds", "fish", "birds", "trees", "capitals", "flowers", "herbs", "candy", "fastfood", "genres", "languages"],
+    "forbidden": ["fruits", "colours", "sports", "instruments", "pizza", "farm", "weather", "hats", "icecream", "pasta", "sauces", "nuts", "wildcats", "primates"],
+    "risk": ["cheese", "dogbreeds", "video-game-before-2000", "dinos", "elements", "gems", "dances", "rooms", "classroom", "bathroom"],
+    "wild": ["auth:sounds-fictional", "auth:silent-character", "auth:survives-extremes", "auth:invented-before-1900", "auth:brainrot-word", "auth:shut-down-site",
+             "auth:before-minecraft", "auth:student-food", "e-sofa", "e-magician", "e-phone-replaced", "e-mouth-not-food", "e-nervous", "e-hold"],
+    "mines": ["animals", "countries", "birds", "fish", "trees", "jobs", "myth", "bugs", "flowers", "body", "clothing", "capitals"],
+}
+TARGETS = [dict(lo=0.01, hi=0.03), dict(goal="closest", pct=0.005, rule="Get as close as you can to 0.5% of players: uncommon, not obscure."),
+           dict(lo=0.003, hi=0.02, rule="Uncommon but not obscure: an answer 0.3% to 2% of players give."), dict(goal="common", rule="Find the most common answer.")]
+SHAPES = [["std", "std", "target", "forbidden", "special"]] * 4 + [["std", "std", "std", "target", "special"], ["std", "std", "std", "forbidden", "special"]]
+
+def mines(ref, day_rng=None):
+    """Sea mines: two marked bands of popularity that blow up a guess. Placed where real answers are thick, so they
+    matter: one in the familiar middle (the answers that come to mind second), one in the rare water you aim for."""
+    q = Q(ref); s = sorted([a["s"] for a in q["answers"] if not a.get("pv")], reverse=True)
+    def band_at(x, w):
+        return {"lo": round(x / w, 6), "hi": round(x * w, 6)}
+    # The middle mine: around the 10th to 15th answer; the deep mine: around the answer a third of the way into the rare end.
+    mid = s[min(len(s) - 1, 12)] if len(s) > 12 else s[len(s) // 2]
+    deep = s[min(len(s) - 1, max(30, len(s) // 3))]
+    m1, m2 = band_at(mid, 1.6), band_at(deep, 1.6)
+    if m2["hi"] >= m1["lo"]: m2 = band_at(m1["lo"] / 4, 1.6)
+    q["mode"] = {"type": "mines", "mines": [m1, m2]}; return q
+
+def mix_day(day, used=None):
+    r = random.Random(day * 104729 + 17); used = set() if used is None else used
+    def pick(pool):
+        choices = [k for k in MIX[pool] if k not in used] or MIX[pool]
+        k = r.choice(choices); used.add(k); return k
+    shape = list(SHAPES[r.randrange(len(SHAPES))])
+    special = ["risk", "wild", "mines"][day % 3]   # the special round rotates: no kind of round two days running
+    qs = []
+    for slot in shape:
+        if slot == "std": qs.append(std(pick("std")))
+        elif slot == "target": qs.append(target(pick("target"), **TARGETS[r.randrange(len(TARGETS))]))
+        elif slot == "forbidden": qs.append(forbidden(pick("forbidden"), r.choice([5, 6, 7])))
+        elif special == "risk": qs.append(risk(pick("risk")))
+        elif special == "wild": qs.append(wild(pick("wild")))
+        else: qs.append(mines(pick("mines")))
+    first, rest = qs[0], qs[1:]; r.shuffle(rest)
+    return [first] + rest

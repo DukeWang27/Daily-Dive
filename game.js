@@ -134,7 +134,7 @@ const shareOf = row => row.s;
 const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 1500 }) : setTimeout(f, 60));
 // DAYX: the whole day as loaded (its theme, and any route choice or answer chain: experimental, playtest only).
 let DAYX = null;
-let CATS = [], state = null, berg = null, life = null, cameFrom = "home", screen = "home", busy = false, unknownKey = "", autoFinish = 0;
+let CATS = [], state = null, berg = null, life = null, scen = null, cameFrom = "home", screen = "home", busy = false, unknownKey = "", autoFinish = 0;
 const prepared = new Map();
 const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
@@ -297,7 +297,7 @@ function bergItem(cat, r, g, n) {
   const row = g.name ? cat.answers.find(a => a.a === g.name) : null, players = r.players || SAMPLE_PLAYERS;
   const dv = state && state.rounds.includes(r) ? diveOf(r, g) : null;
   return { n, name: guessName(cat, g), share: g.share, shareText: pctText(g.share), blurb: row && row.b || "",
-    ...(dv ? { at: dv.at, gain: dv.gain, keep: dv.keep, earn: dv.depth, mode: Rounds.kind(cat) } : {}),
+    ...(dv ? { at: dv.at, gain: dv.gain, keep: dv.keep, earn: dv.depth, mode: Rounds.kind(cat), mine: Rounds.mineAt(cat, g) >= 0 } : {}),
     // A count of players only from real ones: a simulated sample is never presented as people.
     countText: row && liveStats(r) ? `${fmt(r.stats.counts.get(g.name) || 1)} of ${fmt(r.stats.players)}` : "", rankText: g.rank || "", sight: sightLine(g.sight) };
 }
@@ -305,6 +305,7 @@ const sightLine = key => { const e = key && Wildlife && Wildlife.ENCOUNTERS.find
 function ensureBerg() {
   if (berg) return;
   berg = window.Iceberg.create($("#ib"), { speed: SPEED });
+  if (window.Scenery) scen = window.Scenery.create(berg, $("#ib"));   // mines and route set pieces (experimental days only)
   berg.onDepth((d, b) => { if (screen === "play") Sound.setAmbience("play", d, b, berg.view.metres); });
   berg.onRender(placeSlab); berg.onResize(placeSlab);
   berg.onFocus(i => { document.querySelectorAll("#slots .slot, #sum li").forEach(n => n.classList.toggle("active", +n.dataset.bi === i)); });
@@ -356,17 +357,27 @@ function logSighting(r, key) {
 function roundExtras(cat, r) {
   const box = $("#round-extra"); if (!box) return;
   box.textContent = ""; box.className = "round-extra"; const k = Rounds.kind(cat);
+  // Every special round names itself, with a ? that brings back its full rules (the clock waits while they're open).
+  if (k !== "standard") {
+    const head = el("div", "rx-head"); head.append(el("span", "rx-kind", Rounds.label(cat)));
+    if (r.brief) head.append(el("span", "rx-rule", Rounds.rule(cat)));
+    const more = el("button", "rx-more", "?"); more.type = "button"; more.title = "How this round works"; more.setAttribute("aria-label", `How ${Rounds.label(cat)} works`);
+    more.onclick = () => explainRound(cat, r); head.append(more); box.append(head);
+  }
   if (k === "forbidden") {
     box.classList.add("forbid"); box.append(el("span", "rx-lbl", "Off limits"));
     (cat.mode.forbid || []).forEach(a => { const row = cat.answers.find(x => x.a === a); box.append(el("span", "chip", row ? display(row) : a)); });
-  } else if (k === "target") {
-    box.classList.add("sonar");
-    const b = Rounds.band(cat), lo = -5, hi = 0, x = s => 100 * (1 - (Math.log10(Math.max(1e-5, Math.min(1, s))) - lo) / (hi - lo));
-    const strip = el("div", "sonar-strip"), zone = el("i", "sonar-band");
-    zone.style.left = x(Math.min(1, b.hi)) + "%"; zone.style.width = Math.max(1.2, x(b.lo) - x(Math.min(1, b.hi))) + "%"; strip.append(zone);
+  } else if (k === "target" || k === "mines") {
+    box.classList.add("sonar"); if (k === "mines") box.classList.add("mined");
+    const lo = -5, hi = 0, x = s => 100 * (1 - (Math.log10(Math.max(1e-5, Math.min(1, s))) - lo) / (hi - lo));
+    const strip = el("div", "sonar-strip");
+    const zone = (b, cls) => { const z = el("i", cls); z.style.left = x(Math.min(1, b.hi)) + "%"; z.style.width = Math.max(1.2, x(b.lo) - x(Math.min(1, b.hi))) + "%"; strip.append(z); return z; };
+    if (k === "target") zone(Rounds.band(cat), "sonar-band");
+    else (cat.mode.mines || []).forEach((b, i) => { const z = zone(b, "sonar-mine" + (okGuesses(r).some(g => Rounds.mineAt(cat, g) === i) ? " gone" : "")); z.title = `Mine: ${Rounds.pct(b.lo)} to ${Rounds.pct(b.hi)} of players`; });
     for (const [s, t] of [[1, "100%"], [0.1, "10%"], [0.01, "1%"], [0.001, "0.1%"], [0.0001, "0.01%"]]) { const m = el("span", "sonar-tick", t); m.style.left = x(s) + "%"; strip.append(m); }
-    okGuesses(r).forEach(g => { const v = valueOf(r, g), p = el("b", "sonar-ping" + (v >= Rounds.TARGET_MAX ? " hit" : v > 0 ? " near" : "")); p.style.left = x(g.share) + "%"; p.title = `${guessName(cat, g)}: ${pctText(g.share)}`; strip.append(p); });
-    box.append(el("span", "rx-lbl", `Target: ${b.text}`), strip);
+    okGuesses(r).forEach(g => { const v = valueOf(r, g), boom = k === "mines" && Rounds.mineAt(cat, g) >= 0;
+      const p = el("b", "sonar-ping" + (boom ? " boom" : k === "mines" ? (Rounds.skims(cat, g) >= 0 ? " hit" : " near") : v >= Rounds.TARGET_MAX ? " hit" : v > 0 ? " near" : "")); p.style.left = x(g.share) + "%"; p.title = `${guessName(cat, g)}: ${pctText(g.share)}`; strip.append(p); });
+    box.append(el("span", "rx-lbl", k === "target" ? `Target: ${Rounds.band(cat).text}` : `Mines at ${(cat.mode.mines || []).map(b => `${Rounds.pct(b.lo)}–${Rounds.pct(b.hi)}`).join(" and ")} of players`), strip);
   } else if (k === "risk" && r.choice) {
     box.classList.add("riskline");
     box.append(el("span", "rx-lbl", r.choice.kind === "risk" ? `At risk: +${r.choice.stake} m. Beat it and every metre past it counts ×${Rounds.RISK_MULT}.` : r.choice.kind === "secure" ? `Kept: +${r.choice.stake} m with the bonus makes +${Rounds.keepValue(r.choice.stake)} m` : "Playing on: best of three"));
@@ -388,13 +399,28 @@ function roundCard({ eyebrow, title, body, extra, buttons }) {
   });
 }
 // The rules of a new kind of round, once per question, before its clock starts.
+// Familiar kinds of round (seen INTRO_FULL times already) skip the card: their rule sits in one line under the question
+// instead, with the ? beside it for the full card.
+const INTRO_FULL = 2;
+function introCard(cat, r, label) {
+  const extra = el("div"), copy = $("#round-extra").cloneNode(true); copy.removeAttribute("id"); copy.querySelectorAll(".rx-head").forEach(x => x.remove()); extra.append(copy);
+  return roundCard({ eyebrow: `Question ${state.round + 1} · ${Rounds.label(cat)}${DAYX && DAYX.theme ? " · " + DAYX.theme.name : ""}`, title: cat.prompt || cat.title, body: Rounds.rule(cat), extra,
+    buttons: [{ label, value: 1 }] });
+}
 async function roundIntro(cat, r) {
   const k = Rounds.kind(cat);
   if (k === "standard" || r.introduced || !state || cur() !== r || state.phase !== "play") return;
-  const extra = el("div"); extra.append($("#round-extra").cloneNode(true)); extra.firstChild.removeAttribute("id");
-  await roundCard({ eyebrow: `Question ${state.round + 1} · ${Rounds.label(cat)}${DAYX && DAYX.theme ? " · " + DAYX.theme.name : ""}`, title: cat.prompt || cat.title, body: Rounds.rule(cat), extra: k === "standard" ? null : extra,
-    buttons: [{ label: "Start", value: 1 }] });
+  const seen = store.get("kinds-seen", {});
+  if ((seen[k] || 0) >= INTRO_FULL) { r.introduced = true; r.brief = true; save(); roundExtras(cat, r); return; }
+  await introCard(cat, r, "Start");
+  seen[k] = (seen[k] || 0) + 1; store.set("kinds-seen", seen);
   r.introduced = true; save();
+}
+async function explainRound(cat, r) {
+  if (!state || cur() !== r || $("#round-card").hidden === false) return;
+  const was = clock.on; clockStop();
+  await introCard(cat, r, was ? "Back to it" : "Got it");
+  if (was && state && cur() === r && state.phase === "play" && !r.done) clockStart();
 }
 // Risk and reward: decide once the first verified answer is in (and there is a guess left to use).
 // (A first answer worth nothing has nothing to stake: that round simply plays on.)
@@ -477,7 +503,10 @@ async function resolvePaths() {
       buttons: b.routes.map(r => ({ label: r.label, note: " · " + r.blurb, value: r.key })) });
     const route = b.routes.find(r => r.key === v) || b.routes[0];
     route.questions.forEach((q, k) => setPath(b.at + k, q)); state.paths.route = route.key; save();
-    if (berg) { const v2 = berg.view; berg.setDive({ base: diveBefore(i), at: diveNow() }); }   // the camera stays where you are
+    if (berg) berg.setDive({ base: diveBefore(i), at: diveNow() });   // the camera stays where you are
+    // Travel there: the place slides in from the side you chose, the water streams past, the sound of it changes.
+    if (scen) scen.setRoute(route.key, { dir: b.routes.indexOf(route) % 2 ? 1 : -1, y0: window.Iceberg.yX(diveNow()) - 150, seed: state.day });
+    Sound.play("routego"); if (Sound.setRoute) Sound.setRoute(route.key);
   }
   const cat = CATS[i];
   if (cat && cat.chain && !(state.paths && state.paths[i])) {
@@ -523,7 +552,7 @@ async function startQuestion(animated) {
     if (descent) { const slab = $(".q-berg"); slab.classList.add("arriving"); ready.then(() => slab.classList.remove("arriving")); const skip = e => { if (e.type === "keydown" && e.key === "Tab") return; berg.skipIntro(); off(); }, off = () => { removeEventListener("pointerdown", skip, true); removeEventListener("keydown", skip, true); };
       addEventListener("pointerdown", skip, true); addEventListener("keydown", skip, true); ready.then(off); }
   }
-  syncRoute();
+  syncRoute(); sceneryFor(cat, r, ready);
   // The clock. A reload never hands time back: whatever passed while the page was away has gone too.
   clearInterval(clock.timer); cancelAnimationFrame(clock.raf); clock.on = false; clock.shown = -1;
   $("#melt").hidden = !TIME_MS;
@@ -550,6 +579,19 @@ async function startQuestion(animated) {
   // A reload after the last guess landed but before the results appeared: carry on to the results.
   if (r.guesses.length >= GUESSES) finishQuestion();
   return ready;
+}
+// What this question puts in the water: a chosen route stays for the rest of the day; mines only for their round.
+function sceneryFor(cat, r, ready) {
+  if (!scen) return;
+  const key = state.paths && state.paths.route, b = DAYX && DAYX.branch;
+  if (key && b && scen.route !== key) { scen.setRoute(key, { instant: true, y0: window.Iceberg.yX(diveBefore(b.at)) - 150, seed: state.day }); if (Sound.setRoute) Sound.setRoute(key); }
+  if (!key && Sound.setRoute) Sound.setRoute(null);
+  scen.clearMines();
+  if (Rounds.kind(cat) === "mines" && state.phase === "play" && !r.done) ready.then(() => {
+    if (!state || cur() !== r) return;
+    scen.setMines(cat.mode.mines, state.day * 10 + state.round);
+    okGuesses(r).forEach(g => { const i = Rounds.mineAt(cat, g); if (i >= 0) scen.explode(i, true); });   // a reload: the ones already set off stay gone
+  });
 }
 function tagBest(cat, r) {
   const b = bestOf(r);
@@ -744,7 +786,9 @@ async function reveal(cat, r, g) {
   }
   // Landed: say what was found, and whether it beat your deepest.
   renderSlots(-1, index); tagBest(cat, r);
-  if (beneath) Sound.play("unfathomable"); else if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260), m: d });
+  const mine = Rounds.mineAt(cat, g);
+  if (mine >= 0) { if (scen) scen.explode(mine); Sound.play("mine"); }
+  else if (beneath) Sound.play("unfathomable"); else if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260), m: d });
   const left = GUESSES - r.guesses.length, more = left ? ` ${plural(left, "guess")} left.` : "";
   const counted = /^(Counted as|Spelling corrected)/.test($("#hint").textContent) ? $("#hint").textContent + " " : "";
   setTimeout(() => {

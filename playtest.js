@@ -89,9 +89,9 @@
   const bDay = el("button", "pt-day", `Day ${day} ▾`), bAgain = el("button", null, "Replay"), bNext = el("button", null, "Next ›"), bNotes = el("button", null, "Notes");
   const bTog = el("button", "pt-tog", "TEST"); bTog.setAttribute("aria-label", "Playtest tools");
   // The clock to try: 20, 30 or 45 seconds a question. Applies from the next question you load (the page reloads).
-  const secs = (() => { try { return +localStorage.getItem("iceberg-pt:seconds") || 20; } catch { return 20; } })();
-  const bClock = el("button", "pt-clock", `${secs} s`); bClock.title = "Seconds per question (playtest only): 20, 30 or 45";
-  bClock.onclick = () => { const next = { 20: 30, 30: 45, 45: 20 }[secs] || 20; try { localStorage.setItem("iceberg-pt:seconds", String(next)); } catch { } location.reload(); };
+  const secs = (() => { try { return localStorage.getItem("iceberg-pt:seconds") || "20"; } catch { return "20"; } })();
+  const bClock = el("button", "pt-clock", secs === "off" ? "No clock" : `${secs} s`); bClock.title = "Time per question (playtest only): 20, 30 or 45 seconds, or untimed practice";
+  bClock.onclick = () => { const next = { 20: "30", 30: "45", 45: "off", off: "20" }[secs] || "20"; try { localStorage.setItem("iceberg-pt:seconds", next); } catch { } location.reload(); };
   // Question review: every question and its answers, decisions saved with the notes (review.js, loaded on first use).
   const bReview = el("button", null, "Review");
   bReview.onclick = () => { close(); const go = () => window.PTReview.open({ db: () => db, local });

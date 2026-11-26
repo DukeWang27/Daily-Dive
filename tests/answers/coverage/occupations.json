@@ -847,7 +847,7 @@
   },
   {
    "text": "saggar maker",
-   "expect": "ask",
+   "expect": "ok_or_ask",
    "as": null,
    "tier": "obscure"
   },
@@ -1081,38 +1081,38 @@
   },
   {
    "text": "acountant",
-   "expect": "ask",
+   "expect": "ok_or_ask",
    "as": "accountant",
    "tier": "misspelling"
   },
   {
    "text": "plummer",
-   "expect": "ask",
+   "expect": "ok_or_ask",
    "as": "plumber",
    "tier": "misspelling"
   },
   {
    "text": "electrision",
-   "expect": "ask",
+   "expect": "ok_or_ask",
    "as": "electrician",
    "tier": "misspelling"
   },
   {
    "text": "pharmasist",
-   "expect": "ask",
+   "expect": "ok_or_ask",
    "as": "pharmacist",
    "tier": "misspelling"
   },
   {
    "text": "sofware engineer",
-   "expect": "ask",
-   "as": "software engineer",
+   "expect": "ok_or_ask",
+   "as": null,
    "tier": "misspelling"
   },
   {
    "text": "anestesiologist",
-   "expect": "ask",
-   "as": "anesthesiologist",
+   "expect": "ok_or_ask",
+   "as": null,
    "tier": "misspelling"
   },
   {

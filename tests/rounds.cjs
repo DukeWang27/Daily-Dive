@@ -149,9 +149,9 @@ execFileSync('python3', [path.join(__dirname, '..', 'tools/playtest/build.py'), 
   ok('a kind of round seen twice skips its card: the rule sits in one line and the clock runs', !brief.card && /target/i.test(brief.rule) && brief.clock, JSON.stringify(brief));
   await p.click('#round-extra .rx-more'); await p.waitForTimeout(400);
   const paused = await p.evaluate(() => ({ card: !document.querySelector('#round-card').hidden, paused: document.querySelector('#melt').classList.contains('paused') }));
-  ok('the ? brings back the full rules, and the clock waits while they are open', paused.card && paused.paused, JSON.stringify(paused));
+  ok('the ? brings back the full rules, and the clock keeps running (no free thinking time)', paused.card && !paused.paused, JSON.stringify(paused));
   await p.keyboard.press('Enter'); await p.waitForTimeout(500);
-  ok('closing them starts the clock again', await p.evaluate(() => !document.querySelector('#melt').classList.contains('paused')));
+  ok('closing them leaves the clock running', await p.evaluate(() => !document.querySelector('#melt').classList.contains('paused')));
   await p.close();
 
   // ---------- The daily mix ----------

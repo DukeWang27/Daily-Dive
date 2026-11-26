@@ -29,8 +29,9 @@ if (PLAYTEST) { BACKEND.url = ""; BACKEND.anonKey = ""; BACKEND.verifyUrl = ""; 
 const SPEED = PARAMS.has("fast") ? 4 : 1;
 // The automated tests run untimed unless they ask for a clock (?test&time=20).
 // The playtest can try other clocks (20, 30 or 45 seconds), chosen in its bar; the live game always uses QUESTION_SECONDS.
-const PT_SECONDS = PLAYTEST ? (() => { try { const v = +localStorage.getItem("iceberg-pt:seconds"); return [20, 30, 45].includes(v) ? v : 0; } catch { return 0; } })() : 0;
-const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : PT_SECONDS || QUESTION_SECONDS);
+// "off": untimed practice.
+const PT_SECONDS = PLAYTEST ? (() => { try { const v = localStorage.getItem("iceberg-pt:seconds"); return v === "off" ? -1 : [20, 30, 45].includes(+v) ? +v : 0; } catch { return 0; } })() : 0;
+const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : PT_SECONDS < 0 ? 0 : PT_SECONDS || QUESTION_SECONDS);
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
 // Automated tests never touch the live database: with ?test the game uses only the stand-in it is given (or none).
 if (PARAMS.has("test")) { BACKEND.url = PARAMS.get("api") || ""; BACKEND.anonKey = PARAMS.get("api") ? PARAMS.get("key") || "" : ""; BACKEND.providers = PARAMS.get("providers") ? PARAMS.get("providers").split(",") : []; }
@@ -144,13 +145,23 @@ let CATS = [], state = null, berg = null, life = null, scen = null, cameFrom = "
 const prepared = new Map();
 // Shared reference lists some questions use on top of their own answers (content/kb): every job title, not only the
 // common ones. Loaded once, kept by the browser, merged into the question before its first guess.
-const KB_FOR = { jobs: "occupations" }, kbLoads = new Map();
+// "products:wearables": brands and models (content/kb/products.json), for questions where a brand or model counts as
+// the kind of thing it is. The rule is added to the question's hint, so it is clear before the clock starts.
+const KB_FOR = { jobs: "occupations", clothing: "products:wearables" }, kbLoads = new Map();
 const kbOf = cat => cat && (cat.kb || KB_FOR[cat.key]);
 function loadKb(cat) {
-  const name = kbOf(cat); if (!name || cat._kb) return Promise.resolve();
-  if (!kbLoads.has(name)) kbLoads.set(name, fetch(`content/kb/${name}.json`).then(r => r.ok ? r.json() : null).catch(() => null));
-  return kbLoads.get(name).then(kb => { if (kb && !cat._kb) { V.mergeKb(cat, kb); prepared.delete(cat.key); } });
+  const ref = kbOf(cat); if (!ref || cat._kb) return Promise.resolve();
+  const [file, part] = ref.split(":");
+  if (!kbLoads.has(file)) kbLoads.set(file, fetch(`content/kb/${file}.json`).then(r => r.ok ? r.json() : null).catch(() => null));
+  return kbLoads.get(file).then(kb => {
+    if (!kb || cat._kb) return;
+    V.mergeKb(cat, part ? kb[part] : kb); prepared.delete(cat.key);
+    if (part && !/count as/.test(cat.hint || "")) cat.hint = `${cat.hint ? cat.hint + " " : ""}Brands and models count as the thing they are: a Rolex Submariner is a watch.`;
+  });
 }
+// The other categories' answers, to explain an answer that belongs elsewhere (loaded once, in the background).
+let LEXICON = null;
+const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("content/kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; }).catch(() => {}); };
 const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
 const save = () => { if (state) store.set(saveKey(state), state); };
@@ -432,11 +443,11 @@ async function roundIntro(cat, r) {
   seen[k] = (seen[k] || 0) + 1; store.set("kinds-seen", seen);
   r.introduced = true; save();
 }
+// The rules again, mid-question. The clock keeps running behind them: rules are read before a question starts (the
+// first two times as a card, the clock waiting), so the ? can never be used to buy thinking time.
 async function explainRound(cat, r) {
   if (!state || cur() !== r || $("#round-card").hidden === false) return;
-  const was = clock.on; clockStop();
-  await introCard(cat, r, was ? "Back to it" : "Got it");
-  if (was && state && cur() === r && state.phase === "play" && !r.done) clockStart();
+  await introCard(cat, r, clock.on ? "Back to it (the clock is running)" : "Got it");
 }
 // Risk and reward: decide once the first verified answer is in (and there is a guess left to use).
 // (A first answer worth nothing has nothing to stake: that round simply plays on.)
@@ -595,7 +606,7 @@ async function startQuestion(animated) {
   if (animated) Sound.play("question");
   input.focus({ preventScroll: true });
   // While this question is being played, get the next one's answer lookup ready (it is already on this device).
-  idle(() => { const next = state && CATS[state.round + 1]; if (next) loadKb(next).then(() => prep(next)); });
+  idle(() => { loadLexicon(); const next = state && CATS[state.round + 1]; if (next) loadKb(next).then(() => prep(next)); });
   // A reload after the last guess landed but before the results appeared: carry on to the results.
   if (r.guesses.length >= GUESSES) finishQuestion();
   return ready;
@@ -734,6 +745,13 @@ function submit() {
     // Not on the list. It is kept, at once, as a guess waiting for review: never thrown away, never scored as rare.
     // Only when it looks like a slip of something on the list does the first Enter stop to say so (and that attempt
     // is remembered too, in case the player moves on).
+    // On another category's list ("terrodactyl" on birds: pterodactyl, a prehistoric animal): said once, at no cost.
+    const other = !unknownKey || unknownKey !== j.key ? V.elsewhere(j.text, LEXICON, String(cat.prompt || "").replace(/^Name /, "")) : null;
+    if (other && unknownKey !== j.key) {
+      unknownKey = j.key; Sound.play("pending"); input.select(); tried(r, j.text, "other list");
+      setHint(`${other.fixed ? `“${j.text}” looks like ${other.name}: ` : `${other.name.replace(/^./, c => c.toUpperCase())} `}that's on our list for ${other.labels.slice(0, 2).join(" and ")}, not this question. Not sent: try another, or press Enter again if you think it counts here (uses a guess).`, "warn");
+      return;
+    }
     if ((j.suggest || j.near) && unknownKey !== j.key) {
       unknownKey = j.key; Sound.play("pending"); input.select(); tried(r, j.text, "not sent");
       setHint(j.suggest ? `Did you mean ${j.suggest.slice(0, -1).join(", ")}${j.suggest.length > 1 ? " or " : ""}${j.suggest[j.suggest.length - 1]}? Not sent yet: fix it, or press Enter again to send “${j.text}” for review (uses a guess).`
@@ -751,11 +769,11 @@ function submit() {
     return;
   }
   // A recognised answer: place it, then go and find it.
-  place(cat, r, j.row, j.text, j.via);
+  place(cat, r, j.row, j.text, j.via, j);
 }
 // Puts a recognised answer in the next slot. A corrected spelling is sent to the server as the answer's own name (so
 // the server's check matches exactly) and what was typed is kept to show beside it.
-function place(cat, r, row, raw, via) {
+function place(cat, r, row, raw, via, j) {
   const input = $("#answer"); unknownKey = ""; confirmFor = null; keepTyped = "";
   // Forbidden in this round: the answer itself or any of its other names and spellings (they all lead to this row).
   if (row && Rounds.isForbidden(cat, row)) {
@@ -775,7 +793,8 @@ function place(cat, r, row, raw, via) {
   else if (differs) g.raw = raw;
   r.guesses.push(g); input.value = ""; untried(r, raw);
   const name = row ? display(row) : g.typed;
-  setHint(via === "typo" ? `Spelling corrected: ${name}.` : via === "confirmed" ? "" : g.aka ? `Also known as ${name}.` : g.raw ? `Counted as ${name}.` : "", via === "typo" ? "fixed" : "");
+  if (via === "specific") g.note = j && j.detail ? `you typed “${raw}”: counted as ${name}` : null;
+  setHint(via === "specific" ? `Accepted as: ${name}${j && j.detail ? ` (${j.detail})` : ""}. ${j && j.note ? j.note.replace(/^./, c => c.toUpperCase()) + "." : ""}` : via === "typo" ? `Accepted as: ${name} (spelling corrected).` : via === "confirmed" ? "" : g.aka ? `Accepted as: ${name} (another name for it).` : g.raw ? `Accepted as: ${name}.` : "", via === "typo" || via === "specific" || g.raw || g.aka ? "fixed" : "");
   Sound.play(r.guesses.length === GUESSES ? "final" : "submit", { step: r.guesses.length - 1 });
   save(); reveal(cat, r, g);
 }
@@ -822,7 +841,7 @@ async function reveal(cat, r, g) {
   if (mine >= 0) { if (scen) scen.explode(mine); Sound.play("mine"); }
   else if (beneath) Sound.play("unfathomable"); else if (!special) Sound.play("reveal", { depth: Math.min(1, d / 260), m: d });
   const left = GUESSES - r.guesses.length, more = left ? ` ${plural(left, "guess")} left.` : "";
-  const counted = /^(Counted as|Spelling corrected)/.test($("#hint").textContent) ? $("#hint").textContent + " " : "";
+  const counted = /^Accepted as/.test($("#hint").textContent) ? $("#hint").textContent + " " : "";
   setTimeout(() => {
     if (!state || cur() !== r || state.phase !== "play" || decided || confirmFor) return;   // never cover a question being asked
     const at = fmt(dv.at), vt = Rounds.verdict(cat, g, dv.had, dv.now);
@@ -997,7 +1016,7 @@ function renderDone(cat, r) {
   // Answers that didn't count and didn't use a guess are listed too, so they can be disputed.
   r.rejects.filter(x => !r.guesses.some(g => g.status === "miss" && g.typed === x.text)).forEach(x => { const li = el("li", "off"); li.append(offRow("", x, false, () => renderDone(cat, r))); sum.append(li); });
   // Typed but never sent (a short form that needed the full name, a likely slip): shown, so nothing seems to vanish.
-  (r.tried || []).forEach(x => { const li = el("li", "off tried"); li.append(offRow("", { typed: x.text, reason: x.outcome === "ambiguous" ? "Needed the full name" : "Typed but not sent" }, false, () => renderDone(cat, r))); sum.append(li); });
+  (r.tried || []).forEach(x => { const li = el("li", "off tried"); li.append(offRow("", { typed: x.text, reason: x.outcome === "ambiguous" ? "Needed the full name" : x.outcome === "other list" ? "On another category's list, not sent" : "Typed but not sent" }, false, () => renderDone(cat, r))); sum.append(li); });
   if (!r.guesses.length && !r.rejects.length && !(r.tried || []).length) { const li = el("li"); li.append(el("p", "forgot", "No guesses this time.")); sum.append(li); }
   const forgot = $("#forgot"); forgot.textContent = ""; forgot.hidden = !board.top;
   if (board.top) forgot.append("The most common answer you didn't give: ", el("b", null, display(board.top.row)), ` (${board.isLive ? pctText(board.top.share) : estText(board.top.share) + ", estimated"}).`);

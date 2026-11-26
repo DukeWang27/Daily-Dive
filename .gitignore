@@ -12,3 +12,7 @@ content/report/
 content/schedule.json
 content/candidates/
 content/review/
+
+# Curated question set under review (private, like content/questions)
+content/curated/
+content/kb/lexicon.json

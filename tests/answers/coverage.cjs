@@ -15,8 +15,9 @@ let fails = 0;
 for (const f of fs.readdirSync(path.join(__dirname, 'coverage')).filter(f => f.endsWith('.json'))) {
   const spec = JSON.parse(fs.readFileSync(path.join(__dirname, 'coverage', f), 'utf8'));
   const day = JSON.parse(fs.readFileSync(path.join(ROOT, 'days', spec.question.day + '.json'), 'utf8'));
-  const cat = JSON.parse(JSON.stringify(day.questions.find(q => q.key === spec.question.key)));
-  if (spec.question.kb) V.mergeKb(cat, JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'kb', spec.question.kb + '.json'), 'utf8')));
+  // A fixture: the question as the game gets it with its reference list merged in (tests/answers/fixtures).
+  const cat = spec.question.fixture ? JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', spec.question.fixture + '.json'), 'utf8')) : JSON.parse(JSON.stringify(day.questions.find(q => q.key === spec.question.key)));
+  if (spec.question.kb) { const [file, part] = spec.question.kb.split(':'); const kb = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'kb', file + '.json'), 'utf8')); V.mergeKb(cat, part ? kb[part] : kb); }
   const t0 = process.hrtime.bigint(), P = V.prepare(cat), prepMs = Number(process.hrtime.bigint() - t0) / 1e6;
   const tally = {}, bad = [], times = [];
   const bump = (tier, k) => { tally[tier] = tally[tier] || { n: 0 }; tally[tier].n++; tally[tier][k] = (tally[tier][k] || 0) + 1; };
@@ -27,6 +28,7 @@ for (const f of fs.readdirSync(path.join(__dirname, 'coverage')).filter(f => f.e
     let pass;
     if (c.expect === 'invalid_or_pending') pass = got !== 'ok' && got !== 'ask';
     else if (c.expect === 'ok') pass = got === 'ok' && asOk;
+    else if (c.expect === 'ok_or_ask') pass = (got === 'ok' || got === 'ask') && asOk;
     else pass = got === c.expect && asOk;
     bump(c.tier, got);
     if (!pass) bad.push(`${c.tier.padEnd(12)} "${c.text}" -> ${got}${name ? ` (${name})` : ''}${j.reason ? ` [${j.reason}]` : ''}  want ${c.expect}${c.as ? ` as ${c.as}` : ''}`);

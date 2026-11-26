@@ -4,7 +4,7 @@ when nobody thought to list it. Used by the build (tools/content/build.py) and b
 Rarity for a dataset-only answer is a PROVISIONAL prior, marked pv=1: nobody has estimated it and no player has given it
 yet. It starts very rare (about 1 in 50,000), nudged up a little if its words are common in English, and it is capped
 (see build.py: provisional answers can't reach the deepest zones until real players supply evidence)."""
-import json, os, re, unicodedata
+import json, re, os, re, unicodedata
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 try:
     from wordfreq import zipf_frequency
@@ -47,6 +47,19 @@ PROPER = {"countries", "cities", "former_countries", "languages", "constellation
 EXCLUDE = {"deities": r"shrine|temple|church|monastery|cult of|statue", "music_genres": r"^music of |music in |^history of ",
            "car_brands": r"alliance|holdings|group$|^[a-z]+ [A-Z]", "creatures": r"^list of ", "sports": r" at the |^list of ",
            "paintings": r"^untitled$", "film_genres": r"^list of "}
+# Entries a dataset files under the right class but that aren't answers a player would mean: for things people wear,
+# medals and orders (worn, but awards), period overviews ("1100-1200 in European fashion"), whole national wardrobes
+# ("Japanese clothing"), techniques and named one-off objects.
+DROP = {"wearables": re.compile(r"(?i)\b(medal|order of|decoration|award|cross for|star of|insignia|commendation|citation|ribbon bar|badge of)\b|\d|"
+                                r"\bin (european|western)? ?fashion\b|\b(clothing|costume|dress|fashion|garments?|wear)$|\bof [A-Z]|^academic dress\b|knitting|weaving|sewing|^[A-Z][a-z]+ [A-Z]")}
+
+COMMON_DROP = {"wearables"}
+_cw = None
+def COMMON_WORDS():
+    global _cw
+    if _cw is None: _cw = set(json.load(open(os.path.join(ROOT, "words.json"))).get("commonWords", "").split())
+    return _cw
+
 def items_of(kb, flt=None):
     """Dataset entries as {a, al}: birds use species (+ scientific name) and group names; others use items."""
     flt = flt or {}
@@ -61,7 +74,12 @@ def items_of(kb, flt=None):
         if flt.get("groups", True): out += [{"a": g, "al": [], "kind": "group"} for g in kb["groups"]]
         return out
     out = []
+    drop = DROP.get(kb["domain"])
     for x in kb["items"]:
+        if drop and drop.search(x["a"]): continue
+        # A single everyday word ("claw", "grip", "pulsar") that a dataset files here in some narrow sense: the
+        # question's own list already has the everyday things people wear, so these would only accept jokes.
+        if kb["domain"] in COMMON_DROP and " " not in x["a"].strip() and x["a"].lower() in COMMON_WORDS(): continue
         ok = all((x.get(k) == v) if not isinstance(v, list) else any(c in x.get(k, []) for c in v) for k, v in flt.items() if k not in ("groups",))
         if not ok: continue
         if kb["domain"] in EXCLUDE and re.search(EXCLUDE[kb["domain"]], x["a"], re.I if not kb["domain"] == "car_brands" else 0): continue

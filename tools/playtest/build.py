@@ -33,7 +33,7 @@ KB = {"Name a cheese": "cheeses", "Name a pasta shape": "pasta", "Name a kind of
       "Name a film genre": "film_genres", "Name a sport": "sports", "Name a logical fallacy": "fallacies",
       "Name a desert": "deserts", "Name a sea or ocean": "seas", "Name a colour": "colours", "Name a bird": "birds", "Name a dog breed": "dog_breeds",
       "Name a musical instrument": "instruments", "Name a language": "languages", "Name a chemical element": "elements", "Name a country": "countries",
-      "Name a volcano": "volcanoes"}
+      "Name a volcano": "volcanoes", "Name something you wear": "wearables"}
 coverage = []
 def widen(q):
     dom = KB.get(q.get("prompt") or q.get("title"))

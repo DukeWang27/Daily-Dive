@@ -76,6 +76,16 @@
 
   function prepare(cat) {
     const index = new Map(), byFirst = new Map();
+    // On a question with brands and models (granularity), a reference-list entry that is itself a known brand or
+    // model ("G-Shock", "Ray-Ban Wayfarer") is not a separate answer: it counts as the thing it is. And an entry ending
+    // in something the question excludes ("handbag" where bags don't count) is left out too.
+    if (cat.products && !cat._gran) {
+      const pp = prepProducts(cat.products), not = (cat.notIn || []).map(normalize);
+      cat.answers = cat.answers.filter(r => { if (!r.pv) return true; const k = normalize(r.a);
+        if (pp.models.has(k) || pp.brands.has(k) || [...pp.models.keys()].some(m => m.length > 4 && k.endsWith(m))) return false;
+        return !not.some(x => x.length >= 3 && (k === x || compact(k).endsWith(compact(x)))); });
+      cat._gran = true;
+    }
     const put = (key, row, alias) => {
       if (index.has(key)) return;
       index.set(key, { row, alias });
@@ -112,7 +122,72 @@
       fields: new Map(Object.entries(cat.fields || {}).map(([k, v]) => [normalize(k), v])),
       ambiguous: new Map(Object.entries(cat.ambiguous || {}).map(([k, v]) => [normalize(k), v])),
       derive: cat.derive || null,
+      products: cat.products ? prepProducts(cat.products) : null,
+      granularity: cat.granularity || (cat.products ? "category" : null),
     };
+  }
+
+  // ---------- Layer 3c: brands, models and descriptions (answer granularity) ----------
+  // A question says what one answer is (cat.granularity):
+  //   "category" ("Name something you wear"): a brand or model counts as the kind of thing it is, and scores as that
+  //     ("Rolex Submariner" is a watch). Extra detail is accepted and never earns extra rarity.
+  //   "brand" ("Name a watch brand"): a model counts as its brand.
+  //   "model" ("Name a luxury watch model"): a brand alone is asked to be made specific.
+  // Description piled on a known answer ("my friend's scratched blue watch") is the answer it describes.
+  function prepProducts(pr) {
+    const brands = new Map(), models = new Map();
+    for (const [name, b] of Object.entries(pr.brands || {})) for (const k of [name, ...(b.al || [])]) brands.set(normalize(k), { name, ...b });
+    for (const [name, m] of Object.entries(pr.models || {})) for (const k of [name, ...(m.al || [])]) {
+      const md = { name, ...m }; models.set(normalize(k), md);
+      const br = pr.brands && pr.brands[m.brand]; for (const bk of [m.brand, ...((br && br.al) || [])]) models.set(normalize(bk + " " + k), md);
+    }
+    return { brands, models };
+  }
+  const CONNECT = /\b(with|that|which|who|from|for|in|on|at|made|bought|gave|got|i|my|his|her|their)\b/;
+  function specific(n, P, res) {
+    const G = P.products, words = n.split(" "), cap = s => s.replace(/^./, c => c.toUpperCase());
+    const ok = (row, detail, note) => Object.assign(res, { status: "ok", row, via: "specific", detail, note });
+    const asRow = name => { const h = lookup(normalize(name), P); return h ? h.row : null; };
+    const thing = is => { if (P.notIn.has(normalize(is)) || variants(normalize(is)).some(v => P.notIn.has(v))) return { no: is }; const r = asRow(is); return r ? { row: r } : null; };
+    if (G) {
+      // A model, with or without its brand in front, in the plural too ("Air Jordans", "Stan Smiths").
+      const m = variants(n).map(v => G.models.get(v)).find(Boolean);
+      if (m) {
+        if (P.granularity === "brand") { const r = asRow(m.brand); if (r) return ok(r, `${m.brand} ${m.name}`, "a model counts as its brand"); }
+        const t = thing(m.is);
+        if (t && t.no) return Object.assign(res, { status: "invalid", reason: `A ${m.brand} ${m.name} is a ${m.is}, and those don't count here` });
+        if (t) return ok(t.row, m.name.startsWith(m.brand) ? m.name : `${m.brand} ${m.name}`, "brands and models count as the item they are");
+      }
+      // A brand, then a known kind of thing ("Cartier watch", "Hermès silk tie").
+      // A brand's name typed with a slip ("Rollex", "Addidas"): one letter out, on names of five letters or more.
+      const brandAt = k => G.brands.get(k) || (k.length >= 5 ? (() => { for (const [bk, bv] of G.brands) if (Math.abs(bk.length - k.length) <= 1 && bk[0] === k[0] && editCost(k, bk, 1) <= 1) return bv; return null; })() : null);
+      for (let i = Math.min(4, words.length); i >= 1; i--) {
+        const b = brandAt(words.slice(0, i).join(" ")); if (!b) continue;
+        const rest = words.slice(i).join(" ");
+        if (!rest) {
+          if (P.granularity === "model") return Object.assign(res, { status: "ambiguous", reason: `${b.name} is a brand: name one particular model` });
+          const rows = b.makes.map(thing).filter(x => x && x.row).map(x => x.row);
+          if (rows.length === 1 && b.makes.length === 1) return ok(rows[0], b.name, "a brand counts as the thing it makes");
+          if (rows.length) return Object.assign(res, { status: "ambiguous", reason: `${b.name} makes several things you can wear (${b.makes.slice(0, 3).join(", ")}). Type which one, e.g. ${b.name} ${b.makes[0]}` });
+          continue;
+        }
+        const mm = G.models.get(rest); if (mm) return specific(rest, P, res);
+        const r = lookup(rest, P) || describe(rest, P);
+        if (r) return ok(r.row || r, `${b.name} ${rest}`, "brands count as the item they are");
+        // A brand and a model we don't know ("Rolex Turbo Phantom X9"): counted as what the brand makes, if that's one
+        // thing, without claiming the model exists. Never a separate, rarer answer.
+        if (b.makes.length === 1 && P.granularity !== "model") { const t = thing(b.makes[0]); if (t && t.row) return ok(t.row, b.name, "counted as what the brand makes"); }
+      }
+    }
+    if (P.cat.describe || G) { const r = describe(n, P); if (r) return ok(r, null, "extra description doesn't make a different answer"); }
+    return null;
+  }
+  // The thing a description is about: the first clause, without possessives, ending in a known answer.
+  function describe(n, P) {
+    const clause = n.replace(/^(my|your|his|her|their|our|a|an|the)( \w+s)? /, "").split(CONNECT)[0].trim();
+    const w = clause.split(" ");
+    for (let k = Math.min(3, clause === n ? w.length - 1 : w.length); k >= 1; k--) { const h = lookup(w.slice(-k).join(" "), P); if (h) return h.row; }
+    return null;
   }
 
   // ---------- Layer 3b: what people call a job, from what they call the work ----------
@@ -136,7 +211,7 @@
     [/ia$/, w => [w.slice(0, -2) + "ist", w.slice(0, -1) + "n"]],
   ];
   const PERSONISH = /(er|or|ist|ian|ant|ent|man|woman|wright|smith|maker|keeper|herd|monger|eer|ier|yer|ee|ess|ster|naut|ive|ary|ard|ic|ogist|aut|ite|ward)s?$/;
-  function derive(n, P) {
+  function derive(n, P, retried) {
     if (P.derive !== "person") return null;
     const found = [], add = row => { if (row && !found.includes(row)) found.push(row); };
     const t = n.replace(/^(an?|the|be an?|work in|working in|work as an?|in) /, "");
@@ -148,6 +223,29 @@
       // A single word for an activity ("running", "shopping") only leads to a job on the game's own list, not to every
       // title in a reference list (runner, shopper): with a word in front ("investment banking") the reference list counts.
       for (const [re, make] of PERSON_RULES) if (re.test(last)) for (const c of make(last)) { if (c.length < 3) continue; const h = lookup(pre + c, P); if (h && (pre || !h.row.pv || !/ing$/.test(last) || last.length >= 10)) add(h.row); }
+    }
+    if (!found.length && !retried) {
+      // "Quant traiding", "investmant banking": a slip inside a longer name. Each word unknown to the question is
+      // matched against the words its answers and fields use (one or two letters out, by length), then tried again.
+      const vocab = P.vocab || (P.vocab = (() => { const v = new Set(); for (const k of P.index.keys()) k.split(" ").forEach(w => w.length >= 4 && v.add(w)); for (const k of P.fields.keys()) k.split(" ").forEach(w => w.length >= 4 && v.add(w)); return [...v]; })());
+      const has = new Set(vocab);
+      // Every word equally close is tried ("traiding": trading or training?), and only one that leads to an answer counts.
+      const opts = t.split(" ").map(w => {
+        if (w.length < 5 || has.has(w)) return [w];
+        const room = w.length >= 8 ? 2 : 1.2, near = [];
+        for (const v of vocab) { if (Math.abs(v.length - w.length) > 2 || v[0] !== w[0]) continue; const c = editCost(w, v, room); if (c <= room) near.push([c, v]); }
+        near.sort((a, b) => a[0] - b[0]);
+        return near.length ? near.filter(x => x[0] <= near[0][0] + 0.3).slice(0, 4).map(x => x[1]) : [w];
+      });
+      let combos = [[]];
+      for (const o of opts) { combos = combos.flatMap(c => o.map(w => c.concat(w))); if (combos.length > 16) break; }
+      const results = [];
+      for (const c of combos.slice(0, 16)) {
+        const fixed = c.join(" "); if (fixed === t) continue;
+        const h = lookup(fixed, P); if (h) { if (!results.includes(h.row)) results.push(h.row); continue; }
+        const again = derive(fixed, P, true); if (again) again.rows.forEach(r => { if (!results.includes(r)) results.push(r); });
+      }
+      if (results.length) return { rows: results, sure: results.length === 1, typo: true };
     }
     return found.length ? { rows: found, sure: found.length === 1 && !(f && f.length > 1) } : null;
   }
@@ -301,6 +399,8 @@
     const dupOf = row => given && given.rows.has(row.a);
     const ok = (row, via) => Object.assign(res, dupOf(row) ? { status: "dup", row, via } : { status: "ok", row, via });
 
+    // Brands, models and descriptions on questions that take them, before anything is ruled out as "not one answer".
+    if ((P.products || P.cat.describe) && !lookup(n, P) && n.split(" ").length <= 14) { const sp = specific(n, P, res); if (sp) return sp.status === "ok" && dupOf(sp.row) ? Object.assign(sp, { status: "dup" }) : sp; }
     if (P.general.has(n) || variants(n).some(v => P.general.has(v))) return Object.assign(res, { status: "invalid", reason: "Too general" });
     // "any bird", "the rarest one", "something": not an answer, and never corrected into one.
     if (/^(any|every|all|some|random|whatever|anything|something|nothing|everything|idk|dunno|rarest|the rarest|a rare|rare|my|no)( |$)/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one particular answer" });
@@ -345,7 +445,10 @@
       const rest = lookup(words.slice(i).join(" "), P);
       if (rest && P.cat.trimColours !== false) return ok(rest.row, "trimmed");
     }
-    if (t && (t.level === "high" || t.level === "medium") && !(given && given.texts.has(n))) return Object.assign(res, { status: "confirm", row: t.row, correction: t });
+    // A clear slip (high confidence, not itself a word) is corrected straight away and said so ("Accepted as: Porsche");
+    // a plausible one is asked about first. Low: left as typed.
+    if (t && t.level === "high" && !(given && given.texts.has(n))) return Object.assign(ok(t.row, "typo"), { correction: t });
+    if (t && t.level === "medium" && !(given && given.texts.has(n))) return Object.assign(res, { status: "confirm", row: t.row, correction: t });
     const cached = P.cache.get(n);
     if (cached) {
       if (cached.status === "ok" && cached.row) { const row = P.cat.answers.find(r => r.a === cached.row); if (row) return ok(row, "review"); }
@@ -367,6 +470,7 @@
   // own rows and estimates always win. Also brings the list's fields and ambiguous short forms.
   function mergeKb(cat, kb) {
     if (!kb || cat._kb) return cat;
+    if (kb.brands || kb.models) { cat.products = kb; cat._kb = true; return cat; }   // a products list (brands and models)
     const have = new Set();
     for (const r of cat.answers) { have.add(normalize(r.a)); for (const x of r.al || []) have.add(normalize(x)); }
     const add = [];
@@ -384,5 +488,23 @@
     return cat;
   }
 
-  window.IcebergValidate = { mergeKb, normalize, variants, prepare, judge, remember, gibberish, setCommonWords, setRealWords, editCost, sound, correct, sameSpelling };
+  // Which other categories know this answer (content/kb/lexicon.json), with spelling slips allowed: "terrodactyl" ->
+  // pterodactyl, a dinosaur or other prehistoric animal. Only to explain; it never makes an answer count.
+  let LEXP = null;
+  function elsewhere(text, lex, skipLabel) {
+    if (!lex) return null;
+    if (!LEXP) {
+      const rows = Object.keys(lex.names).map(k => ({ a: k, s: 0.01, ids: lex.names[k] }));
+      LEXP = prepare({ key: "_lexicon", answers: rows, prompt: "", title: "" });
+    }
+    const n = normalize(text); if (!n || n.length < 3) return null;
+    let row = null, fixed = false;
+    const hit = lookup(n, LEXP); if (hit) row = hit.row;
+    if (!row) { const t = correct(n, LEXP); if (t && t.level !== "low") { row = t.row; fixed = true; } }
+    if (!row) return null;
+    const labels = row.ids.map(i => lex.labels[i]).filter(l => l !== skipLabel);
+    return labels.length ? { name: row.a, labels, fixed } : null;
+  }
+
+  window.IcebergValidate = { mergeKb, elsewhere, normalize, variants, prepare, judge, remember, gibberish, setCommonWords, setRealWords, editCost, sound, correct, sameSpelling };
 })();

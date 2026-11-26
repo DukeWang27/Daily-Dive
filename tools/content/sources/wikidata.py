@@ -41,6 +41,7 @@ DOMAINS = {
   "operas": ("Operas", f'{{ ?item wdt:P7937 wd:Q1344 }} UNION {{ ?item wdt:P31 wd:Q1344 }} {LABEL} {ALIAS} ?item wikibase:sitelinks ?links . FILTER(?links >= 4)', "?links"),
   "paintings": ("Famous paintings", f'?item wdt:P31 wd:Q3305213 . {LABEL} {ALIAS} ?item wikibase:sitelinks ?links . FILTER(?links >= 12)', "?links"),
   "typefaces": ("Typefaces", f'?item wdt:P31/wdt:P279* wd:Q17451 . {LABEL} {ALIAS} ?item wikibase:sitelinks ?links . FILTER(?links >= 2)', "?links"),
+  "wearables": ("Things people wear: clothing, footwear, headgear, jewellery, watches", f'{{ ?item wdt:P279+ wd:Q11460 }} UNION {{ ?item wdt:P279+ wd:Q22676 }} UNION {{ ?item wdt:P279+ wd:Q14952 }} UNION {{ ?item wdt:P279+ wd:Q161439 }} UNION {{ ?item wdt:P279+ wd:Q178794 }} {LABEL} {ALIAS} ?item wikibase:sitelinks ?links . FILTER(?links >= 2)', "?links"),
   "music_genres": ("Music genres", f'?item wdt:P31 wd:Q188451 . {LABEL} {ALIAS} ?item wikibase:sitelinks ?links . FILTER(?links >= 6)', "?links"),
   "film_genres": ("Film genres", f'?item wdt:P31 wd:Q201658 . {LABEL} {ALIAS} ?item wikibase:sitelinks ?links . FILTER(?links >= 3)', "?links"),
   "sports": ("Sports", f'?item wdt:P31 wd:Q31629 . {LABEL} {ALIAS} ?item wikibase:sitelinks ?links . FILTER(?links >= 4)', "?links"),

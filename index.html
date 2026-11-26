@@ -291,7 +291,7 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .melt.beat .melt-n { animation: beat .5s ease-out; } @keyframes beat { 0% { opacity: .45; } 100% { opacity: 1; } }
 .melt.out .melt-n { color: var(--faint); transform: none; text-shadow: none; }
 .hint { min-height: 21px; margin: -6px 2px -4px; font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
-.hint.warn { color: var(--warn); } .hint.good { color: var(--accent); }
+.hint.warn { color: var(--warn); } .hint.good { color: var(--accent); } .hint.pending { color: var(--text); }
 /* The three guesses: quiet rows divided by hairlines. Empty, waiting, revealed, deepest: each reads at a glance. */
 .slots { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid var(--line); }
 .slot { position: relative; width: 100%; min-height: 58px; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 12px; align-items: center; text-align: left; padding: 8px 6px 8px 2px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); transition: background .25s; }

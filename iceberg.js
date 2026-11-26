@@ -739,7 +739,7 @@
       add("ib-name", it.name);
       // Rarity (this answer, among everyone's), then distance (what it adds to your dive), then where that leaves you.
       const zone = document.createElement("span"); zone.className = "ib-zone"; zone.textContent = it.tier.name;
-      add("ib-share", b(it.shareText), " of players ", zone);
+      add("ib-share", b(it.shareText), it.est ? " of players (est.) " : " of players ", zone);
       if (it.at == null) { if (it.depth > 0) add("ib-below", b(it.depth + " m"), " deep"); }
       else if (it.mine) add("ib-below", b("Mine"), " · no distance, guess spent", it.keep ? ` · your +${it.keep} m still counts` : "");
       else if (it.gain > 0) add("ib-below", b("+" + (it.earn != null ? it.earn : it.depth) + " m"), (it.earn != null ? it.earn : it.depth) > it.gain ? ` (${it.gain} m further than your last best)` : "", " · down to ", b(it.at.toLocaleString("en-US") + " m"));

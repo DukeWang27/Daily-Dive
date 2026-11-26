@@ -83,7 +83,7 @@ async function fullGame(b, vp) {
   // Q4: typo, duplicate, invalid, pending.
   await p.waitForFunction(() => ICEBERG_TEST.state.round === 3 && ICEBERG_TEST.state.phase === 'play'); await p.waitForTimeout(500);
   await enter(p, 'snaek'); let s4 = await S(p);
-  ok(T('q4 unclear typo "snaek" (snake? sneak? snack?): no guess used, and never a list of possible answers'), s4.n === 0 && !/,.* or /.test(await hint(p)) && /isn't on today's list|Did you mean (snake|snack|sneak)\?/.test(await hint(p)), await hint(p));
+  ok(T('q4 unclear typo "snaek" (snake? sneak? snack?): no guess used, and never a list of possible answers'), s4.n === 0 && !/(snake|snack|sneak).*(snake|snack|sneak)/.test(await hint(p)) && /isn't on our list, and it's close|Did you mean (snake|snack|sneak)\?/.test(await hint(p)), await hint(p));
   await enter(p, 'snorkle');
   ok(T('q4 typo "snorkle": asked "Did you mean snorkel?" first, nothing placed and no rarity shown'), (await S(p)).n === 0 && /Did you mean snorkel\?/.test(await p.textContent('#q-ask')) && !/%|players/.test(await hint(p)), await hint(p));
   await p.click('#q-ask .ask-yes'); await settle(p);
@@ -93,16 +93,17 @@ async function fullGame(b, vp) {
   await enter(p, 'apple'); s4 = await S(p);
   ok(T('q4 invalid "apple": reason given, no guess used'), s4.n === 1 && s4.misses === 1 && /Doesn't start with SN\. No guess used/.test(await hint(p)), await hint(p));
   await enter(p, 'snorlax'); s4 = await S(p);
-  // Unknown to the list: either a warning, or (here, close to "snarls") one "Did you mean ...?". Neither uses a guess.
+  // Unknown to the list: kept at once as a guess waiting for review, unless it looks like a slip of a listed answer
+  // (then one "Did you mean ...?" first, which uses nothing).
   const asked = /Did you mean/.test(await hint(p));
-  ok(T('q4 unknown "snorlax": first Enter uses no guess (a warning, or one spelling question)'), s4.n === 1 && (asked || /isn't on today's list\. Enter again sends it for review and uses a guess/.test(await hint(p))), await hint(p));
-  // Keeping it as typed (Escape after a spelling question, or a second Enter after the warning) sends it for review.
-  await p.keyboard.press(asked ? 'Escape' : 'Enter'); await p.waitForTimeout(150); s4 = await S(p); st = await slots(p);
+  ok(T('q4 unknown "snorlax": kept for review straight away, or one spelling question first'), asked ? s4.n === 1 : (s4.n === 2 && /isn't on our list yet\. Kept for review/.test(await hint(p))), await hint(p));
+  if (asked) { await p.keyboard.press('Escape'); await p.waitForTimeout(150); }
+  s4 = await S(p); st = await slots(p);
   ok(T('q4 pending: keeping it as typed uses a guess, slot shows pending with no depth or rarity'), s4.n === 2 && s4.status[1] === 'pending' && /pending/.test(st[1].cls) && /Waiting for review/.test(st[1].text) && !/%|\d+m/.test(st[1].text), st[1].text);
   await guess(p, 'snafu');
   await waitDone(p); await p.waitForTimeout(300);
   d = await p.evaluate(() => ({ best: document.querySelector('#best-name').textContent, rows: [...document.querySelectorAll('#sum li')].map(l => l.innerText.replace(/\n/g, ' | ')), note: document.querySelector('#review-note').textContent }));
-  ok(T('q4 results: best is snafu; pending and rejected answers listed with dispute buttons'), d.best === 'snafu' && d.rows.length === 4 && d.rows.some(x => /snorlax.*I think this counts/.test(x)) && d.rows.some(x => /apple.*Dispute.*didn't use a guess/.test(x)), d.rows.join(' || '));
+  ok(T('q4 results: best is snafu; pending, rejected and typed-but-unsent answers all listed, with dispute buttons'), d.best === 'snafu' && d.rows.length === 5 && d.rows.some(x => /snaek.*Typed but not sent/.test(x)) && d.rows.some(x => /snorlax.*I think this counts/.test(x)) && d.rows.some(x => /apple.*Dispute.*didn't use a guess/.test(x)), d.rows.join(' || '));
   await p.click('#sum .dispute'); await p.waitForTimeout(100);
   ok(T('q4: dispute is recorded and the button locks'), await p.evaluate(() => document.querySelector('#sum .dispute').disabled && JSON.parse(localStorage.getItem('iceberg:flags')).some(f => /dispute/.test(f.kind))));
   ok(T('q4 results layout'), !(await audit(p)).length, (await audit(p)).join('; '));
@@ -424,7 +425,7 @@ async function scene(b) {
         d: document.querySelector('.ib-leader').getAttribute('d'), last: +getComputedStyle(n.querySelector('.ib-meta')).opacity, inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight,
         overControls: ['.q', '#play-panel', '.top'].filter(hit).join(','), overMark: r.left < m.right && m.left < r.right && r.top < m.bottom && m.top < r.bottom, sizes: [...n.children].map(c => parseFloat(getComputedStyle(c).fontSize)) };
     });
-    ok(`${vp} annotation: reads answer, share of players, depth, rarity, then guess (no simulated player count)`, /^ib-name ib-share ib-below ib-rank ib-meta/.test(a.order) && /great white shark \| 0\.\d+% of players EXCEPTIONAL \| \+203 m · down to 203 m/i.test(a.text) && /Rarer than \d+% of answers given \| Guess 1(?! · [\d,]+ of)/.test(a.text) && !/50,000/.test(a.text), a.text);
+    ok(`${vp} annotation: reads answer, share of players, depth, rarity, then guess (no simulated player count)`, /^ib-name ib-share ib-below ib-rank ib-meta/.test(a.order) && /great white shark \| (~?0\.\d+%|under 0\.1%) of players( \(est\.\))? EXCEPTIONAL \| \+203 m · down to 203 m/i.test(a.text) && /Rarer than \d+% of answers given \| Guess 1(?! · [\d,]+ of)/.test(a.text) && !/50,000/.test(a.text), a.text);
     ok(`${vp} annotation: the answer is the largest line, the small print the smallest`, a.sizes[0] > a.sizes[1] && a.sizes[1] >= a.sizes[2] && a.sizes[2] > a.sizes[4], a.sizes.join(' > '));
     ok(`${vp} annotation: open, not a card (no fill, border, rounded box or drop shadow)`, /rgba\(0, 0, 0, 0\)|transparent/.test(a.bg) && a.border === '0px' && a.radius === '0px' && a.shadow === 'none', `${a.bg} ${a.border} ${a.radius} ${a.shadow}`);
     ok(`${vp} annotation: joined to its marker by a line, and clear of the marker, the controls and the window edge`, /^M[\d.-]+ [\d.-]+[HV]/.test(a.d) && a.inside && !a.overControls && !a.overMark, `${a.d} ${a.overControls}`);

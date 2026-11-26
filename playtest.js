@@ -42,6 +42,16 @@
     }, 700));
   }
 
+  // ---------- Answer reports: "I think this counts" and "Dispute" in the results ----------
+  // Each report keeps the question, what was typed and what the game decided, with the notes (and in the artifact's
+  // database when there is one), so missing answers found while playing can be added to the lists.
+  const reports = local.get("reports", []);
+  window.PTReport = (r) => {
+    const row = { ...r, at: Date.now() }; reports.push(row); local.set("reports", reports.slice(-500));
+    if (db) db.collection("reports").doc(`${row.day}-${row.round}-${row.at}`).set(row).catch(() => {});
+  };
+  window.PTReports = () => reports.slice();
+
   // ---------- The bar and the two panels ----------
   const css = el("style"); css.textContent = `
     .pt-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(10px, env(safe-area-inset-bottom)); z-index: 60; display: flex; gap: 4px; align-items: center;
@@ -78,7 +88,11 @@
   const tag = el("span", "pt-tag", "Playtest");
   const bDay = el("button", "pt-day", `Day ${day} ▾`), bAgain = el("button", null, "Replay"), bNext = el("button", null, "Next ›"), bNotes = el("button", null, "Notes");
   const bTog = el("button", "pt-tog", "TEST"); bTog.setAttribute("aria-label", "Playtest tools");
-  bar.append(bTog, tag, bDay, bAgain, bNext, bNotes); bar.classList.add("pt-min");
+  // The clock to try: 20, 30 or 45 seconds a question. Applies from the next question you load (the page reloads).
+  const secs = (() => { try { return +localStorage.getItem("iceberg-pt:seconds") || 20; } catch { return 20; } })();
+  const bClock = el("button", "pt-clock", `${secs} s`); bClock.title = "Seconds per question (playtest only): 20, 30 or 45";
+  bClock.onclick = () => { const next = { 20: 30, 30: 45, 45: 20 }[secs] || 20; try { localStorage.setItem("iceberg-pt:seconds", String(next)); } catch { } location.reload(); };
+  bar.append(bTog, tag, bDay, bAgain, bNext, bNotes, bClock); bar.classList.add("pt-min");
   bTog.onclick = () => { bar.classList.toggle("pt-min"); if (bar.classList.contains("pt-min")) close(); };
   const keep = n => { n.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape") close(); }); n.addEventListener("pointerdown", e => e.stopPropagation()); return n; };
   keep(bar);

@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 out="${1:-$(mktemp -d)}"; rm -rf "$out"; mkdir -p "$out/days"
 for f in $(grep -o 'src="[a-z]*\.js"' index.html | cut -d'"' -f2); do cp "$f" "$out/"; done
-cp favicon.svg apple-touch-icon.png words.json realwords.txt "$out/"; cp days/index.json "$out/days/"
+cp favicon.svg apple-touch-icon.png words.json realwords.txt "$out/"; cp days/index.json "$out/days/"; mkdir -p "$out/content/kb"; cp content/kb/occupations.json "$out/content/kb/"
 sed -e 's|<script src="palette.js"></script>|<script>window.PLAYTEST = true;</script>\n<script src="palette.js"></script>|' -e 's|<title>Deeple|<title>Deeple Playtest|' index.html > "$out/index.html"
 grep -q "window.PLAYTEST = true" "$out/index.html"
 python3 tools/playtest/build.py "$out" >/dev/null

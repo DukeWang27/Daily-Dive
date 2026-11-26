@@ -87,7 +87,7 @@
     // Some lists store common misspellings as other names ("leging", "turqoise"). Those are spelling mistakes, not
     // other names: they are offered as a correction to confirm, never accepted silently.
     for (const row of cat.answers) for (const name of row.al || []) { const k = normalize(name), a = normalize(row.a);
-      if (!(k.length >= 3 || shortOk.has(k) || k === a)) continue;
+      if (!(k.length >= 3 || shortOk.has(k) || k === a || cat.derive === "person")) continue;   // jobs: GP, RN, DJ are what people say
       // Forms of one word (clocks, knocked, boxes) are not misspellings either.
       const form = (x, y) => variants(x).includes(y) || variants(y).includes(x) || (x.startsWith(y) && /^(s|es|ed|d|ing|er|ers)$/.test(x.slice(y.length))) || (y.startsWith(x) && /^(s|es|ed|d|ing|er|ers)$/.test(y.slice(x.length)));
       const near = m => m !== k && !sameSpelling(k, m) && !form(k, m) && k.split(" ").length === m.split(" ").length && editCost(k, m, 2) <= 2;
@@ -107,7 +107,49 @@
       pattern: cat.pattern || (cat.prefix ? { type: "start", s: cat.prefix } : null),
       heads: headWords(cat),
       cache: loadCache(cat.key),
+      // Occupation questions: the name of a field for the person in it ("accounting" for accountant), and short forms
+      // that could mean several different answers ("PM").
+      fields: new Map(Object.entries(cat.fields || {}).map(([k, v]) => [normalize(k), v])),
+      ambiguous: new Map(Object.entries(cat.ambiguous || {}).map(([k, v]) => [normalize(k), v])),
+      derive: cat.derive || null,
     };
+  }
+
+  // ---------- Layer 3b: what people call a job, from what they call the work ----------
+  // "Accounting" means accountant, "dentistry" dentist, "data science" data scientist, "investment banking" investment
+  // banker. The rules only propose names; a name counts only if it is a real answer on the list. One match counts
+  // (shown as "Counted as ..."); several (physics: physicist or physician?) are offered as a suggestion, never counted
+  // silently. Only for questions that ask for a person (derive: "person").
+  const PERSON_RULES = [
+    [/ing$/, w => { const s = w.slice(0, -3); return [s + "er", s + "or", s + "ant", s + "ent", s + "e", s, s + "ist", s.replace(/(.)\1$/, "$1") + "er"]; }],
+    [/ure$/, w => [w.slice(0, -3) + "urist", w.slice(0, -3) + "uralist"]],
+    [/my$/, w => [w.slice(0, -1) + "ist", w.slice(0, -1) + "er"]],
+    [/ology$/, w => [w.slice(0, -1) + "ist", w.slice(0, -1) + "ian"]],
+    [/ics$/, w => [w.slice(0, -1) + "ist", w.slice(0, -3) + "ist", w.slice(0, -1) + "ian"]],
+    [/ysis$/, w => [w.slice(0, -3) + "st"]],
+    [/ment$/, w => [w.slice(0, -4) + "er", w.slice(0, -4) + "or"]],
+    [/ence$/, w => [w.slice(0, -4) + "entist", w.slice(0, -2) + "t"]],
+    [/ism$/, w => [w.slice(0, -3) + "ist"]],
+    [/ry$/, w => [w.slice(0, -2), w.slice(0, -1) + "ist", w.slice(0, -2) + "er", w.slice(0, -1) + "er"]],
+    [/ion$/, w => [w.slice(0, -3) + "or", w.slice(0, -3) + "er", w + "ist", w + "er", w.slice(0, -3) + "ian"]],
+    [/(graphy|nomy|sophy|metry|apy|edy|macy|istry|ery)$/, w => [w.slice(0, -1) + "er", w.slice(0, -1) + "ist", w.slice(0, -1) + "ian"]],
+    [/ia$/, w => [w.slice(0, -2) + "ist", w.slice(0, -1) + "n"]],
+  ];
+  const PERSONISH = /(er|or|ist|ian|ant|ent|man|woman|wright|smith|maker|keeper|herd|monger|eer|ier|yer|ee|ess|ster|naut|ive|ary|ard|ic|ogist|aut|ite|ward)s?$/;
+  function derive(n, P) {
+    if (P.derive !== "person") return null;
+    const found = [], add = row => { if (row && !found.includes(row)) found.push(row); };
+    const t = n.replace(/^(an?|the|be an?|work in|working in|work as an?|in) /, "");
+    const f = P.fields.get(t) || variants(t).map(v => P.fields.get(v)).find(Boolean);
+    if (f) for (const name of f) { const h = lookup(normalize(name), P); if (h) add(h.row); }
+    if (!found.length) {
+      if (t !== n) { const h = lookup(t, P); if (h) return { rows: [h.row], sure: true }; }
+      const words = t.split(" "), last = words.pop(), pre = words.length ? words.join(" ") + " " : "";
+      // A single word for an activity ("running", "shopping") only leads to a job on the game's own list, not to every
+      // title in a reference list (runner, shopper): with a word in front ("investment banking") the reference list counts.
+      for (const [re, make] of PERSON_RULES) if (re.test(last)) for (const c of make(last)) { if (c.length < 3) continue; const h = lookup(pre + c, P); if (h && (pre || !h.row.pv || !/ing$/.test(last) || last.length >= 10)) add(h.row); }
+    }
+    return found.length ? { rows: found, sure: found.length === 1 && !(f && f.length > 1) } : null;
   }
 
   // The question's own category words ("dog", "breed", "bird", "colour"): "Mexican Hairless Dog" names the same breed
@@ -273,6 +315,13 @@
     // "Mexican Hairless Dog" for a dog breed: the same answer with the category's own word added. A synonym, not a correction.
     const head = headTrim(n, P);
     if (head) return ok(head.row, head.alias === true ? "alias" : "head");
+    // A short form that means several different answers: ask for the full name, at no cost.
+    const amb = P.ambiguous.get(n);
+    if (amb) return Object.assign(res, { status: "ambiguous", reason: `“${res.text}” could mean ${amb.slice(0, -1).join(", ")} or ${amb[amb.length - 1]}. Type the full name` });
+    // The work for the worker: "accounting" counts as accountant; an unclear one is offered, not counted.
+    const dv = derive(n, P);
+    if (dv && dv.sure) return ok(dv.rows[0], "field");
+    if (dv) return Object.assign(res, { status: "confirm", row: dv.rows[0], correction: { row: dv.rows[0], cost: 1, level: "field", options: dv.rows } });
     // Word questions: anything that doesn't fit the letters can't be an answer (checked after known word forms,
     // so "clocks" still counts as clock for words ending in OCK).
     if (P.pattern) {
@@ -306,8 +355,34 @@
     if (given && given.texts.has(n)) return Object.assign(res, { status: "dup" });
     if (n.split(" ").length > 5 || n.length > 44) return Object.assign(res, { status: "invalid", reason: "Too long to be one answer" });
     if (gibberish(n)) return Object.assign(res, { status: "invalid", reason: "Not a word we recognise" });
-    return Object.assign(res, { status: "pending", reason: "Not in today's list yet" });
+    // Asking for a person (a job): one everyday word that isn't a word for a person ("banana", "happy", "table") can't be
+    // the answer. Anything else unknown waits for review.
+    if (P.derive === "person" && !n.includes(" ") && COMMON.has(n) && !PERSONISH.test(n)) return Object.assign(res, { status: "invalid", reason: "That isn't a job" });
+    // Close to something on the list (a likely slip, even an unclear one): the game warns once before using a guess.
+    return Object.assign(res, { status: "pending", reason: "Not in today's list yet", near: !!t });
   }
 
-  window.IcebergValidate = { normalize, variants, prepare, judge, remember, gibberish, setCommonWords, setRealWords, editCost, sound, correct, sameSpelling };
+  // A question that names a shared reference list (cat.kb: "occupations") gets that list's answers added to its own:
+  // every name not already on the question is added, marked provisional (its rarity is an estimate). The question's
+  // own rows and estimates always win. Also brings the list's fields and ambiguous short forms.
+  function mergeKb(cat, kb) {
+    if (!kb || cat._kb) return cat;
+    const have = new Set();
+    for (const r of cat.answers) { have.add(normalize(r.a)); for (const x of r.al || []) have.add(normalize(x)); }
+    const add = [];
+    for (const r of kb.rows) {
+      const k = normalize(r.a);
+      if (have.has(k)) { const mine = cat.answers.find(x => normalize(x.a) === k); if (mine) for (const al of r.al || []) if (!have.has(normalize(al))) { (mine.al = mine.al || []).push(al); have.add(normalize(al)); } continue; }
+      const al = (r.al || []).filter(x => !have.has(normalize(x)));
+      add.push({ a: r.a, s: r.s, al, pv: r.pv ? 1 : undefined }); have.add(k); al.forEach(x => have.add(normalize(x)));
+    }
+    cat.answers = cat.answers.concat(add);
+    cat.fields = Object.assign({}, kb.fields || {}, cat.fields || {});
+    cat.ambiguous = Object.assign({}, kb.ambiguous || {}, cat.ambiguous || {});
+    if (kb.derive) cat.derive = cat.derive || kb.derive;
+    cat._kb = true;
+    return cat;
+  }
+
+  window.IcebergValidate = { mergeKb, normalize, variants, prepare, judge, remember, gibberish, setCommonWords, setRealWords, editCost, sound, correct, sameSpelling };
 })();

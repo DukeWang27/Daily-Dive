@@ -28,7 +28,9 @@ const PLAYTEST = !!window.PLAYTEST || PARAMS.has("playtest");
 if (PLAYTEST) { BACKEND.url = ""; BACKEND.anonKey = ""; BACKEND.verifyUrl = ""; }
 const SPEED = PARAMS.has("fast") ? 4 : 1;
 // The automated tests run untimed unless they ask for a clock (?test&time=20).
-const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : QUESTION_SECONDS);
+// The playtest can try other clocks (20, 30 or 45 seconds), chosen in its bar; the live game always uses QUESTION_SECONDS.
+const PT_SECONDS = PLAYTEST ? (() => { try { const v = +localStorage.getItem("iceberg-pt:seconds"); return [20, 30, 45].includes(v) ? v : 0; } catch { return 0; } })() : 0;
+const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : PT_SECONDS || QUESTION_SECONDS);
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
 // Automated tests never touch the live database: with ?test the game uses only the stand-in it is given (or none).
 if (PARAMS.has("test")) { BACKEND.url = PARAMS.get("api") || ""; BACKEND.anonKey = PARAMS.get("api") ? PARAMS.get("key") || "" : ""; BACKEND.providers = PARAMS.get("providers") ? PARAMS.get("providers").split(",") : []; }
@@ -57,6 +59,8 @@ const todayResult = () => { const d = store.get("day:" + dayNumber(), null); ret
 const playerId = (() => { let id = store.get("pid", null); if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); store.set("pid", id); } return id; })();
 const fmt = n => n.toLocaleString("en-US");
 const pctText = s => s >= 0.1 ? `${Math.round(s * 100)}%` : s >= 0.01 ? `${(s * 100).toFixed(1)}%` : s >= 0.001 ? `${(s * 100).toFixed(2)}%` : `${(s * 100).toFixed(3)}%`;
+// An estimate is shown as one: rounded, with "~" or "under", never to three decimal places it can't support.
+const estText = s => s >= 0.1 ? `~${Math.round(s * 20) * 5}%` : s >= 0.01 ? `~${Math.round(s * 100)}%` : s >= 0.001 ? `~${+(s * 100).toFixed(1)}%` : s >= 0.0001 ? "under 0.1%" : "under 0.01%";
 const display = row => row.d || row.a;
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "es"}`;
 const ICON = {
@@ -99,6 +103,8 @@ const live = {
   // A dispute ("I think this counts") or an unknown answer waiting for review. Kept locally too, so nothing is lost offline.
   async flag(day, round, text, kind) {
     const log = store.get("flags", []); log.push({ day, round, text, kind, at: Date.now() }); store.set("flags", log.slice(-200));
+    if (PLAYTEST && window.PTReport) { const c = CATS[round - 1], r = state && state.rounds[round - 1], x = r && [...(r.rejects || []), ...(r.guesses || []), ...(r.tried || [])].find(g => (g.typed || g.text) === text);
+      window.PTReport({ day, round, key: c ? c.key : "", prompt: c ? c.prompt || c.title : "", text, kind, result: x ? (x.status || x.outcome || "rejected") : kind, reason: x && x.reason || "" }); }
     if (!live.on()) return;
     try { await live.post("flags", { day, round, player: playerId, text, kind }); } catch { /* ignore */ }
   },
@@ -136,6 +142,15 @@ const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout
 let DAYX = null;
 let CATS = [], state = null, berg = null, life = null, scen = null, cameFrom = "home", screen = "home", busy = false, unknownKey = "", autoFinish = 0;
 const prepared = new Map();
+// Shared reference lists some questions use on top of their own answers (content/kb): every job title, not only the
+// common ones. Loaded once, kept by the browser, merged into the question before its first guess.
+const KB_FOR = { jobs: "occupations" }, kbLoads = new Map();
+const kbOf = cat => cat && (cat.kb || KB_FOR[cat.key]);
+function loadKb(cat) {
+  const name = kbOf(cat); if (!name || cat._kb) return Promise.resolve();
+  if (!kbLoads.has(name)) kbLoads.set(name, fetch(`content/kb/${name}.json`).then(r => r.ok ? r.json() : null).catch(() => null));
+  return kbLoads.get(name).then(kb => { if (kb && !cat._kb) { V.mergeKb(cat, kb); prepared.delete(cat.key); } });
+}
 const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
 const save = () => { if (state) store.set(saveKey(state), state); };
@@ -297,7 +312,7 @@ function timeUp() {
 function bergItem(cat, r, g, n) {
   const row = g.name ? cat.answers.find(a => a.a === g.name) : null, players = r.players || SAMPLE_PLAYERS;
   const dv = state && state.rounds.includes(r) ? diveOf(r, g) : null;
-  return { n, name: guessName(cat, g), share: g.share, shareText: pctText(g.share), blurb: row && row.b || "",
+  return { n, name: guessName(cat, g), share: g.share, shareText: shareFor(r, g.share), est: !liveStats(r), blurb: row && row.b || "",
     ...(dv ? { at: dv.at, gain: dv.gain, keep: dv.keep, earn: dv.depth, mode: Rounds.kind(cat), mine: Rounds.mineAt(cat, g) >= 0 } : {}),
     // A count of players only from real ones: a simulated sample is never presented as people.
     countText: row && liveStats(r) ? `${fmt(r.stats.counts.get(g.name) || 1)} of ${fmt(r.stats.players)}` : "", rankText: g.rank || "", sight: sightLine(g.sight) };
@@ -524,6 +539,7 @@ async function resolvePaths() {
 }
 async function startQuestion(animated) {
   await resolvePaths();
+  await loadKb(CATS[state.round]);
   const cat = CATS[state.round], r = cur(), rising = animated === "surface" && berg && berg.count > 0 && screen === "play";
   ensureBerg(); prep(cat); // build the lookup now, so the first guess is judged instantly
   clearTimeout(autoFinish); busy = false; unknownKey = ""; queued = false; confirmFor = null; keepTyped = "";
@@ -579,7 +595,7 @@ async function startQuestion(animated) {
   if (animated) Sound.play("question");
   input.focus({ preventScroll: true });
   // While this question is being played, get the next one's answer lookup ready (it is already on this device).
-  idle(() => { if (state && CATS[state.round + 1]) prep(CATS[state.round + 1]); });
+  idle(() => { const next = state && CATS[state.round + 1]; if (next) loadKb(next).then(() => prep(next)); });
   // A reload after the last guess landed but before the results appeared: carry on to the results.
   if (r.guesses.length >= GUESSES) finishQuestion();
   return ready;
@@ -624,7 +640,7 @@ function renderSlots(revealing = -1, landed = -1) {
       const d = depthOf(g.share), tier = tierOfDepth(d);
       b.classList.add("done", "tier-" + tier.key); if (g === best) b.classList.add("best"); if (i === landed) b.classList.add("land");
       b.dataset.bi = g.bi;
-      const sub = el("span", "slot-sub"); sub.append(pctText(g.share), el("span", "wide", " of players · "), el("b", null, tier.name));
+      const sub = el("span", "slot-sub"); sub.append(shareFor(r, g.share), el("span", "wide", ` ${liveStats(r) ? "of players" : "est."} · `), el("b", null, tier.name));
       main.append(el("span", "slot-name", guessName(cat, g)), sub);
       depth.append("+" + valueOf(r, g), el("small", null, "m"));
       if (g === best && okGuesses(r).length > 1) b.append(el("span", "slot-tag", "Counts"));
@@ -657,6 +673,10 @@ function rankText(cat, r, share) {
   return `Rarer than ${Math.min(99, Math.floor(100 * above / (total || 1)))}% of answers given`;
 }
 
+// What was typed but didn't become a guess (a short form that could mean several jobs, a likely slip not yet sent): kept,
+// so the results show everything the player tried. Sent later, it leaves this list.
+function tried(r, text, outcome) { r.tried = (r.tried || []).filter(x => V.normalize(x.text) !== V.normalize(text)); r.tried.push({ text, outcome }); }
+function untried(r, text) { if (r.tried) r.tried = r.tried.filter(x => V.normalize(x.text) !== V.normalize(text)); }
 // Everything a guess can turn out to be is decided here, in the browser, at once.
 let queued = false;   // a guess typed and sent while the last one was still travelling: it goes in as soon as that lands
 function submit() {
@@ -696,6 +716,10 @@ function submit() {
     }
     return;
   }
+  if (j.status === "ambiguous") {   // "PM": which one? Free, and kept in the list of what was tried
+    tried(r, j.text, "ambiguous"); Sound.play("pending"); setHint(`${j.reason}. No guess used.`, "warn"); input.select(); save();
+    return;
+  }
   if (j.status === "confirm") {
     // A likely misspelling: one answer offered, never swapped in silently, and nothing about its rarity shown until it is
     // accepted. The clock keeps running, so asking gives no free thinking time, and only three offers are made per
@@ -707,17 +731,21 @@ function submit() {
     return;
   }
   if (j.status === "pending") {
-    if (unknownKey !== j.key) { // first press: a chance to fix a typo before it costs anything
-      unknownKey = j.key; Sound.play("pending"); input.select();
-      setHint(j.suggest ? `Did you mean ${j.suggest.slice(0, -1).join(", ")} or ${j.suggest[j.suggest.length - 1]}? Fix it, or Enter again sends “${j.text}” for review.`
-        : `“${j.text}” isn't on today's list. Enter again sends it for review and uses a guess.`, "warn");
+    // Not on the list. It is kept, at once, as a guess waiting for review: never thrown away, never scored as rare.
+    // Only when it looks like a slip of something on the list does the first Enter stop to say so (and that attempt
+    // is remembered too, in case the player moves on).
+    if ((j.suggest || j.near) && unknownKey !== j.key) {
+      unknownKey = j.key; Sound.play("pending"); input.select(); tried(r, j.text, "not sent");
+      setHint(j.suggest ? `Did you mean ${j.suggest.slice(0, -1).join(", ")}${j.suggest.length > 1 ? " or " : ""}${j.suggest[j.suggest.length - 1]}? Not sent yet: fix it, or press Enter again to send “${j.text}” for review (uses a guess).`
+        : `“${j.text}” isn't on our list, and it's close to an answer that is. Not sent yet: check the spelling, or press Enter again to send it for review (uses a guess).`, "warn");
       return;
     }
-    unknownKey = "";
+    unknownKey = ""; untried(r, j.text);
     const g = { status: "pending", typed: j.text, key: j.key, checking: !!BACKEND.verifyUrl };
     r.guesses.push(g); input.value = "";
     Sound.play(r.guesses.length === GUESSES ? "final" : "submit", { step: r.guesses.length - 1 });
-    setHint(BACKEND.verifyUrl ? "Sent for checking. Its depth appears if it's approved." : "Saved for review. No depth until it's approved.");
+    setHint(BACKEND.verifyUrl ? `“${j.text}” isn't on our list yet. Sent for checking: if it's approved, its depth is added. That used a guess.`
+      : `“${j.text}” isn't on our list yet. Kept for review: if it's approved, its depth is added. That used a guess.`, "pending");
     live.flag(state.day, state.round + 1, j.text, "pending");
     save(); renderSlots(); reviewGuess(cat, r, g); afterGuess(false);
     return;
@@ -745,7 +773,7 @@ function place(cat, r, row, raw, via) {
   // "gray" for grey, "colour" for color: a spelling of the same word, shown as the answer. A different name is kept as written.
   if (differs && via === "alias" && V.editCost(V.normalize(raw), V.normalize(g.typed), 2) > 2) g.aka = String(raw).trim().replace(/^./, c => c.toUpperCase());
   else if (differs) g.raw = raw;
-  r.guesses.push(g); input.value = "";
+  r.guesses.push(g); input.value = ""; untried(r, raw);
   const name = row ? display(row) : g.typed;
   setHint(via === "typo" ? `Spelling corrected: ${name}.` : via === "confirmed" ? "" : g.aka ? `Also known as ${name}.` : g.raw ? `Counted as ${name}.` : "", via === "typo" ? "fixed" : "");
   Sound.play(r.guesses.length === GUESSES ? "final" : "submit", { step: r.guesses.length - 1 });
@@ -796,13 +824,13 @@ async function reveal(cat, r, g) {
   const left = GUESSES - r.guesses.length, more = left ? ` ${plural(left, "guess")} left.` : "";
   const counted = /^(Counted as|Spelling corrected)/.test($("#hint").textContent) ? $("#hint").textContent + " " : "";
   setTimeout(() => {
-    if (!state || cur() !== r || state.phase !== "play" || decided) return;
+    if (!state || cur() !== r || state.phase !== "play" || decided || confirmFor) return;   // never cover a question being asked
     const at = fmt(dv.at), vt = Rounds.verdict(cat, g, dv.had, dv.now);
     if (vt) { setHint(counted + vt + more, dv.gain > 0 ? "good" : ""); return; }
     if (Rounds.kind(cat) === "risk" && r.choice && r.choice.kind === "risk") {
       const won = dv.now > 0; setHint(counted + (won ? `Risk paid off: +${valueOf(r, g)} m beats your +${r.choice.stake} m, and the gain counts ×${Rounds.RISK_MULT}: +${dv.now} m.` : `+${valueOf(r, g)} m doesn't beat your +${r.choice.stake} m.${more ? more : " The risk is lost: this question earns nothing."}`) + (won ? more : ""), won ? "good" : "warn"); return;
     }
-    if (!prevBest) setHint(counted + (d === 0 ? `${pctText(g.share)} of players said this: no distance. Can you go rarer?` : `+${d} m. You're down to ${at} m.`) + more, d >= 100 ? "good" : "");
+    if (!prevBest) setHint(counted + (d === 0 ? `${liveStats(r) ? pctText(g.share) + " of players said" : "A common answer (" + estText(g.share) + " of players, estimated)"}: no distance. Can you go rarer?` : `+${d} m. You're down to ${at} m.`) + more, d >= 100 ? "good" : "");
     else if (deeper) { if (!special) Sound.play("deeper", { depth: Math.min(1, d / 260), m: d }); setHint(`${counted}+${d} m beats your +${depthOf(prevBest.share)} m: ${dv.gain} m further down, to ${at} m.${more}`, "good"); }
     else { Sound.play("neutral"); setHint(counted + (g.share === prevBest.share ? `+${d} m, level with your best. You stay at ${at} m.` : `+${d} m. Your +${depthOf(prevBest.share)} m still counts: you stay at ${at} m.`) + more); }
   }, 260 / SPEED);
@@ -910,6 +938,9 @@ function finishQuestion() {
 
 // Real counts for a question, once enough real players have answered it (released only after you finish it).
 const liveStats = r => !!(r && r.stats && r.stats.players >= BOARD_MIN_PLAYERS);
+// The share as it may honestly be shown: real counts once enough players have answered, otherwise the reference estimate.
+const shareFor = (r, s) => liveStats(r) ? pctText(s) : estText(s);
+const ofPlayers = r => liveStats(r) ? "of players" : "of players (estimated)";
 // "You and 3 others said this" / "Nobody else said this": real players only, never the sample.
 function crowdLine(r, name) {
   if (!liveStats(r) || !name) return "";
@@ -951,7 +982,7 @@ function renderDone(cat, r) {
       const n = el("span", "sum-n"); n.append(el("span", null, String(i + 1)));
       // An answer from a reference list that nobody had estimated: its rarity is a cautious first guess until players give it.
       const row = g.name && cat.answers.find(a => a.a === g.name), provisional = row && row.pv;
-      const sub = el("span", "sum-sub"); sub.append(el("span", "zone", tier.name), el("span", null, provisional ? "rarity still being measured" : `${pctText(g.share)} of players`));
+      const sub = el("span", "sum-sub"); sub.append(el("span", "zone", tier.name), el("span", null, provisional ? "rarity estimated from reference data, not yet measured" : `${shareFor(r, g.share)} ${ofPlayers(r)}`));
       const shown = g.raw || g.typed, typed = !g.aka && V.normalize(shown) !== V.normalize(guessName(cat, g));
       if (g.aka && row) sub.append(el("span", "aka", `Also known as ${display(row)}`));
       const crowd = crowdLine(r, g.name); if (crowd) sub.append(el("span", "crowd" + (crowd.startsWith("Nobody") ? " alone" : ""), crowd));
@@ -965,9 +996,11 @@ function renderDone(cat, r) {
   });
   // Answers that didn't count and didn't use a guess are listed too, so they can be disputed.
   r.rejects.filter(x => !r.guesses.some(g => g.status === "miss" && g.typed === x.text)).forEach(x => { const li = el("li", "off"); li.append(offRow("", x, false, () => renderDone(cat, r))); sum.append(li); });
-  if (!r.guesses.length && !r.rejects.length) { const li = el("li"); li.append(el("p", "forgot", "No guesses this time.")); sum.append(li); }
+  // Typed but never sent (a short form that needed the full name, a likely slip): shown, so nothing seems to vanish.
+  (r.tried || []).forEach(x => { const li = el("li", "off tried"); li.append(offRow("", { typed: x.text, reason: x.outcome === "ambiguous" ? "Needed the full name" : "Typed but not sent" }, false, () => renderDone(cat, r))); sum.append(li); });
+  if (!r.guesses.length && !r.rejects.length && !(r.tried || []).length) { const li = el("li"); li.append(el("p", "forgot", "No guesses this time.")); sum.append(li); }
   const forgot = $("#forgot"); forgot.textContent = ""; forgot.hidden = !board.top;
-  if (board.top) forgot.append("The most common answer you didn't give: ", el("b", null, display(board.top.row)), ` (${pctText(board.top.share)}).`);
+  if (board.top) forgot.append("The most common answer you didn't give: ", el("b", null, display(board.top.row)), ` (${board.isLive ? pctText(board.top.share) : estText(board.top.share) + ", estimated"}).`);
   const waiting = r.guesses.some(g => g.status === "pending");
   $("#review-note").textContent = !waiting ? "" : BACKEND.verifyUrl ? "Answers marked ? are being checked. If one is approved, its depth is added."
     : "Answers marked ? weren't on today's list. They're saved for review, and approved answers are recognised from then on.";
@@ -987,9 +1020,9 @@ function renderDone(cat, r) {
   // Until enough real players have answered this question, the figures are the question's estimated rarities: said so
   // plainly, with how many real players have answered so far, and no invented head-counts.
   const sofar = r.stats && r.stats.players ? r.stats.players : 0;
-  $("#players").textContent = board.isLive ? `${fmt(board.players)} players today` : `Estimated${sofar ? ` · ${fmt(sofar)} player${sofar === 1 ? "" : "s"} so far` : ""}`;
+  $("#players").textContent = board.isLive ? `Actual answers · ${fmt(board.players)} players today` : `Estimated popularity${sofar ? ` · ${fmt(sofar)} real player${sofar === 1 ? "" : "s"} so far` : ""}`;
   $("#sample-note").hidden = board.isLive;
-  $("#sample-text").textContent = `Fewer than ${BOARD_MIN_PLAYERS} players have answered this question so far, so these are estimated shares, not counts of real answers. Real counts take over automatically once ${BOARD_MIN_PLAYERS} players have answered.`;
+  $("#sample-text").textContent = `These are reference estimates of how popular each answer is, not counts of what real players said${sofar ? ` (only ${fmt(sofar)} real player${sofar === 1 ? " has" : "s have"} answered so far)` : ""}. Real counts replace them once ${BOARD_MIN_PLAYERS} players have answered. Today's depths stay as they were scored when you played.`;
   const min = Math.min(...[...board.common, ...board.rare].map(x => x.share), 0.001);
   const lo = Math.floor(Math.log10(min) - 0.001), hi = 0; // whole decades: ... 0.01%, 0.1%, 1%, 10%, 100%
   const pos = s => Math.max(0, Math.min(1, (Math.log10(s) - lo) / (hi - lo)));
@@ -998,8 +1031,8 @@ function renderDone(cat, r) {
     list.forEach(x => {
       const li = el("li", x.me ? "me" : ""); if (x.me) li.title = "You gave this answer";
       const track = el("span", "track"), fill = el("i"); fill.style.width = `${Math.max(1.5, 100 * pos(x.share))}%`; track.append(fill);
-      const val = el("span", "bar-val"); val.append(el("b", null, pctText(x.share)), board.isLive ? ` · ${fmt(x.count)}` : "");
-      val.title = board.isLive ? `${pctText(x.share)} of players (${fmt(x.count)} of ${fmt(board.players)})` : `about ${pctText(x.share)} of players (estimated)`;
+      const val = el("span", "bar-val"); val.append(el("b", null, board.isLive ? pctText(x.share) : estText(x.share)), board.isLive ? ` · ${fmt(x.count)}` : "");
+      val.title = board.isLive ? `${pctText(x.share)} of players (${fmt(x.count)} of ${fmt(board.players)})` : `estimated popularity: ${estText(x.share)} of players (a reference estimate, not a count of real answers)`;
       const name = el("span", "bar-name", x.name); name.title = x.name;
       li.append(name, track, val); target.append(li);
     });

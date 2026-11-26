@@ -1,0 +1,1315 @@
+{
+ "question": {
+  "day": 3,
+  "key": "jobs",
+  "kb": "occupations"
+ },
+ "cases": [
+  {
+   "text": "Accounting",
+   "expect": "ok",
+   "as": "accountant",
+   "tier": "incident"
+  },
+  {
+   "text": "Quant trading",
+   "expect": "ok",
+   "as": "quantitative trader",
+   "tier": "incident"
+  },
+  {
+   "text": "Quantitative finance",
+   "expect": "ask",
+   "as": null,
+   "tier": "incident"
+  },
+  {
+   "text": "Quant",
+   "expect": "ok",
+   "as": "quantitative analyst",
+   "tier": "incident"
+  },
+  {
+   "text": "Investment banking",
+   "expect": "ok",
+   "as": "investment banker",
+   "tier": "incident"
+  },
+  {
+   "text": "Software development",
+   "expect": "ok",
+   "as": "software developer",
+   "tier": "mapping"
+  },
+  {
+   "text": "Data science",
+   "expect": "ok",
+   "as": "data scientist",
+   "tier": "mapping"
+  },
+  {
+   "text": "Financial analysis",
+   "expect": "ok",
+   "as": "financial analyst",
+   "tier": "mapping"
+  },
+  {
+   "text": "Portfolio management",
+   "expect": "ok",
+   "as": "portfolio manager",
+   "tier": "mapping"
+  },
+  {
+   "text": "Dentistry",
+   "expect": "ok",
+   "as": "dentist",
+   "tier": "mapping"
+  },
+  {
+   "text": "Plumbing",
+   "expect": "ok",
+   "as": "plumber",
+   "tier": "mapping"
+  },
+  {
+   "text": "Cybersecurity analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "mapping"
+  },
+  {
+   "text": "ER doctor",
+   "expect": "ok",
+   "as": null,
+   "tier": "mapping"
+  },
+  {
+   "text": "teacher",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "doctor",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "nurse",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "lawyer",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "accountant",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "police officer",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "firefighter",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "chef",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "plumber",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "electrician",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "dentist",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "pilot",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "farmer",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "scientist",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "programmer",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "cashier",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "waiter",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "mechanic",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "architect",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "teachers",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "Doctors",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "a nurse",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "an accountant",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "the plumber",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "Lawyers",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "quantitative trader",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "quantitative researcher",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "quantitative analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "investment banker",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "equity research analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "financial analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "portfolio manager",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "asset manager",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "risk analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "credit analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "actuary",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "underwriter",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "market maker",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "trader",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "auditor",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "tax consultant",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "financial planner",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "compliance officer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "treasury analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "software engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "data scientist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "machine learning engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "data engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "devops engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "site reliability engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "cybersecurity analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "cloud architect",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "database administrator",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "product manager",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "ux researcher",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "blockchain developer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "robotics engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "embedded systems engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "anesthesiologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "anaesthetist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "radiologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "epidemiologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "neurologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "biomedical engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "genetic counselor",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "genetic counsellor",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "microbiologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "pathologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "pharmacologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "medical physicist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "welder",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "pipefitter",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "boilermaker",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "glazier",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "stonemason",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "air traffic controller",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "flight engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "ship captain",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "harbor pilot",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "stage manager",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "casting director",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "film editor",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "diplomat",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "customs officer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "tax inspector",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "kindergarten teacher",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "school counselor",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "paralegal",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "judge",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "court clerk",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "structural engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "agronomist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "crop farmer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "dairy farmer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "machinist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "tool and die maker",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "quality inspector",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "sommelier",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "concierge",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "hotel manager",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "illustrator",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "animator",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "copywriter",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "astrophysicist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "volcanologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "ux designer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "prompt engineer",
+   "expect": "ok",
+   "as": null,
+   "tier": "moderate"
+  },
+  {
+   "text": "farrier",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "luthier",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "cooper",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "wheelwright",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "chandler",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "thatcher",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "cordwainer",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "perfusionist",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "embryologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "phlebotomist",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "sonographer",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "foley artist",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "gaffer",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "key grip",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "boom operator",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "piano tuner",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "horologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "taxidermist",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "glassblower",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "saggar maker",
+   "expect": "ask",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "ostler",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "knocker upper",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "lamplighter",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "chimney sweep",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "herpetologist",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "lexicographer",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "actuarial analyst",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "quantitative developer",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "penetration tester",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "bioinformatician",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "hydrographer",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "ombudsman",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "sexton",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "verger",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "bailiff",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "coroner",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "assayer",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "dowser",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "cartographer",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "CPA",
+   "expect": "ok",
+   "as": "accountant",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "SWE",
+   "expect": "ok",
+   "as": "software engineer",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "SRE",
+   "expect": "ok",
+   "as": "site reliability engineer",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "DBA",
+   "expect": "ok",
+   "as": "database administrator",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "GP",
+   "expect": "ok",
+   "as": null,
+   "tier": "abbreviation"
+  },
+  {
+   "text": "RN",
+   "expect": "ok",
+   "as": null,
+   "tier": "abbreviation"
+  },
+  {
+   "text": "EMT",
+   "expect": "ok",
+   "as": null,
+   "tier": "abbreviation"
+  },
+  {
+   "text": "CEO",
+   "expect": "ok",
+   "as": null,
+   "tier": "abbreviation"
+  },
+  {
+   "text": "CFO",
+   "expect": "ok",
+   "as": null,
+   "tier": "abbreviation"
+  },
+  {
+   "text": "HR manager",
+   "expect": "ok",
+   "as": null,
+   "tier": "abbreviation"
+  },
+  {
+   "text": "vet",
+   "expect": "ok",
+   "as": null,
+   "tier": "abbreviation"
+  },
+  {
+   "text": "physio",
+   "expect": "ok",
+   "as": "physiotherapist",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "realtor",
+   "expect": "ok",
+   "as": "real estate agent",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "attorney",
+   "expect": "ok",
+   "as": "lawyer",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "cop",
+   "expect": "ok",
+   "as": "police officer",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "fireman",
+   "expect": "ok",
+   "as": "firefighter",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "air hostess",
+   "expect": "ok",
+   "as": "flight attendant",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "lorry driver",
+   "expect": "ok",
+   "as": "truck driver",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "binman",
+   "expect": "ok",
+   "as": "refuse collector",
+   "tier": "abbreviation"
+  },
+  {
+   "text": "acountant",
+   "expect": "ask",
+   "as": "accountant",
+   "tier": "misspelling"
+  },
+  {
+   "text": "plummer",
+   "expect": "ask",
+   "as": "plumber",
+   "tier": "misspelling"
+  },
+  {
+   "text": "electrision",
+   "expect": "ask",
+   "as": "electrician",
+   "tier": "misspelling"
+  },
+  {
+   "text": "pharmasist",
+   "expect": "ask",
+   "as": "pharmacist",
+   "tier": "misspelling"
+  },
+  {
+   "text": "sofware engineer",
+   "expect": "ask",
+   "as": "software engineer",
+   "tier": "misspelling"
+  },
+  {
+   "text": "anestesiologist",
+   "expect": "ask",
+   "as": "anesthesiologist",
+   "tier": "misspelling"
+  },
+  {
+   "text": "nursing",
+   "expect": "ok",
+   "as": "nurse",
+   "tier": "field"
+  },
+  {
+   "text": "journalism",
+   "expect": "ok",
+   "as": "journalist",
+   "tier": "field"
+  },
+  {
+   "text": "teaching",
+   "expect": "ok",
+   "as": "teacher",
+   "tier": "field"
+  },
+  {
+   "text": "farming",
+   "expect": "ok",
+   "as": "farmer",
+   "tier": "field"
+  },
+  {
+   "text": "baking",
+   "expect": "ok",
+   "as": "baker",
+   "tier": "field"
+  },
+  {
+   "text": "photography",
+   "expect": "ok",
+   "as": "photographer",
+   "tier": "field"
+  },
+  {
+   "text": "economics",
+   "expect": "ok",
+   "as": "economist",
+   "tier": "field"
+  },
+  {
+   "text": "statistics",
+   "expect": "ok",
+   "as": "statistician",
+   "tier": "field"
+  },
+  {
+   "text": "biology",
+   "expect": "ok",
+   "as": "biologist",
+   "tier": "field"
+  },
+  {
+   "text": "psychiatry",
+   "expect": "ok",
+   "as": "psychiatrist",
+   "tier": "field"
+  },
+  {
+   "text": "pharmacy",
+   "expect": "ok",
+   "as": "pharmacist",
+   "tier": "field"
+  },
+  {
+   "text": "architecture",
+   "expect": "ok",
+   "as": "architect",
+   "tier": "field"
+  },
+  {
+   "text": "law",
+   "expect": "ok",
+   "as": "lawyer",
+   "tier": "field"
+  },
+  {
+   "text": "medicine",
+   "expect": "ok",
+   "as": "doctor",
+   "tier": "field"
+  },
+  {
+   "text": "translation",
+   "expect": "ok",
+   "as": "translator",
+   "tier": "field"
+  },
+  {
+   "text": "physics",
+   "expect": "ok",
+   "tier": "field",
+   "as": "physicist"
+  },
+  {
+   "text": "PM",
+   "expect": "ambiguous",
+   "tier": "ambiguous"
+  },
+  {
+   "text": "finance",
+   "expect": "ask",
+   "tier": "ambiguous"
+  },
+  {
+   "text": "banana",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "happy",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "running",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "table",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "blue",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "asdfgh",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "the moon",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "pizza",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "job",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "work",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "hobby",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "unemployed",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "retired",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "student",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "sleeping",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "netflix",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "london",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "monday",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  }
+ ]
+}

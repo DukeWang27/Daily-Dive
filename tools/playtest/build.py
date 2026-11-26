@@ -20,9 +20,32 @@ def icon(topic):
         if k in topic: return v
     return "default"
 
+# "Name a kind of X" questions get every X the datasets know (content/kb, from Wikidata and IOC), the way Krillion
+# describes building its answer sets: aggregate sources, merge, clean. Listed answers keep their estimates; dataset
+# answers start from a familiarity prior and are marked pv (rarity still being measured). See tools/content/kbmerge.py.
+sys.path.insert(0, os.path.join(ROOT, "tools", "content"))
+import kbmerge
+KB = {"Name a cheese": "cheeses", "Name a pasta shape": "pasta", "Name a kind of bread": "breads", "Name a soup": "soups",
+      "Name a dessert": "desserts", "Name a sauce or condiment": "sauces", "Name a herb or spice": "spices", "Name a vegetable": "vegetables",
+      "Name a fruit": "fruits", "Name a car brand": "car_brands", "Name a god or goddess": "deities", "Name a mythical creature": "creatures",
+      "Name a mathematician": "mathematicians", "Name an inventor": "inventors", "Name a famous photographer": "photographers",
+      "Name an opera": "operas", "Name a famous painting": "paintings", "Name a font or typeface": "typefaces", "Name a genre of music": "music_genres",
+      "Name a film genre": "film_genres", "Name a sport": "sports", "Name a logical fallacy": "fallacies",
+      "Name a desert": "deserts", "Name a sea or ocean": "seas", "Name a colour": "colours", "Name a bird": "birds", "Name a dog breed": "dog_breeds",
+      "Name a musical instrument": "instruments", "Name a language": "languages", "Name a chemical element": "elements", "Name a country": "countries",
+      "Name a volcano": "volcanoes"}
+coverage = []
+def widen(q):
+    dom = KB.get(q.get("prompt") or q.get("title"))
+    if not dom or not os.path.exists(os.path.join(ROOT, "content", "kb", dom + ".json")): return
+    before = len(q["answers"]); q["answers"] = json.loads(json.dumps(q["answers"]))
+    _, added = kbmerge.merge(q["answers"], dom)
+    coverage.append({"prompt": q.get("prompt"), "domain": dom, "before": before, "after": before + added})
+
 days = []
 def put(n, d, group, source):
-    d = dict(d); d["day"] = n
+    d = json.loads(json.dumps(d)); d["day"] = n
+    for q in d["questions"]: widen(q)
     with open(os.path.join(out, "pt", f"{n}.json"), "w") as f: json.dump(d, f, separators=(",", ":"))
     days.append({"n": n, "group": group, "source": source, "questions": [q.get("prompt") or q.get("title") for q in d["questions"]]})
 
@@ -50,4 +73,5 @@ for i, day in enumerate(sample["days"]):
     put(101 + i, {"v": 3, "questions": qs}, "new", f"sample-14-days-v4 day {day['day']}")
 
 json.dump({"days": days}, open(os.path.join(out, "pt", "list.json"), "w"), separators=(",", ":"))
+json.dump(coverage, open(os.path.join(out, "pt", "coverage.json"), "w"), indent=1)
 print(len(days), "days")

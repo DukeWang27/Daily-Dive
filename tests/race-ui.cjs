@@ -42,7 +42,8 @@ const SHOTS = process.env.SHOTS || '';
   };
   const toRace = async p => { await p.evaluate(() => { location.hash = '#race'; }); await p.waitForSelector('[data-screen="race"]:not([hidden])'); await p.waitForSelector('#r-quick, #r-players, #r-signup, .rdock .note-line', { timeout: 8000 }); };
   const view = p => p.evaluate(() => Race.view);
-  const waitView = (p, v, timeout = 20000) => p.waitForFunction(v => Race.view === v, v, { timeout });
+  const waitRound = (p, n, t = 25000) => p.waitForFunction(n => window.Race && Race.view === 'question' && Race.state && Race.state.round === n, n, { timeout: t });
+const waitView = (p, v, timeout = 20000) => p.waitForFunction(v => Race.view === v, v, { timeout });
   const st = p => p.evaluate(() => Race.state && { status: Race.state.status, round: Race.state.round, qid: Race.state.qid, players: Race.state.players.map(x => ({ n: x.username, d: x.distance, used: x.used })), mine: Race.state.mine, revealed: Race.state.revealed });
   // An answer for the current question, about as rare as asked (0 = most common, 1 = rarest).
   const answer = (p, f) => p.evaluate(async f => { const q = await fetch(`race/${Race.state.qid}.json`).then(r => r.json()).then(j => j.questions[0]); const c = q.answers.filter(x => !x.x).sort((a, b) => b.s - a.s); return c[Math.min(c.length - 1, Math.floor(c.length * f))].a; }, f);
@@ -114,11 +115,12 @@ const SHOTS = process.env.SHOTS || '';
   const usedB = await bo.evaluate(() => Race.state.mine.length);
   const gx = await guess(bo, 'Glorbington'); ok('an unrecognised answer asks first (or is turned away) and costs nothing', /anyway|Enter again|No guess used/.test(gx.hint) && (await bo.evaluate(() => Race.state.mine.length)) === usedB, gx.hint);
   await bo.click('#r-done');
-  await waitView(ann, 'between'); await waitView(bo, 'between');
-  ok('the question closes early once everyone is finished', true);
-  const bt = await bo.evaluate(() => document.querySelector('.r-between').innerText);
-  ok('round summary: everyone\'s deepest answer, revealed only now', bt.includes('Ann') && bt.includes('You'), bt.replace(/\n/g, ' ').slice(0, 160));
-  await shot(bo, 'between-phone'); await shot(ann, 'between-desk');
+  const t0 = Date.now(); await waitRound(ann, 2); await waitRound(bo, 2);
+  ok('the question closes early once everyone is finished, and the next one starts straight away (no break)', Date.now() - t0 < 4000, (Date.now() - t0) + ' ms');
+  await bo.waitForTimeout(600);
+  const notes = await bo.evaluate(() => Race.notes());
+  ok('as the next question begins, each racer\'s deepest answer from the last one shows above their submarine', notes.filter(Boolean).length >= 1, JSON.stringify(notes));
+  await shot(bo, 'next-phone'); await shot(ann, 'next-desk');
 
   // Questions 2 to 5: quick answers, testing simultaneous submissions on one of them.
   for (let q = 2; q <= 5; q++) {
@@ -146,7 +148,7 @@ const SHOTS = process.env.SHOTS || '';
       ok('the same answer sent twice at once counts once', dup.every(s => s === 'dup'), dup.join(','));
     } else await Promise.all([guess(ann, x), guess(bo, y)]);
     await Promise.all([ann.click('#r-done'), bo.click('#r-done')]);
-    await waitView(ann, q === 5 ? 'results' : 'between', 25000);
+    if (q === 5) await waitView(ann, 'results', 25000); else await waitRound(ann, q + 1);
   }
   await waitView(bo, 'results', 25000);
   const res = await ann.evaluate(() => ({ text: document.querySelector('.r-results').innerText, results: Race.state.results }));
@@ -195,7 +197,7 @@ const SHOTS = process.env.SHOTS || '';
   await dex.context().close();
   await waitTyping(ann); await guess(ann, await answer(ann, 0.5)); await guess(cat, await answer(cat, 0.5));
   await Promise.all([ann.click('#r-done'), cat.click('#r-done')]);
-  await waitView(ann, 'between', 25000);
+  await waitRound(ann, 2);
   ok('a disconnected player does not hold up the question forever', true);
   // Cat reloads mid-race and comes back into it.
   await cat.goto(url() + '#race'); await cat.waitForFunction(() => window.Race && ['between', 'question'].includes(Race.view), null, { timeout: 15000 });

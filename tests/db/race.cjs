@@ -93,28 +93,27 @@ const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${na
   s = await st(ann, race);
   ok('the question stays open while someone still has guesses and time', s.status === 'question');
   await expire(race); s = await st(ann, race);
-  ok('at the shared deadline the question closes for everyone, and the break begins', s.status === 'between' && s.round === 1);
+  ok('at the shared deadline the question closes for everyone, and the next one starts at once (no break)', s.status === 'question' && s.round === 2);
   ok('a guess after the deadline is refused', await fails_with(() => rpc(ann, 'race_guess', { p_race: race, p_round: 1, p_typed: mid.answer, p_answer: mid.answer }), 'round_closed'));
-  const rev = s.revealed.filter(x => x.round === 1);
+  const rev = s.revealed.filter(x => x.round === 1);   // shown above the submarines as the next question begins
   ok('now everyone\'s answers for that question are shown', rev.some(x => x.username === 'Bo_' && x.answer === high.answer) && rev.some(x => x.username === 'Cat') && rev.filter(x => x.username === 'Bo_').length === 3);
-  await skipBreak(race); s = await st(ann, race);
-  ok('after the break the next question begins, on a fresh clock', s.status === 'question' && s.round === 2 && s.qid !== qid1 && s.questions.length === 1);
+  ok('the next question is on a fresh clock', s.status === 'question' && s.round === 2 && s.qid !== qid1 && s.questions.length === 1 && new Date(s.round_end) - new Date(s.now) > 10000);
   await open(race);
 
   // Everyone who is here finishes early: no waiting for the clock.
   for (const u of [ann, bo, cat, dev]) await rpc(u, 'race_done', { p_race: race });
   s = await st(ann, race);
-  ok('when every racer is finished, the question closes early', s.status === 'between' && s.round === 2);
-  await skipBreak(race); await st(ann, race); await open(race);
+  ok('when every racer is finished, the question closes early and the next begins', s.status === 'question' && s.round === 3);
+  await open(race);
 
   // ---------- Disconnects ----------
   await admin(`update public.race_players set last_seen = now() - interval '60 seconds' where race_id = $1 and user_id = $2`, [race, dev]);
   for (const u of [ann, bo, cat]) await rpc(u, 'race_done', { p_race: race });
   await admin(`update public.race_players set last_seen = now() - interval '60 seconds' where race_id = $1 and user_id = $2`, [race, dev]);
   s = await st(ann, race);
-  ok('a racer who has lost connection doesn\'t hold the others up', s.status === 'between' && s.round === 3 && s.players.find(p => p.username === 'Dex').here === false);
+  ok('a racer who has lost connection doesn\'t hold the others up', s.status === 'question' && s.round === 4 && s.players.find(p => p.username === 'Dex').here === false);
   const back = await rpc(dev, 'race_join', { p_code: code });
-  ok('they can come straight back with the same code, keeping their distance', back.status === 'between' && back.players.find(p => p.me).here === true && back.players.find(p => p.me).distance >= 0);
+  ok('they can come straight back with the same code, keeping their distance', back.status === 'question' && back.players.find(p => p.me).here === true && back.players.find(p => p.me).distance >= 0);
   ok('a racer who wasn\'t in it can\'t join once it has started', await fails_with(() => rpc(eli, 'race_join', { p_code: code }), 'race_started'));
 
   // ---------- Host leaves ----------

@@ -148,11 +148,11 @@ const prepared = new Map();
 // "products:wearables": brands and models (content/kb/products.json), for questions where a brand or model counts as
 // the kind of thing it is. The rule is added to the question's hint, so it is clear before the clock starts.
 const KB_FOR = { jobs: "occupations", clothing: "products:wearables" }, kbLoads = new Map();
-const kbOf = cat => cat && (cat.kb || KB_FOR[cat.key]);
+const kbOf = cat => cat && (cat.kb || (PLAYTEST && KB_FOR[cat.key]));   // live days name their list (cat.kb); the old bank's keys only in the playtest
 function loadKb(cat) {
   const ref = kbOf(cat); if (!ref || cat._kb) return Promise.resolve();
   const [file, part] = ref.split(":");
-  if (!kbLoads.has(file)) kbLoads.set(file, fetch(`content/kb/${file}.json`).then(r => r.ok ? r.json() : null).catch(() => null));
+  if (!kbLoads.has(file)) kbLoads.set(file, fetch(`kb/${file}.json`).then(r => r.ok ? r.json() : null).catch(() => null));
   return kbLoads.get(file).then(kb => {
     if (!kb || cat._kb) return;
     V.mergeKb(cat, part ? kb[part] : kb); prepared.delete(cat.key);
@@ -161,7 +161,7 @@ function loadKb(cat) {
 }
 // The other categories' answers, to explain an answer that belongs elsewhere (loaded once, in the background).
 let LEXICON = null;
-const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("content/kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; if (x) { V.setKnownNames(Object.keys(x.names)); idle(() => V.elsewhere("warmup", x)); } }).catch(() => {}); };   // prepared in idle time, never on a guess
+const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; if (x) { V.setKnownNames(Object.keys(x.names)); idle(() => V.elsewhere("warmup", x)); } }).catch(() => {}); };   // prepared in idle time, never on a guess
 // Each question's spelling index is built in idle time too, so even the first unknown answer is judged at once.
 const prep = cat => { if (!prepared.has(cat.key)) { const P = V.prepare(cat); prepared.set(cat.key, P); idle(() => V.correct("warmup", P)); } return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
@@ -607,7 +607,7 @@ async function startQuestion(animated) {
   if (animated) Sound.play("question");
   input.focus({ preventScroll: true });
   // While this question is being played, get the next one's answer lookup ready (it is already on this device).
-  idle(() => { loadLexicon(); const next = state && CATS[state.round + 1]; if (next) loadKb(next).then(() => prep(next)); });
+  idle(() => { if (PLAYTEST) loadLexicon(); const next = state && CATS[state.round + 1]; if (next) loadKb(next).then(() => prep(next)); });
   // A reload after the last guess landed but before the results appeared: carry on to the results.
   if (r.guesses.length >= GUESSES) finishQuestion();
   return ready;
@@ -1139,17 +1139,19 @@ function guessesOf(game) {
   const out = [];
   // The database records only the encounters it knows (supabase/0002: giant, bigfin, colossal). The newer ones are
   // kept on this device until supabase/0009 widens that list; sending them would make the whole dive fail to save.
-  const known = ["giant", "bigfin", "colossal"];
+  const known = ["giant", "bigfin", "colossal", "megalodon", "coil"];
   game.rounds.forEach((r, i) => r.guesses.slice(0, GUESSES).forEach((g, j) => out.push({ round: i + 1, slot: j + 1, typed: String(g.typed || "").slice(0, 60), answer: g.status === "ok" ? g.name || null : null, status: g.status, sight: known.includes(g.sight) ? g.sight : null })));
   return out;
 }
+// The risk choices made on a mixed day: the database works out the stake and the score itself.
+const choicesOf = game => game.rounds.map((r, i) => r.choice && !r.choice.auto ? { round: i + 1, kind: r.choice.kind } : null).filter(Boolean);
 const finishedGame = day => { const g = store.get("game:" + day, null); return g && g.v === 3 && g.finished && !g.practice ? g : null; };
 // Hand a finished day in to the player's account. Safe to call again: the database keeps one dive per day.
 async function handIn(day) {
   const game = finishedGame(day);
   if (!game || !Account || !Account.signedIn) return null;
   try {
-    const res = await Account.rpc("submit_dive", { p_day: day, p_guesses: guessesOf(game) });
+    const res = await Account.rpc("submit_dive", { p_day: day, p_guesses: guessesOf(game), p_choices: choicesOf(game) });
     const rec = store.get("day:" + day, null); if (rec) { rec.owner = Account.profile.username; rec.server = { total: res.total, max_depth: res.max_depth, rank: res.rank, players: res.players }; store.set("day:" + day, rec); }
     await Account.refresh();
     if (screen === "end") { const n = streakNow().count; $("#e-streak").textContent = n ? `${n}-day streak` : ""; }
@@ -1166,7 +1168,7 @@ function syncProgress() {
   if (syncing) return syncing;
   syncing = (async () => {
     const me = Account.profile.username, today = dayNumber(), mine = [];
-    for (let d = Math.max(1, today - 89); d <= today; d++) { const rec = store.get("day:" + d, null), game = finishedGame(d); if (rec && rec.v === 3 && game && (!rec.owner || rec.owner === me) && !rec.server) mine.push({ day: d, guesses: guessesOf(game) }); }
+    for (let d = Math.max(1, today - 89); d <= today; d++) { const rec = store.get("day:" + d, null), game = finishedGame(d); if (rec && rec.v === 3 && game && (!rec.owner || rec.owner === me) && !rec.server) mine.push({ day: d, guesses: guessesOf(game), choices: choicesOf(game) }); }
     try {
       if (mine.length) {
         const res = await Account.rpc("import_dives", { p_dives: mine });

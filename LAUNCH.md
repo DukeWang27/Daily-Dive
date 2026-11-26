@@ -9,7 +9,7 @@ only. Nothing was changed, bought or switched on.
 
 | | Status |
 |---|---|
-| **Hosting** | Vercel. Live at `https://iceberg-eight-silk.vercel.app` (HTTPS, HSTS on). Deploys from GitHub `DukeWang27/Daily-Dive`, branch `main`. |
+| **Hosting** | Vercel. Live at `https://www.deeplegame.com` (HTTPS, HSTS on). Deploys from GitHub `DukeWang27/Daily-Dive`, branch `main`. |
 | **Supabase project** | "Daily Dive" (`lrubyctrjrkzbbshlois`), us-east-1, Postgres 17, healthy, **Free plan**. |
 | **Database** | 55 MB used of the 500 MB free. 4 accounts, 4 dives, 92 round plays. Launch day 24 Nov 2026; 90 days of questions scheduled (to day 93). Row-level security is on for every table. |
 | **Backups** | **None you can download.** The backup list is empty and point-in-time recovery is off. That is normal for the Free plan. |
@@ -19,6 +19,31 @@ only. Nothing was changed, bought or switched on.
 | **Analytics** | **None.** No analytics, no error monitoring. |
 | **Privacy page** | `privacy.html` exists. It must be updated when analytics is added. |
 | **Domain** | **deeplegame.com** (Cloudflare Registrar), live: www.deeplegame.com serves the game, deeplegame.com redirects to it; Supabase sign-in allows it (26 Nov 2026). |
+
+## Release of 26–27 Nov 2026 (approved by the owner: "Everything")
+
+What goes live, from the `experiments` branch:
+- **Answer checking:** job titles (O*NET), spelling slips corrected with "Accepted as", brands and models counted as
+  what they are, descriptions after an answer, lists refused, and no typed answer ever silently dropped (unknown ones
+  are kept as pending and shown in the results).
+- **The look and flow:** one continuous dive, the frozen question panel, the world beneath the iceberg, ranked 1v1,
+  first discoveries.
+- **Round types, scored by the server:** from **day 6 (28 Nov)** each day opens with an ordinary rarity round and
+  has two or three of: rarity target, forbidden answers, risk and reward, sea mines (never two of a kind). The server
+  scores them itself (`supabase/0011_live_rounds.sql`); the browser only says what was typed and which risk choice
+  was made. Checked: 528 generated dives over all 88 new days score the same in the game and on the server
+  (`tests/db/live_content.cjs`).
+- **The curated questions:** 64 of the 70 (the ones their researcher marked "keep") open the schedule on days 6–18.
+  The 6 marked "change" wait. The questions they displace move later, none are lost.
+
+What stays in the private playtest: answer chains and route choices (no server scoring yet), the review dashboard,
+the per-question timer setting, and the cross-category dictionary ("that's a dinosaur, not a bird"), which is built
+from private lists.
+
+Days 1–5 don't change (day 4 has begun east of UTC; day 5 begins in a few hours). Existing dives keep their scores.
+
+Steps: backup (done, 22:50 UTC) → database changes 0007–0011 rehearsed on a local copy (192 checks) → applied →
+days 6–93 loaded → pull request merged by the owner → site checked live.
 
 ## What you need to do
 

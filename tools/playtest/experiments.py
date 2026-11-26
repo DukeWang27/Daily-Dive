@@ -5,7 +5,7 @@ Sources, all already in the repo: the live and prepared answer banks (estimated 
 players), the reviewed v4 sample, and content/experiments/questions.json (hand-written tiers). Every share here is an
 ESTIMATE; no real player counts are involved. Round order is shuffled per day with a fixed seed, so everyone who plays a
 day gets the same order and the same objectives."""
-import json, os, glob, re, random
+import json, os, glob, re, random, sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 norm = lambda s: re.sub(r"[^a-z0-9]+", " ", str(s).lower()).strip()
 
@@ -37,6 +37,9 @@ def Q(ref):
     """'auth:id', 'v4:id', a bank key, or 'prompt:Name a ...'."""
     if ref.startswith("auth:"): return json.loads(json.dumps(AUTH[ref[5:]]))
     if ref.startswith("v4:"): return json.loads(json.dumps(V4[ref[3:]]))
+    if ref not in BANK:   # a bank question not scheduled at the moment: built from its file as a day would be
+        sys.path.insert(0, os.path.join(ROOT, "tools", "content")); import build as CB
+        q = json.load(open(os.path.join(ROOT, "content", "questions", ref + ".json"))); BANK[ref] = CB.client_question(q, CB.answers_of(q)[0])
     return json.loads(json.dumps(BANK[ref]))
 
 # ---------- Round types ----------

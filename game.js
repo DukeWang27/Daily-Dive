@@ -103,7 +103,7 @@ const live = {
   // A dispute ("I think this counts") or an unknown answer waiting for review. Kept locally too, so nothing is lost offline.
   async flag(day, round, text, kind) {
     const log = store.get("flags", []); log.push({ day, round, text, kind, at: Date.now() }); store.set("flags", log.slice(-200));
-    if (PLAYTEST && window.PTReport) { const c = CATS[round - 1], r = state && state.rounds[round - 1], x = r && [...(r.rejects || []), ...(r.guesses || []), ...(r.tried || [])].find(g => (g.typed || g.text) === text);
+    if (PLAYTEST && window.PTReport && /dispute/.test(kind)) { const c = CATS[round - 1], r = state && state.rounds[round - 1], x = r && [...(r.rejects || []), ...(r.guesses || []), ...(r.tried || [])].find(g => (g.typed || g.text) === text);
       window.PTReport({ day, round, key: c ? c.key : "", prompt: c ? c.prompt || c.title : "", text, kind, result: x ? (x.status || x.outcome || "rejected") : kind, reason: x && x.reason || "" }); }
     if (!live.on()) return;
     try { await live.post("flags", { day, round, player: playerId, text, kind }); } catch { /* ignore */ }

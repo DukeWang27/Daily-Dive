@@ -92,7 +92,11 @@
   const secs = (() => { try { return +localStorage.getItem("iceberg-pt:seconds") || 20; } catch { return 20; } })();
   const bClock = el("button", "pt-clock", `${secs} s`); bClock.title = "Seconds per question (playtest only): 20, 30 or 45";
   bClock.onclick = () => { const next = { 20: 30, 30: 45, 45: 20 }[secs] || 20; try { localStorage.setItem("iceberg-pt:seconds", String(next)); } catch { } location.reload(); };
-  bar.append(bTog, tag, bDay, bAgain, bNext, bNotes, bClock); bar.classList.add("pt-min");
+  // Question review: every question and its answers, decisions saved with the notes (review.js, loaded on first use).
+  const bReview = el("button", null, "Review");
+  bReview.onclick = () => { close(); const go = () => window.PTReview.open({ db: () => db, local });
+    if (window.PTReview) go(); else { const sc = document.createElement("script"); sc.src = "review.js"; sc.onload = go; document.head.append(sc); } };
+  bar.append(bTog, tag, bDay, bAgain, bNext, bNotes, bReview, bClock); bar.classList.add("pt-min");
   bTog.onclick = () => { bar.classList.toggle("pt-min"); if (bar.classList.contains("pt-min")) close(); };
   const keep = n => { n.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape") close(); }); n.addEventListener("pointerdown", e => e.stopPropagation()); return n; };
   keep(bar);

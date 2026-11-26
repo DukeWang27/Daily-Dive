@@ -79,3 +79,7 @@ days += experiments.build(out, widen)
 json.dump({"days": days}, open(os.path.join(out, "pt", "list.json"), "w"), separators=(",", ":"))
 json.dump(coverage, open(os.path.join(out, "pt", "coverage.json"), "w"), indent=1)
 print(len(days), "days")
+
+# The question review dashboard's data (review.js), from the same question files.
+import review_data
+print(review_data.main(out), "questions for review")

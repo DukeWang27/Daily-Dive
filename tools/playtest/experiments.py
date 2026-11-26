@@ -46,6 +46,7 @@ def risk(ref): q = Q(ref); q["mode"] = {"type": "risk"}; return q
 def target(ref, lo=None, hi=None, goal=None, pct=None, rule=None):
     q = Q(ref); m = {"type": "target"}
     if goal: m["goal"] = goal
+    if goal == "common": m["top"] = max(a["s"] for a in q["answers"] if not a.get("pv"))   # the server's copy of the bullseye (0010)
     if pct: m["pct"] = pct
     if lo is not None: m["lo"], m["hi"] = lo, hi
     if rule: m["rule"] = rule
@@ -103,6 +104,13 @@ def days():
     # The rotating daily mix: two weeks of it.
     used = set()
     for n in range(211, 225): D.append((n, "mix", f"Daily mix #{n - 210}", None, mix_day(n, used)))
+    D.extend(short_chains())
+    # The community sounding (rollover prototype): an ordinary day with a community challenge on top. Mock state only.
+    D.append((225, "prototype", "Community sounding (rollover prototype)", ("The Deep Signal", "A community challenge rides on today's dive."),
+              [std("animals"), std("countries"), forbidden("fruits", 6), std("myth"), wild("auth:sounds-fictional")],
+              {"signal": {"threshold": 0.0005, "rollovers": 2, "max": 3, "min_players": 2000,
+                          "unlock": "the Lantern Reef, a glowing reef in the Midnight Zone, for everyone who dived that day",
+                          "finder": "a Signal Finder mark in your field journal (no depth, no ranking)"}}))
     # One of each new prototype on its own.
     D.append((191 + 4, "practice", "Practice: Sea mines", None, [mines("animals"), mines("countries"), mines("fish")]))
     return D
@@ -216,3 +224,86 @@ def mix_day(day, used=None):
         else: qs.append(mines(pick("mines")))
     first, rest = qs[0], qs[1:]; r.shuffle(rest)
     return [first] + rest
+
+# ---------- Short chains (2 questions) ----------
+# Your answer to the first question decides the second. Only well-established facts, written out by hand: where a
+# claim is disputed between countries (the telephone, the radio, the light bulb, the World Wide Web) it is left out.
+# Tiers: c = what most people would say, l = less common, o = obscure. When your answer has no checked list behind
+# it, the second question falls back to a general one, and says so.
+INVENTED = {
+ "japan": [("instant noodles", "c"), ("karaoke machine", "c"), ("emoji", "c"), ("Walkman", "l"), ("bullet train", "l"), ("QR code", "l"), ("Tamagotchi", "l"), ("Game Boy", "l"),
+           ("PlayStation", "l"), ("electric rice cooker", "o"), ("Pocky", "o"), ("blue LED", "o")],
+ "china": [("paper", "c"), ("gunpowder", "c"), ("compass", "c"), ("fireworks", "c"), ("porcelain", "l"), ("kite", "l"), ("woodblock printing", "l"), ("paper money", "l"),
+           ("movable type", "o"), ("seismoscope", "o"), ("wheelbarrow", "o")],
+ "united states": [("airplane", "c"), ("microwave oven", "l"), ("jeans", "l"), ("basketball", "l"), ("air conditioning", "l"), ("phonograph", "l"), ("transistor", "o"),
+                   ("Post-it note", "o"), ("laser", "o"), ("chocolate chip cookie", "o"), ("Ferris wheel", "o"), ("Frisbee", "o"), ("GPS", "o")],
+ "united kingdom": [("steam engine", "c"), ("steam locomotive", "c"), ("postage stamp", "l"), ("hovercraft", "l"), ("jigsaw puzzle", "l"), ("Christmas card", "o"),
+                    ("lawn mower", "o"), ("cat's eyes", "o"), ("rubber band", "o"), ("sandwich", "l")],
+ "germany": [("printing press", "c"), ("car", "c"), ("diesel engine", "l"), ("aspirin", "l"), ("MP3", "l"), ("gummy bears", "l"), ("Bunsen burner", "o"), ("Petri dish", "o"),
+             ("dandy horse", "o")],
+ "italy": [("piano", "c"), ("espresso machine", "c"), ("battery", "l"), ("eyeglasses", "l"), ("violin", "l"), ("barometer", "o"), ("Nutella", "l"), ("opera", "o")],
+ "france": [("hot air balloon", "c"), ("photography", "l"), ("Braille", "l"), ("stethoscope", "l"), ("pasteurisation", "l"), ("bikini", "o"), ("canning", "o"),
+            ("metric system", "o"), ("cinematograph", "o")],
+ "sweden": [("dynamite", "c"), ("three-point seatbelt", "l"), ("safety match", "l"), ("Celsius scale", "l"), ("Bluetooth", "l"), ("Tetra Pak", "o"), ("adjustable spanner", "o"),
+            ("implantable pacemaker", "o")],
+ "canada": [("insulin", "c"), ("snowmobile", "l"), ("Trivial Pursuit", "l"), ("IMAX", "l"), ("paint roller", "o"), ("egg carton", "o"), ("Hawaiian pizza", "l"), ("Canadarm", "o"), ("poutine", "l")],
+ "australia": [("black box flight recorder", "c"), ("boomerang", "c"), ("electric drill", "l"), ("cochlear implant", "l"), ("Hills Hoist", "o"), ("polymer banknote", "o"), ("ute", "o")],
+ "netherlands": [("telescope", "c"), ("cassette tape", "l"), ("compact disc", "l"), ("pendulum clock", "l"), ("stroopwafel", "o")],
+ "india": [("chess", "c"), ("snakes and ladders", "l"), ("yoga", "l"), ("ludo", "l"), ("shampoo", "o"), ("buttons", "o")],
+}
+# Kept short and conservative: the countries where each animal lives wild today (native, not introduced).
+LIVES = {
+ "kangaroo": [("australia", "c"), ("papua new guinea", "o")],
+ "koala": [("australia", "c")], "platypus": [("australia", "c")],
+ "panda": [("china", "c")],
+ "lion": [("kenya", "c"), ("south africa", "c"), ("tanzania", "c"), ("botswana", "l"), ("india", "l"), ("zambia", "l"), ("zimbabwe", "l"), ("namibia", "l"), ("uganda", "o"), ("ethiopia", "o"), ("mozambique", "o")],
+ "tiger": [("india", "c"), ("russia", "l"), ("bangladesh", "l"), ("nepal", "l"), ("indonesia", "l"), ("thailand", "o"), ("malaysia", "o"), ("bhutan", "o")],
+ "polar bear": [("canada", "c"), ("russia", "c"), ("united states", "l"), ("norway", "l"), ("greenland", "o", ["denmark"])],
+ "orangutan": [("indonesia", "c"), ("malaysia", "l")],
+ "lemur": [("madagascar", "c")],
+ "jaguar": [("brazil", "c"), ("mexico", "l"), ("peru", "l"), ("colombia", "l"), ("venezuela", "o"), ("bolivia", "o"), ("argentina", "o"), ("belize", "o"), ("guatemala", "o"), ("costa rica", "o"), ("ecuador", "o"), ("paraguay", "o"), ("panama", "o")],
+ "moose": [("canada", "c"), ("united states", "c"), ("sweden", "l"), ("norway", "l"), ("finland", "l"), ("russia", "l"), ("estonia", "o"), ("poland", "o"), ("mongolia", "o")],
+ "giraffe": [("kenya", "c"), ("tanzania", "c"), ("south africa", "l"), ("namibia", "l"), ("botswana", "l"), ("zambia", "o"), ("zimbabwe", "o"), ("uganda", "o"), ("niger", "o"), ("chad", "o"), ("ethiopia", "o")],
+ "zebra": [("kenya", "c"), ("tanzania", "c"), ("south africa", "l"), ("botswana", "l"), ("namibia", "l"), ("ethiopia", "o"), ("zambia", "o"), ("zimbabwe", "o"), ("mozambique", "o")],
+ "penguin": [("antarctica", "c", []), ("south africa", "l"), ("new zealand", "l"), ("australia", "l"), ("chile", "l"), ("argentina", "l"), ("peru", "o"), ("namibia", "o"), ("ecuador", "o")],
+ "koala bear": [("australia", "c")],
+ "snow leopard": [("china", "c"), ("nepal", "l"), ("india", "l"), ("mongolia", "l"), ("bhutan", "o"), ("pakistan", "o"), ("afghanistan", "o"), ("kyrgyzstan", "o"), ("kazakhstan", "o"), ("tajikistan", "o"), ("russia", "o")],
+ "komodo dragon": [("indonesia", "c")], "kiwi": [("new zealand", "c")],
+ "red panda": [("nepal", "c"), ("china", "c"), ("india", "l"), ("bhutan", "l"), ("myanmar", "o")],
+ "capybara": [("brazil", "c"), ("venezuela", "l"), ("colombia", "l"), ("argentina", "l"), ("paraguay", "o"), ("uruguay", "o"), ("peru", "o"), ("bolivia", "o"), ("ecuador", "o"), ("panama", "o"), ("guyana", "o"), ("suriname", "o")],
+ "bald eagle": [("united states", "c"), ("canada", "c"), ("mexico", "o")],
+}
+def tier_rows(items):
+    out = []
+    for tier in "clo":
+        its = [x for x in items if x[1] == tier]
+        for j, it in enumerate(its):
+            hi, lo = SH[tier]; s = hi if len(its) == 1 else hi * (lo / hi) ** (j / (len(its) - 1))
+            out.append({"a": it[0], "s": round(s, 6), "al": list(it[2]) if len(it) > 2 else []})
+    return out
+
+THE = {"united states": "the United States", "united kingdom": "the United Kingdom", "netherlands": "the Netherlands"}
+def disp(k): return THE.get(k) or (k.title() if k in INVENTED else k)
+def short_chain(n, label, first_ref, first_prompt, rule, table, prompt2, rules2, fallback):
+    q1 = Q(first_ref); q1["key"] = f"sc{n}-1"; q1["prompt"] = first_prompt; q1["hint"] = rule
+    by = {}
+    for k, items in table.items():
+        by[k] = {"key": f"sc{n}-2-{norm(k).replace(' ', '-')}", "title": "Chain", "icon": q1.get("icon", "default"), "prompt": prompt2.replace("{last}", disp(k)),
+                 "hint": "", "rules": [r.replace("{last}", disp(k)) for r in rules2], "answers": tier_rows(items), "general": [], "notIn": []}
+    fb = Q(fallback[0]); fb["key"] = f"sc{n}-2-fallback"; fb["prompt"] = fallback[1]
+    fb["hint"] = "No checked list for {last} yet, so this one is general. (Prototype: how often this happens is part of the test.)"
+    q2 = json.loads(json.dumps(next(iter(by.values())))); q2["chain"] = {"from": 0, "by": by, "fallback": fb}
+    rest = [std("bread"), target("prompt:Name a sport", 0.002, 0.01), std("e-tin")] if n == 226 else [std("trees"), forbidden("weather", 6), std("e-hotel")]
+    return (n, "prototype", label, ("A short chain", "Your first answer decides the second question."), [q1, q2] + rest)
+
+def short_chains():
+    return [
+        short_chain(226, "Short chain: country → invention", "countries", "Name a country. (Then: something invented there.)",
+                    "Your answer decides the next question: an invention from that country.", INVENTED,
+                    "Something invented in {last}", ["Invented or first made in {last}. Only well-established firsts count, not disputed ones."],
+                    ("auth:invented-before-1900", "Something invented before 1900 that you still use")),
+        short_chain(227, "Short chain: animal → where it lives", "animals", "Name a wild animal. (Then: a country where it lives in the wild.)",
+                    "Your answer decides the next question: a country where that animal lives wild.", LIVES,
+                    "A country where the {last} lives in the wild", ["A country where the {last} is found in the wild today, natively (not in zoos, not introduced)."],
+                    ("countries", "Name a country")),
+    ]

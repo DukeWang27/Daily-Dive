@@ -221,6 +221,7 @@ function renderHome() {
   const theme = DAYX && DAYX.theme ? ` · ${DAYX.theme.name}` : "";
   $("#home-day").textContent = today ? `Daily #${dayNumber()}${theme} done · ${fmt(today.total)} m` : `Daily #${dayNumber()}${theme} · ${CATS.length || 5} questions${TIME_MS ? ` · ${TIME_MS / 1000} s each` : ""}`;
   $("#home-streak").textContent = n ? `${n}-day streak` : "";
+  signalHome();
   if (!$("#play").disabled) $("#play").textContent = PLAYTEST ? (today ? `Play day ${dayNumber()} again` : `Play day ${dayNumber()}`) : today ? "See today's results" : "Play today's Icebreaker";
   const tick = () => {
     if (!today || PLAYTEST) { $("#home-next").textContent = ""; return; }
@@ -482,18 +483,19 @@ function allVariants() {
   const out = new Map(), add = q => { if (q && q.key) out.set(q.key, q); };
   CATS.forEach(add);
   if (DAYX && DAYX.branch) DAYX.branch.routes.forEach(r => r.questions.forEach(add));
-  CATS.forEach(q => { if (q.chain) Object.values(q.chain.by).forEach(add); });
+  CATS.forEach(q => { if (q.chain) { Object.values(q.chain.by).forEach(add); add(q.chain.fallback); } });
   return out;
 }
 let VARIANTS = null;
 function applyPaths(paths) {
   VARIANTS = VARIANTS || allVariants();
-  for (const [i, key] of Object.entries(paths)) { const q = VARIANTS.get(key); if (q && /^\d+$/.test(i)) CATS[+i] = paths["p" + i] ? { ...q, prompt: paths["p" + i] } : q; }
+  for (const [i, key] of Object.entries(paths)) { const q = VARIANTS.get(key); if (q && /^\d+$/.test(i)) CATS[+i] = paths["p" + i] || paths["h" + i] ? { ...q, prompt: paths["p" + i] || q.prompt, hint: paths["h" + i] || q.hint } : q; }
 }
 function setPath(i, q) {
   VARIANTS = VARIANTS || allVariants();
   CATS[i] = q; state.paths = state.paths || {}; state.paths[i] = q.key; state.rounds[i].key = q.key;
   if (VARIANTS.get(q.key) && VARIANTS.get(q.key).prompt !== q.prompt) state.paths["p" + i] = q.prompt;   // a chain question written for your answer
+  if (VARIANTS.get(q.key) && VARIANTS.get(q.key).hint !== q.hint) state.paths["h" + i] = q.hint;
 }
 async function resolvePaths() {
   const i = state.round; if (!DAYX || i >= CATS.length || state.phase !== "play" || state.rounds[i].guesses.length) return;
@@ -513,8 +515,10 @@ async function resolvePaths() {
     const from = state.rounds[cat.chain.from], fromCat = CATS[cat.chain.from], b1 = bestOf(from);
     let key = b1 && b1.name;
     if (cat.chain.fam) { const c0 = bestOf(state.rounds[cat.chain.country_from]), row = b1 && fromCat.answers.find(a => a.a === b1.name); key = c0 && row ? `${c0.name}|${row.fam}` : null; }
-    let next = (key && cat.chain.by[key]) || Object.values(cat.chain.by)[0];
-    if (/\{last\}/.test(next.prompt)) next = { ...next, prompt: next.prompt.replace("{last}", b1 ? guessName(fromCat, b1) : "last one") };
+    let next = (key && cat.chain.by[key]) || cat.chain.fallback || Object.values(cat.chain.by)[0];
+    const last = b1 ? guessName(fromCat, b1) : "your last answer";
+    if (/\{last\}/.test(next.prompt)) next = { ...next, prompt: next.prompt.replace("{last}", last) };
+    if (/\{last\}/.test(next.hint || "")) next = { ...next, hint: next.hint.replace("{last}", last) };   // the fallback says why it's general
     setPath(i, next); save();
   }
 }
@@ -1150,6 +1154,36 @@ function daySummary() {
   });
   return { v: 3, day: state.day, total: rounds.reduce((s, r) => s + r.depth, 0), rounds };
 }
+// ---------- The Deep Signal (community rollover, prototype: playtest only, mock state) ----------
+// A community challenge on some days: find a verified answer rarer than a threshold. It is checked once, when the day
+// closes, against everyone's final answers (so playing early or late makes no difference). If anyone finds one, the
+// whole community unlocks something for the journal and finders get a mark; if nobody does, it rolls over and the
+// prize grows, and after a few rollovers the threshold eases so it can't stay locked. No money, no entry, no wager,
+// and it never touches depth or rankings. Here the state and the overnight check are simulated, and labelled so.
+function signalHome() {
+  let box = $("#home-signal"); const sg = DAYX && DAYX.signal;
+  if (!sg || !PLAYTEST) { if (box) box.remove(); return; }
+  if (!box) { box = el("p", "title-signal"); box.id = "home-signal"; $("#home-status").after(box); }
+  box.textContent = ""; box.append(el("b", null, "The Deep Signal"), ` · not found for ${sg.rollovers} days, so the prize has grown · today: find a verified answer under ${Rounds.pct(sg.threshold)} of players. Checked when the day closes. `, el("i", null, "Prototype"));
+}
+function signalEnd(day) {
+  const host = $("#e-seen"), sg = DAYX && DAYX.signal; const old = $("#e-signal"); if (old) old.remove();
+  if (!sg || !PLAYTEST || !host) return;
+  const box = el("div", "e-signal"); box.id = "e-signal";
+  const cands = day.rounds.filter((r, i) => r.name && r.share <= sg.threshold && (() => { const row = CATS[i] && CATS[i].answers.find(a => display(a) === r.name || a.a === r.name); return !row || !row.pv; })());
+  box.append(el("b", null, "The Deep Signal"), el("span", null, cands.length
+    ? ` · you may have found it: ${cands.map(r => `${r.name} (${Rounds.pct(r.share)}, estimated)`).join(", ")}. It's checked tonight against everyone's final answers.`
+    : ` · none of your answers were under ${Rounds.pct(sg.threshold)} this time. Someone else's might be.`));
+  const sim = el("button", "btn ghost small", "Simulate tonight's check"); sim.type = "button";
+  sim.onclick = () => {
+    const found = cands.length > 0, out = el("p", "e-signal-out");
+    out.textContent = found ? `Simulated: the signal was found. Unlocked: ${sg.unlock}. For you: ${sg.finder}.`
+      : sg.rollovers + 1 >= sg.max ? `Simulated: not found. It has rolled over ${sg.max} times, so next time the threshold eases to ${Rounds.pct(sg.threshold * 2)}.`
+      : `Simulated: not found. It rolls over (${sg.rollovers + 1} of ${sg.max}); the prize grows.`;
+    sim.replaceWith(out);
+  };
+  box.append(sim, el("small", null, " Prototype: no real players are counted here.")); host.after(box);
+}
 function finishDay() {
   state.finished = true; save();
   const day = daySummary();
@@ -1198,6 +1232,7 @@ function renderEnd(day, fresh, practice) {
     if (fresh.length) { seenEl.className = "e-found"; seenEl.append("New in your field journal: ", ...fresh.flatMap((f, i) => [i ? ", " : "", Object.assign(document.createElement("b"), { textContent: f.sp.name })])); }
     else if (got.length) seenEl.textContent = `Your answers reached ${got.length === 1 ? "one animal" : got.length + " animals"} today, all already in your field journal.`;
   }
+  signalEnd(day);
   $("#e-note").textContent = practice ? "Practice dive: this doesn't change your daily result or streak." : `A new ${Brand.noun} surfaces tomorrow.`;
   Share.draw($("#share-canvas"), data); Share.draw($("#end-berg"), data, { only: true });
   state = null; show("end");

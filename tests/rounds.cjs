@@ -113,6 +113,57 @@ execFileSync('python3', [path.join(__dirname, '..', 'tools/playtest/build.py'), 
   ok('chain: an animal from the same family doesn\'t count there', !/^\+\d+ m\. You're down/.test(sameFam), sameFam);
   ok('chain: the chained question survives a reload', (await p.textContent('#q-title')) === q3);
   await p.close();
+  // ---------- Short chains ----------
+  const short = async (day, first) => { const p = await open(day); await start(p);
+    await guess(p, first); await p.click('#finish').catch(() => {}); await p.waitForFunction(d => JSON.parse(localStorage.getItem('iceberg-pt:game:' + d) || '{}').phase === 'done', day, { timeout: 15000 }); await p.click('#next'); await p.waitForTimeout(1300);
+    const t = await p.textContent('#q-title'), h = await p.textContent('#q-hint'); await p.reload(); await p.waitForTimeout(2500);
+    const t2 = await p.textContent('#q-title'), h2 = await p.textContent('#q-hint'); await p.close(); return { t, h, t2, h2 }; };
+  let c = await short(226, 'Japan');
+  ok('short chain: a country leads to its inventions', /invented in Japan/.test(c.t) && c.t2 === c.t, JSON.stringify(c));
+  c = await short(226, 'Liechtenstein');
+  ok('short chain: an answer with no checked list falls back to a general question, and says why', /before 1900/.test(c.t) && /No checked list for Liechtenstein/.test(c.h) && c.h2 === c.h, JSON.stringify(c));
+  c = await short(227, 'kangaroo');
+  ok('short chain: an animal leads to the countries it lives in', /where the kangaroo lives/.test(c.t), JSON.stringify(c));
+
+  // ---------- Sea mines ----------
+  p = await open(195); await start(p); await p.keyboard.press('Enter'); await p.waitForTimeout(400);
+  const mi = await p.evaluate(() => { const c = window.Game.cats[0], m = c.mode.mines, rows = c.answers.filter(a => !a.pv);
+    return { inM: rows.find(a => a.s >= m[0].lo && a.s <= m[0].hi).a, near: rows.find(a => a.s > m[1].hi && a.s < m[1].hi * 1.9).a, m }; });
+  ok('mines: the mined bands are on the sonar before you guess', (await p.locator('#round-extra .sonar-mine').count()) === 2);
+  ok('mines: they are in the water too', await p.evaluate(() => document.querySelectorAll('#ib .ib-scen').length === 3));
+  await guess(p, mi.inM); const h1 = await p.textContent('#hint'), m1 = await meta(p);
+  ok('mines: an answer inside a mined band earns nothing and spends the guess', /^Mine!/.test(h1) && m1 === 0 && (await G(p, 195)).rounds[0].guesses.length === 1, h1);
+  await guess(p, mi.near); const h2 = await p.textContent('#hint'), m2 = await meta(p), d2 = await p.evaluate(() => { const g = JSON.parse(localStorage.getItem('iceberg-pt:game:195')).rounds[0].guesses[1]; return window.Iceberg.depthOf(g.share); });
+  ok('mines: passing close by a mine earns 25% more', /close past/.test(h2) && m2 === Math.round(d2 * 1.25), `${h2} ${m2} vs ${d2}`);
+  await p.reload(); await p.waitForTimeout(2500);
+  ok('mines: a reload keeps the mine that went off gone', (await p.locator('#round-extra .sonar-mine.gone').count()) === 1);
+  await p.close();
+
+  // ---------- Familiar rounds skip the card ----------
+  p = await open(191); await start(p); await p.keyboard.press('Enter'); await p.waitForTimeout(300);
+  await p.evaluate(() => localStorage.setItem('iceberg-pt:kinds-seen', JSON.stringify({ target: 2 })));
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('iceberg-pt:game:191')); }); await p.close();
+  p = await open(191, false); await p.evaluate(() => { localStorage.removeItem('iceberg-pt:game:191'); localStorage.setItem('iceberg-pt:kinds-seen', JSON.stringify({ target: 2 })); }); await p.reload(); await p.waitForFunction(() => !document.querySelector('#play').disabled);
+  await start(p);
+  const brief = await p.evaluate(() => ({ card: !document.querySelector('#round-card').hidden, rule: (document.querySelector('#round-extra .rx-rule') || {}).textContent || '', clock: !document.querySelector('#melt').classList.contains('paused') }));
+  ok('a kind of round seen twice skips its card: the rule sits in one line and the clock runs', !brief.card && /target/i.test(brief.rule) && brief.clock, JSON.stringify(brief));
+  await p.click('#round-extra .rx-more'); await p.waitForTimeout(400);
+  const paused = await p.evaluate(() => ({ card: !document.querySelector('#round-card').hidden, paused: document.querySelector('#melt').classList.contains('paused') }));
+  ok('the ? brings back the full rules, and the clock waits while they are open', paused.card && paused.paused, JSON.stringify(paused));
+  await p.keyboard.press('Enter'); await p.waitForTimeout(500);
+  ok('closing them starts the clock again', await p.evaluate(() => !document.querySelector('#melt').classList.contains('paused')));
+  await p.close();
+
+  // ---------- The daily mix ----------
+  const mix = [];
+  for (const d of [211, 212, 213]) { const p = await open(d); mix.push(await p.evaluate(() => window.Game.cats.map(c => (c.mode || {}).type || 'rarity'))); await p.close(); }
+  ok('the daily mix: two rarity rounds or more, a target or forbidden, one special, rarity first, different each day',
+    mix.every(m => m.length === 5 && m[0] === 'rarity' && m.filter(x => x === 'rarity').length >= 2 && m.filter(x => ['risk', 'wildcard', 'mines'].includes(x)).length === 1) && new Set(mix.map(m => m.join())).size === 3, JSON.stringify(mix));
+
+  // ---------- The Deep Signal (rollover prototype) ----------
+  p = await open(225);
+  ok('signal: the home screen names the community challenge, marked as a prototype', /Deep Signal/.test(await p.textContent('#home-signal')) && /Prototype/i.test(await p.textContent('#home-signal')));
+  await p.close();
   ok('no page errors', !errs.length, errs.slice(0, 3).join(' | '));
   await b.close(); site.close(); fs.rmSync(out, { recursive: true, force: true });
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

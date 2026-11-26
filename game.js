@@ -161,7 +161,7 @@ function loadKb(cat) {
 }
 // The other categories' answers, to explain an answer that belongs elsewhere (loaded once, in the background).
 let LEXICON = null;
-const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; if (x) { V.setKnownNames(Object.keys(x.names)); idle(() => V.elsewhere("warmup", x)); } }).catch(() => {}); };   // prepared in idle time, never on a guess
+const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("content/kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; if (x) { V.setKnownNames(Object.keys(x.names)); idle(() => V.elsewhere("warmup", x)); } }).catch(() => {}); };   // prepared in idle time, never on a guess
 // Each question's spelling index is built in idle time too, so even the first unknown answer is judged at once.
 const prep = cat => { if (!prepared.has(cat.key)) { const P = V.prepare(cat); prepared.set(cat.key, P); idle(() => V.correct("warmup", P)); } return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;

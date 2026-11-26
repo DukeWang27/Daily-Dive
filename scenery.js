@@ -115,7 +115,8 @@
     const back = document.createElement("canvas"), front = document.createElement("canvas"), lume = document.createElement("canvas");
     back.className = "ib-life ib-scen"; front.className = "ib-life ib-scen"; lume.className = "ib-life ib-scen ib-life-lume";
     // The route behind the iceberg; mines in the open water in front of it (still under the dark of the deep); light on top.
-    host.querySelector(".ib-sea").after(back); host.querySelector(".ib-life-front").after(front); host.querySelector(".ib-life-lume").after(lume);
+    // Added to the scene only once something is put in the water, so ordinary days have exactly the scene they always had.
+    let placed = false; const place = () => { if (placed) return; placed = true; host.querySelector(".ib-sea").after(back); host.querySelector(".ib-life-front").after(front); host.querySelector(".ib-life-lume").after(lume); };
     const gb = back.getContext("2d"), gf = front.getContext("2d"), gl = lume.getContext("2d");
     let mines = [], bursts = [], route = null, raf = 0, last = 0;
     const size = () => { const v = berg.view; for (const c of [back, front, lume]) { const w = Math.ceil(v.w / v.u) + 2, h = Math.ceil(v.h / v.u) + 2; if (c.width !== w || c.height !== h) { c.width = w; c.height = h; c.style.width = w * v.u + "px"; c.style.height = h * v.u + "px"; } } };
@@ -160,7 +161,7 @@
       }
       if (route || mines.some(m => !m.gone) || bursts.length) raf = requestAnimationFrame(frame);
     }
-    const kick = () => { if (!raf) { last = 0; raf = requestAnimationFrame(frame); } };
+    const kick = () => { if (!placed) return; if (!raf) { last = 0; raf = requestAnimationFrame(frame); } };
     berg.onRender(kick); berg.onResize(kick);
 
     return {
@@ -168,6 +169,7 @@
       // the way the sonar strip lists them left to right.
       setMines(list, at) {
         const p = berg.view.player, r = rng(Math.round(at || 1) * 31 + 7);
+        if ((list || []).length) place();
         mines = (list || []).map((_, i) => ({ x: CX + (i % 2 ? 1 : -1) * (46 + r() * 30), y: p.y + 34 + i * 34, ph: r() * 6, gone: false }));
         kick();
       },
@@ -182,7 +184,7 @@
       // Travel into a route: painted below where you are now (art y0), sliding in from the side you chose.
       setRoute(key, opts = {}) {
         if (!key || !ROUTES[key]) { route = null; return; }
-        const r = rng((opts.seed || 1) * 7 + key.length), far = canvas(WW, RH), near = canvas(WW, RH), lm = canvas(WW, RH);
+        place(); const r = rng((opts.seed || 1) * 7 + key.length), far = canvas(WW, RH), near = canvas(WW, RH), lm = canvas(WW, RH);
         ROUTES[key](far, near, lm, r);
         const y0 = opts.y0 != null ? opts.y0 : berg.view.player.y - 150;
         route = { key, far, near, lume: lm, y0, dir: opts.dir || 1, t0: opts.instant ? -1e9 : performance.now(), dur: opts.instant ? 1 : 2600,

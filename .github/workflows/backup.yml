@@ -1,0 +1,43 @@
+# Nightly backup of the Supabase database (project "Daily Dive").
+# Dumps the whole database with pg_dump, encrypts it with BACKUP_PASSPHRASE (this repository is public, so the file is
+# never stored unencrypted), and keeps it as a workflow artifact for 14 days.
+# Secrets (Settings -> Secrets and variables -> Actions): SUPABASE_DB_URL (session pooler URI), BACKUP_PASSPHRASE.
+# Restore: download the artifact, then
+#   gpg --batch --passphrase "<passphrase>" -d deeple-YYYY-MM-DD.dump.gpg > backup.dump
+#   pg_restore --no-owner --no-privileges -d "<target database url>" backup.dump
+name: Nightly backup
+on:
+  schedule:
+    - cron: "17 7 * * *"   # 07:17 UTC daily
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install the PostgreSQL 17 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      - name: Dump and encrypt
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$DB_URL" && test -n "$PASSPHRASE"
+          day=$(date -u +%F)
+          /usr/lib/postgresql/17/bin/pg_dump --format=custom --no-owner --no-privileges --schema=public --schema=private --schema=auth --dbname="$DB_URL" --file=backup.dump
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$PASSPHRASE" --symmetric --cipher-algo AES256 -o "deeple-$day.dump.gpg" backup.dump
+          rm -f backup.dump
+          ls -la deeple-*.dump.gpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deeple-backup
+          path: deeple-*.dump.gpg
+          retention-days: 14
+          if-no-files-found: error

@@ -43,9 +43,24 @@ def widen(q):
     coverage.append({"prompt": q.get("prompt"), "domain": dom, "before": before, "after": before + added})
 
 days = []
+# Scientific names as other names for the animals on animal questions (content/kb/taxa.json, Wikidata): the binomial,
+# and the genus alone when only one answer on the question has that genus.
+TAXA = json.load(open(os.path.join(ROOT, "content", "kb", "taxa.json"))) if os.path.exists(os.path.join(ROOT, "content", "kb", "taxa.json")) else {}
+TAXA_KEYS = {"animals", "birds", "fish", "reptiles", "bugs", "sea", "primates", "wildcats", "dinos", "farm", "aussie"}
+def taxa(q):
+    if q.get("key") not in TAXA_KEYS: return
+    genus = {}
+    for a in q["answers"]:
+        for sci in TAXA.get(a["a"], []): genus.setdefault(sci.split()[0].lower(), set()).add(a["a"])
+    for a in q["answers"]:
+        for sci in TAXA.get(a["a"], []):
+            al = a.setdefault("al", [])
+            if sci not in al: al.append(sci)
+            g = sci.split()[0]
+            if " " in sci and len(genus.get(g.lower(), ())) == 1 and g not in al: al.append(g)
 def put(n, d, group, source):
     d = json.loads(json.dumps(d)); d["day"] = n
-    for q in d["questions"]: widen(q)
+    for q in d["questions"]: widen(q); taxa(q)
     with open(os.path.join(out, "pt", f"{n}.json"), "w") as f: json.dump(d, f, separators=(",", ":"))
     days.append({"n": n, "group": group, "source": source, "questions": [q.get("prompt") or q.get("title") for q in d["questions"]]})
 

@@ -84,10 +84,9 @@ async function fullGame(b, vp) {
   await p.waitForFunction(() => ICEBERG_TEST.state.round === 3 && ICEBERG_TEST.state.phase === 'play'); await p.waitForTimeout(500);
   await enter(p, 'snaek'); let s4 = await S(p);
   ok(T('q4 unclear typo "snaek" (snake? sneak? snack?): no guess used, and never a list of possible answers'), s4.n === 0 && !/(snake|snack|sneak).*(snake|snack|sneak)/.test(await hint(p)) && /isn't on our list, and it's close|Did you mean (snake|snack|sneak)\?/.test(await hint(p)), await hint(p));
-  await enter(p, 'snorkle');
-  ok(T('q4 typo "snorkle": asked "Did you mean snorkel?" first, nothing placed and no rarity shown'), (await S(p)).n === 0 && /Did you mean snorkel\?/.test(await p.textContent('#q-ask')) && !/%|players/.test(await hint(p)), await hint(p));
-  await p.click('#q-ask .ask-yes'); await settle(p);
-  ok(T('q4 typo confirmed: placed as snorkel'), (await S(p)).names[0] === 'snorkel', JSON.stringify(await S(p)));
+  await enter(p, 'snorkle'); await settle(p);
+  ok(T('q4 clear typo "snorkle": corrected at once and said so ("Accepted as: snorkel")'), (await S(p)).n === 1 && /Accepted as: snorkel \(spelling corrected\)/.test(await hint(p)), await hint(p));
+  ok(T('q4 corrected typo: placed as snorkel'), (await S(p)).names[0] === 'snorkel', JSON.stringify(await S(p)));
   await enter(p, 'Snorkels'); s4 = await S(p);
   ok(T('q4 duplicate "Snorkels": no guess used, no rarity shown again'), s4.n === 1 && /already tried snorkel|already discovered this answer/.test(await hint(p)), await hint(p));
   await enter(p, 'apple'); s4 = await S(p);

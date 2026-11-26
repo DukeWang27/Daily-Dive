@@ -403,10 +403,22 @@
     if ((P.products || P.cat.describe) && !lookup(n, P) && n.split(" ").length <= 14) { const sp = specific(n, P, res); if (sp) return sp.status === "ok" && dupOf(sp.row) ? Object.assign(sp, { status: "dup" }) : sp; }
     if (P.general.has(n) || variants(n).some(v => P.general.has(v))) return Object.assign(res, { status: "invalid", reason: "Too general" });
     // "any bird", "the rarest one", "something": not an answer, and never corrected into one.
-    if (/^(any|every|all|some|random|whatever|anything|something|nothing|everything|idk|dunno|rarest|the rarest|a rare|rare|my|no)( |$)/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one particular answer" });
+    if (/^(any|every|all|some|random|whatever|anything|something|nothing|everything|idk|dunno|rarest|the rarest|a rare|rare|my|no)( |$)/.test(n) && !lookup(n, P)) return Object.assign(res, { status: "invalid", reason: "Name one particular answer" });
+    // An answer with a description after it ("penicillin, found by accident in 1928", "the axolotl, which can regrow
+    // its brain", "the extremely rare blue emperor penguin from 1802"): the answer it leads with counts, as that answer
+    // and nothing rarer. Tried before the one-answer-at-a-time rule, which is for lists ("apple, banana").
+    if (/[,;(]| - | – /.test(String(text)) || n.split(" ").length >= 5) {
+      const lead = normalize(String(text).split(/[,;(]| - | – /)[0]).replace(/^(the|a|an|my|our|that|this)\s+/, "");
+      const parts = lead.split(CONNECT)[0].trim(), list = /[,;]/.test(String(text)) && String(text).split(/[,;]/).every(x => lookup(normalize(x).trim(), P));
+      const talk = /\b(drop|delete|select|insert|update|table|ignore|instructions?|script|accept|valid|mark|prompt|system)\b/.test(n);   // talking to the checker, not describing
+      if (!list && !talk && parts && parts !== n) {
+        const h = lookup(parts, P) || (parts.split(" ").length > 1 ? { row: describe(parts, P) } : null);
+        if (h && h.row) return dupOf(h.row) ? Object.assign(res, { status: "dup", row: h.row }) : Object.assign(res, { status: "ok", row: h.row, via: "specific", note: "extra description doesn't make a different answer" });
+      }
+    }
     // One answer at a time, and nothing that talks to the checker instead of answering.
     if (/[,;]/.test(String(text)) && String(text).split(/[,;]/).filter(x => normalize(x).length > 1).length > 1) return Object.assign(res, { status: "invalid", reason: "One answer at a time" });
-    if (/[<>{}\[\]=:]/.test(String(text)) || /\b(ignore (all|any|the|previous|prior|above|your|these|this)|instructions?|accept (this|it|me)|mark (it|this|me) as|mark as|say (it s )?valid|is valid|you must|disregard)\b/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one answer" });
+    if (/[<>{}\[\]=]|:\s*\/\/|^\s*\w+\s*:\s+\w/.test(String(text)) && !lookup(n, P) || /\b(ignore (all|any|the|previous|prior|above|your|these|this)|instructions?|accept (this|it|me)|mark (it|this|me) as|mark as|say (it s )?valid|is valid|you must|disregard)\b/.test(n)) return Object.assign(res, { status: "invalid", reason: "Name one answer" });
     const hit = lookup(n, P);
     if (hit && hit.alias === "typo" && !(given && given.noCorrect) && !dupOf(hit.row)) return Object.assign(res, { status: "confirm", row: hit.row, correction: { row: hit.row, cost: 1, level: "high" } });
     if (hit) return ok(hit.row, hit.alias === true ? "alias" : hit.alias === "typo" ? "confirmed" : hit.alias ? "form" : "exact");

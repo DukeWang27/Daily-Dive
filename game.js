@@ -161,7 +161,7 @@ function loadKb(cat) {
 }
 // The other categories' answers, to explain an answer that belongs elsewhere (loaded once, in the background).
 let LEXICON = null;
-const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("content/kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; }).catch(() => {}); };
+const loadLexicon = () => { if (LEXICON !== null) return; LEXICON = undefined; fetch("content/kb/lexicon.json").then(r => r.ok ? r.json() : null).then(x => { LEXICON = x; if (x) idle(() => V.elsewhere("warm", x)); }).catch(() => {}); };   // prepared in idle time, never on a guess
 const prep = cat => { if (!prepared.has(cat.key)) prepared.set(cat.key, V.prepare(cat)); return prepared.get(cat.key); };
 const saveKey = s => s.practice ? "game:practice" : "game:" + s.day;
 const save = () => { if (state) store.set(saveKey(state), state); };

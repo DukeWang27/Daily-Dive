@@ -50,7 +50,7 @@ def main():
                "rules": {"player": q.get("rules", []), "accept": acc, "exclude": exc or ["anything outside the rule above"],
                          "granularity": q.get("granularity") or "one answer per thing named", "synonyms": "other names, spellings and short forms are the same answer"},
                "general": [], "notIn": [],   # as tested in the playtest and the challenge runs
-               "answers": [{"a": r["a"], "al": r["al"], "p": r["s"], "tier": r["tier"], "src": "curated"} for r in rows],
+               "answers": [{"a": r["a"], "al": r["al"], "p": r["s"], "tier": r["tier"] if r["tier"] != "wiki" else "obscure", "src": "wikipedia+wikidata" if r.get("pv") else "curated", **({"pv": True} if r.get("pv") else {})} for r in rows],
                "kb": None, "closed": False}
         if cq.get("kb"): out["client_kb"] = cq["kb"]; out["granularity_mode"] = cq.get("granularity")
         if cq.get("mode"): out["mode"] = cq["mode"]

@@ -76,6 +76,9 @@ for i, day in enumerate(sample["days"]):
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import experiments
 days += experiments.build(out, widen)
+# The curated question set (new questions under review): its own section, listed first in the picker.
+import curated
+days = curated.build(out) + days
 json.dump({"days": days}, open(os.path.join(out, "pt", "list.json"), "w"), separators=(",", ":"))
 json.dump(coverage, open(os.path.join(out, "pt", "coverage.json"), "w"), indent=1)
 print(len(days), "days")

@@ -85,6 +85,16 @@ def main(out):
     if os.path.exists(v4):
         for d in json.load(open(v4))["days"]:
             for q in d["questions"]: add(q, "v4 candidate")
+    for p in sorted(glob.glob(os.path.join(ROOT, "content", "curated", "batch-*.json"))):
+        try:
+            import curated as C
+            for q in json.load(open(p))["questions"]:
+                cq = C.question(q, os.path.basename(p)[:-5]); cq["id"] = cq["key"]; add(cq, "curated")
+                e = Q.get(cq["key"])
+                if e is not None:
+                    e["verdict"] = [q.get("verdict"), q.get("verdict_reason", "")]; e["granularity"] = q.get("granularity", ""); e["mechanic"] = q.get("mechanic", "")
+                    e["invalid"] = q.get("invalid_but_plausible", []); e["notes"] = q.get("notes", ""); e["sources_urls"] = q.get("sources", [])[:8]
+        except Exception as ex: print("curated review data:", ex)
     exp = os.path.join(ROOT, "content", "experiments", "questions.json")
     if os.path.exists(exp):
         for q in json.load(open(exp))["questions"]: add(q, "experimental")

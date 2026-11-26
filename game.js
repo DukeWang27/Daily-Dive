@@ -156,7 +156,7 @@ function loadKb(cat) {
   return kbLoads.get(file).then(kb => {
     if (!kb || cat._kb) return;
     V.mergeKb(cat, part ? kb[part] : kb); prepared.delete(cat.key);
-    if (part && !/count as/.test(cat.hint || "")) cat.hint = `${cat.hint ? cat.hint + " " : ""}Brands and models count as the thing they are: a Rolex Submariner is a watch.`;
+    if (part && (!cat.granularity || cat.granularity === "category") && !/count as/.test(cat.hint || "")) cat.hint = `${cat.hint ? cat.hint + " " : ""}Brands and models count as the thing they are: a Rolex Submariner is a watch.`;
   });
 }
 // The other categories' answers, to explain an answer that belongs elsewhere (loaded once, in the background).

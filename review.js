@@ -10,7 +10,8 @@
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
   const est = s => s == null ? "no estimate" : s >= 0.1 ? `~${Math.round(s * 20) * 5}%` : s >= 0.01 ? `~${Math.round(s * 100)}%` : s >= 0.001 ? `~${+(s * 100).toFixed(1)}%` : s >= 0.0001 ? "under 0.1%" : "under 0.01%";
   const CHECK = { thin: "Thin list", "no-reference": "No reference list", "few-names": "Few other names", "low-coverage": "Low coverage", broad: "Broad prompt", judgement: "Needs a bar", "no-rules": "No rules" };
-  const STATUS = { approved: "Approved", work: "Needs work", rejected: "Rejected" };
+  // The review statuses a question moves through before it can enter the live rotation.
+  const STATUS = { draft: "Draft", research: "Needs research", expand: "Needs answer expansion", clarify: "Needs clarification", playtest: "Ready for playtesting", approved: "Approved for production", rejected: "Rejected" };
   let data = null, host = null, store = null, decisions = {}, tab = "questions", filt = { q: "", status: "", source: "", check: "" }, open = null, limit = 80;
 
   function save(id) {
@@ -55,8 +56,8 @@
     const bar = el("div", "rv-filters"), q = el("input", "rv-search"); q.placeholder = "Search questions"; q.value = filt.q;
     q.oninput = () => { filt.q = q.value; limit = 80; list(); };
     const sel = (key, opts) => { const s = el("select"); for (const [v, t] of opts) { const o = el("option", null, t); o.value = v; s.append(o); } s.value = filt[key]; s.onchange = () => { filt[key] = s.value; limit = 80; list(); }; return s; };
-    bar.append(q, sel("status", [["", "Any status"], ["none", "Not reviewed"], ["approved", "Approved"], ["work", "Needs work"], ["rejected", "Rejected"]]),
-      sel("source", [["", "Anywhere"], ["live", "Live"], ["scheduled", "Scheduled"], ["bank", "Bank"], ["v3 candidate", "v3 candidates"], ["v4 candidate", "v4 candidates"], ["experimental", "Experimental"]]),
+    bar.append(q, sel("status", [["", "Any status"], ["none", "Not reviewed"], ...Object.entries(STATUS)]),
+      sel("source", [["", "Anywhere"], ["curated", "Curated set (new)"], ["live", "Live"], ["scheduled", "Scheduled"], ["bank", "Bank"], ["v3 candidate", "v3 candidates"], ["v4 candidate", "v4 candidates"], ["experimental", "Experimental"]]),
       sel("check", [["", "Any check"], ["ok", "Passes every check"], ...Object.entries(CHECK)]));
     const counts = el("p", "rv-count"), ul = el("div", "rv-list");
     b.append(bar, counts, ul);
@@ -88,6 +89,11 @@
     const meta = el("p", "rv-meta", `${x.id} · ${x.sources.join(", ")}${x.days.length ? ` · days ${x.days.join(", ")}` : ""}${x.mode ? ` · ${x.mode} round` : ""}${x.kb_name ? ` · reference list: ${x.kb_name}` : ""}`); b.append(meta);
     if (x.rules.length) { const ul = el("ul", "rv-rules"); x.rules.forEach(r => ul.append(el("li", null, r))); b.append(el("h4", null, "What counts"), ul); }
     if (x.checks.length) { const ul = el("ul", "rv-checks"); x.checks.forEach(c => ul.append(el("li", null, `${CHECK[c[0]] || c[0]}: ${c[1]}`))); b.append(el("h4", null, "Automatic checks"), ul); }
+    if (x.verdict) b.append(el("h4", null, "Researcher's verdict"), el("p", null, `${x.verdict[0] || "—"}: ${x.verdict[1] || ""}`));
+    if (x.granularity) b.append(el("p", "rv-meta", `One answer is: ${x.granularity}${x.mechanic ? ` · round: ${x.mechanic}` : ""}`));
+    if (x.invalid && x.invalid.length) { const ul = el("ul", "rv-rules"); x.invalid.forEach(t => ul.append(el("li", null, t))); b.append(el("h4", null, "Plausible answers that don't count"), ul); }
+    if (x.notes) b.append(el("h4", null, "Research notes"), el("p", "rv-meta", x.notes));
+    if (x.sources_urls && x.sources_urls.length) { const p = el("p", "rv-meta", "Sources: "); x.sources_urls.forEach((u, i) => { if (/^https:\/\//.test(u)) { const a = el("a", null, u.replace(/^https:\/\/(www\.)?/, "").slice(0, 60)); a.href = u; a.target = "_blank"; a.rel = "noopener"; p.append(i ? " · " : "", a); } }); b.append(p); }
     if (x.reference) b.append(el("p", "rv-meta", `Reference list ${x.reference.name}: ${x.reference.size} entries, ${Math.round(100 * x.reference.covered)}% already on this question's own list. Not on it, for example: ${x.reference.missing.join(", ")}.`));
 
     // Decision.
@@ -192,12 +198,13 @@
     .rv-list { display: grid; gap: 6px; } .rv-row { text-align: left; background: rgba(143,208,245,.05); border: 1px solid transparent; border-radius: 10px; padding: 9px 12px; display: grid; gap: 3px; }
     .rv-row:hover { border-color: var(--line-2, rgba(143,208,245,.3)); } .rv-prompt { font-weight: 600; }
     .rv-chips { display: flex; gap: 4px; flex-wrap: wrap; } .rv-chip { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: rgba(143,208,245,.12); color: var(--accent, #8fd0f5); }
-    .rv-chip.warn { background: rgba(255,180,120,.12); color: #ffc49a; } .rv-chip.approved { background: rgba(125,240,180,.15); color: #8ff0bd; } .rv-chip.rejected { background: rgba(255,120,120,.15); color: #ff9c9c; } .rv-chip.work { background: rgba(255,220,120,.15); color: #ffe08a; }
+    .rv-chip.warn { background: rgba(255,180,120,.12); color: #ffc49a; } .rv-chip.approved { background: rgba(125,240,180,.15); color: #8ff0bd; } .rv-chip.rejected { background: rgba(255,120,120,.15); color: #ff9c9c; } .rv-chip.draft, .rv-chip.research, .rv-chip.expand, .rv-chip.clarify { background: rgba(255,220,120,.15); color: #ffe08a; } .rv-chip.playtest { background: rgba(125,240,180,.1); color: #8ff0bd; }
     .rv-more, .rv-back { background: none; border: 0; color: var(--accent, #8fd0f5); padding: 8px 0; }
     .rv h2 { margin: 6px 0; font-size: 20px; } .rv h4 { margin: 18px 0 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #93a9cc); }
     .rv-hint { color: var(--muted, #93a9cc); margin: 0; } .rv ul { margin: 0; padding-left: 18px; color: var(--muted, #93a9cc); }
     .rv-decide { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; } .rv-st { border: 1px solid var(--line-2, rgba(143,208,245,.25)); background: none; border-radius: 8px; padding: 7px 12px; }
-    .rv-st.on.approved { background: #1f6f49; border-color: #1f6f49; } .rv-st.on.work { background: #7a6420; border-color: #7a6420; } .rv-st.on.rejected { background: #7a2a2a; border-color: #7a2a2a; }
+    .rv-st.on { background: #7a6420; border-color: #7a6420; } .rv-st.on.approved, .rv-st.on.playtest { background: #1f6f49; border-color: #1f6f49; } .rv-st.on.rejected { background: #7a2a2a; border-color: #7a2a2a; }
+    .rv a { color: var(--accent, #8fd0f5); }
     .rv-note { width: 100%; min-height: 70px; margin-top: 6px; } .rv-reword { width: 100%; }
     .rv-add { display: flex; gap: 6px; flex-wrap: wrap; } .rv-add input { flex: 1; min-width: 180px; } .rv-add button { background: var(--accent, #8fd0f5); color: #06112a; border: 0; border-radius: 8px; padding: 8px 12px; font-weight: 700; }
     .rv-answers { margin-top: 6px; display: grid; } .rv-ans { display: grid; grid-template-columns: minmax(120px, 1.2fr) 2fr auto auto; gap: 8px; padding: 5px 2px; border-bottom: 1px solid rgba(143,208,245,.08); align-items: baseline; }

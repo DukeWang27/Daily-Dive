@@ -301,6 +301,11 @@
       bubbles(g, { t: t + 0.05, n: 8, spread: 0.6, lo: 350, hi: 1000, gain: 0.02 });
       glass(g, { f: note(67), t: t + 0.4, gain: 0.03, decay: 1.6, index: 0.8, wet: 0.7 });
     },
+    // Time's up and the question's ice breaks: a few small, bright fractures and the pieces settling. Quiet.
+    shatter(g, t) {
+      tick(g, t, 0.05, 4200); tick(g, t + 0.03, 0.035, 6100); tick(g, t + 0.07, 0.03, 3600);
+      [0.09, 0.16, 0.25, 0.36].forEach((d, i) => glass(g, { f: 2400 + i * 520, t: t + d, gain: 0.012 - i * 0.002, decay: 0.12, index: 3, ratio: 2.7, wet: 0.35, pan: (i % 2 ? 0.3 : -0.3) }));
+    },
     round(g, t) { glass(g, { f: note(79), t, gain: 0.06, decay: 1.2, wet: 0.45 }); glass(g, { f: note(86), t: t + 0.13, gain: 0.06, decay: 1.5, wet: 0.5 }); },
     day(g, t) {
       [72, 76, 79, 84, 86, 91].forEach((n, i) => glass(g, { f: note(n), t: t + i * 0.11, gain: 0.055, decay: 2, index: 1.5, wet: 0.55, pan: (i - 2.5) * 0.1 }));
@@ -339,6 +344,11 @@
       if (up) glass(g, { f: note(93), t: t + 0.16, gain: 0.035, decay: 0.6, wet: 0.5 });
     },
     // Crossing into a new region (twilight, the deep, the abyss, the trench): a low bell and a change of room.
+    // A sea mine going off, well away from you: a muffled thump through the water, then the bubbles. Not a bang.
+    mine(g, t) { tone(g, { f: 48, f0: 110, glide: 0.25, t, gain: 0.2, attack: 0.004, decay: 0.9, wet: 0.55, lp: 320 }); wash(g, { t, dur: 0.9, gain: 0.06, sweep: [700, 120], attack: 0.01, wet: 0.6 });
+      bubbles(g, { t: t + 0.18, n: 9, spread: 1.1, lo: 380, hi: 1100, gain: 0.02, wet: 0.5 }); },
+    // Setting off along a route: a long slow sweep of water passing from one side to the other.
+    routego(g, t) { wash(g, { t, dur: 2.4, gain: 0.05, sweep: [500, 160], attack: 0.6, wet: 0.7, pan: [-0.6, 0.6] }); bubbles(g, { t: t + 0.3, n: 6, spread: 1.6, lo: 450, hi: 1200, gain: 0.014, wet: 0.5 }); },
     zone(g, t, o = {}) { const k = o.level || 1; swell(g, t, { f: 55 - k * 6, gain: 0.06, rise: 0.4, decay: 1.6 }); ping(g, { f: note(67 - k * 3), t: t + 0.1, gain: 0.05, decay: 1.4, echoes: 2, gap: 0.42, wet: 0.7 }); },
     // The question closes: everyone's answers come up.
     reveal_all(g, t) { [0, 1, 2].forEach(i => ping(g, { f: note(76 + i * 5), t: t + i * 0.1, gain: 0.04, decay: 0.6, echoes: 1, gap: 0.2, pan: (i - 1) * 0.4 })); },
@@ -380,6 +390,14 @@
     ns.connect(nf); nf.connect(na); na.connect(A.deep); ns.start(0, rnd() * 3);
     const br = c.createOscillator(), bg = c.createGain(); br.frequency.value = 0.045; bg.gain.value = 0.3; br.connect(bg); bg.connect(na.gain); br.start();
     const dv = c.createGain(); dv.gain.value = 0.35; A.deep.connect(dv); dv.connect(g.verbIn);
+    // The Unknown: a faint chord that shouldn't be there, three close tones beating slowly against each other, and a
+    // slow tremolo, as if something far off were breathing on it.
+    A.unk = c.createGain(); A.unk.gain.value = 0; A.unk.connect(g.amb);
+    const uf = c.createBiquadFilter(); uf.type = "lowpass"; uf.frequency.value = 700; uf.Q.value = 0.8; uf.connect(A.unk);
+    const trem = c.createGain(); trem.gain.value = 0.7; trem.connect(uf);
+    const tl = c.createOscillator(), tg = c.createGain(); tl.frequency.value = 0.11; tg.gain.value = 0.3; tl.connect(tg); tg.connect(trem.gain); tl.start();
+    [[146.8, 0.4], [155.6, 0.3], [207.7, 0.18], [233.1, 0.1]].forEach(([f, amp]) => { const o = c.createOscillator(), a = c.createGain(); o.type = "triangle"; o.frequency.value = f; a.gain.value = amp; o.connect(a); a.connect(trem); o.start(); });
+    const uv = c.createGain(); uv.gain.value = 0.6; A.unk.connect(uv); uv.connect(g.verbIn);
     return A;
   }
   function applyDepth(A, c, d, level) {
@@ -394,10 +412,12 @@
     A.oscs.forEach((o, i) => o.detune.setTargetAtTime(-d * 250 + (i === 1 ? 10 : 0), t, 1.5));
     A.level.gain.setTargetAtTime(level * (1 - 0.85 * ambBeyond), t, 0.8);
     A.deep.gain.setTargetAtTime(0.32 * ambBeyond * (level ? 1 : 0), t, 1.2);
+    const unk = Math.max(0, Math.min(1, (ambM - 1450) / 160));
+    A.unk.gain.setTargetAtTime(0.05 * unk * (level ? 1 : 0), t, 1.5);
   }
 
   // ---------- Live engine ----------
-  let A = null, ambMode = "off", ambDepth = 0, ambBeyond = 0, lastSubmit = 0, lastHover = 0, lastThrust = 0, eventTimer = 0;
+  let A = null, ambMode = "off", ambDepth = 0, ambBeyond = 0, ambM = 0, lastSubmit = 0, lastHover = 0, lastThrust = 0, eventTimer = 0;
   const AMB_LEVEL = { off: 0, home: 0.8, play: 0.9, race: 0.9, end: 0.8 };
 
   // The engine can be built ahead of time (prepare(), while the page is idle). Browsers keep it paused until the
@@ -440,8 +460,10 @@
     try { SOUNDS[name](out, now + 0.005, o); } catch { /* never let sound break the game */ }
   }
   // beyond: 0 on the iceberg, 1 in the open water beneath it.
-  function setAmbience(mode, depth, beyond) {
+  // metres: where the dive is (the running total), for the sounds of each region below the iceberg.
+  function setAmbience(mode, depth, beyond, metres) {
     ambMode = mode; if (depth != null) ambDepth = Math.max(0, Math.min(1, depth));
+    ambM = mode === "play" || mode === "race" ? Math.max(0, metres || 0) : 0;
     ambBeyond = mode === "play" || mode === "race" ? Math.max(0, Math.min(1, beyond || 0)) : 0;
     const d = mode === "play" || mode === "race" ? ambDepth : 0;
     if (A && ctx) {
@@ -454,6 +476,20 @@
     if (!ctx || ctx.state !== "running" || prefs.muted || !prefs.amb || (ambMode !== "play" && ambMode !== "race")) return;
     const d = ambDepth, t = ctx.currentTime, g = { ...out, sfx: out.amb };
     try {
+      const m = ambM;
+      // A chosen route has its own sounds, over the region's: the wreck's hull groaning and ticking as it settles, the
+      // station's hum and the odd beep, water dripping somewhere in the cavern, and the trench, very quiet and very low.
+      if (ambRoute === "wreck" && rnd() < 0.1) { wash(g, { t, dur: 1.4, gain: 0.026, type: "bandpass", sweep: [420 + rnd() * 200, 260], q: 9, attack: 0.4, wet: 0.7, pan: [rnd() - 0.5, rnd() - 0.5], dest: out.amb }); if (rnd() < 0.4) tick(g, t + 0.9, 0.02, 1800); return; }
+      if (ambRoute === "station" && rnd() < 0.12) { if (rnd() < 0.5) tone(g, { f: note(93), t, gain: 0.012, attack: 0.004, decay: 0.12, wet: 0.5, pan: 0.4, dest: out.amb }); else tone(g, { f: 60, t, gain: 0.016, attack: 0.8, decay: 2.4, wet: 0.6, lp: 240, dest: out.amb }); return; }
+      if (ambRoute === "cavern" && rnd() < 0.13) { glass(g, { f: note(84 + Math.floor(rnd() * 5) * 2), t, gain: 0.014, decay: 0.5, index: 0.8, wet: 0.9, pan: rnd() - 0.5 }); return; }
+      if (ambRoute === "trench" && rnd() < 0.06) { tone(g, { f: 40, f0: 55, glide: 2, t, gain: 0.03, attack: 1.5, decay: 4, wet: 0.95, dest: out.amb }); return; }
+      // Each region below the iceberg has its own sounds. The Unknown: once in a long while, a call from something
+      // enormous, far below, sliding down into the floor of hearing.
+      if (m > 1500) { if (rnd() < 0.05) tone(g, { f: 62, f0: 92, glide: 3.2, t, gain: 0.05, attack: 1.2, decay: 4.5, wet: 0.95, pan: rnd() - 0.5, dest: out.amb }); else if (rnd() < 0.06) glass(g, { f: note(69 + Math.floor(rnd() * 3) * 3), t, gain: 0.012, decay: 3, index: 2.2, wet: 0.95, pan: rnd() - 0.5 }); return; }
+      // The trenches: the rock itself, creaking and settling under the weight of the water.
+      if (m > 1250) { if (rnd() < 0.09) wash(g, { t, dur: 1.6, gain: 0.03, type: "bandpass", sweep: [180 + rnd() * 80, 90], q: 6, attack: 0.3, wet: 0.8, pan: [rnd() - 0.5, rnd() - 0.5], dest: out.amb }); return; }
+      // The Midnight Zone: the odd bright twinkle of something alive making light.
+      if (m > 600 && m < 1000 && rnd() < 0.07) { glass(g, { f: note(88 + Math.floor(rnd() * 4) * 2), t, gain: 0.008, decay: 0.9, index: 1.4, wet: 0.9, pan: rnd() - 0.5 }); }
       if (ambBeyond > 0.6) {
         // Beneath the iceberg: now and then a sonar pulse going out a long way, and very rarely a slow groan of water.
         if (rnd() < 0.11) ping(g, { f: note(rnd() < 0.5 ? 74 : 79), t, gain: 0.02 * ambBeyond, decay: 1.8, echoes: 3, gap: 0.8 + rnd() * 0.4, wet: 0.95, pan: rnd() - 0.5 });
@@ -482,8 +518,9 @@
     return { name, peak: +peak.toFixed(3), rms: +Math.sqrt(sum / d.length).toFixed(4), tail: +(lastLoud / 44100).toFixed(2), bright: loudN ? Math.round(cross / (loudN / 44100) / 2) : 0, nan };
   }
 
+  let ambRoute = null;
   window.Sound = {
-    play, unlock, setAmbience, prepare,
+    play, unlock, setAmbience, prepare, setRoute(key) { ambRoute = key || null; },
     get prefs() { return { ...prefs }; },
     get ready() { return !!ctx && ctx.state === "running"; },
     set(p) { Object.assign(prefs, p); prefs.sfx = Math.max(0, Math.min(1, +prefs.sfx)); prefs.amb = Math.max(0, Math.min(1, +prefs.amb)); save(); applyPrefs(); },

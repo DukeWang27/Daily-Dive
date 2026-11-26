@@ -32,8 +32,10 @@
   --line: rgba(143, 208, 245, .12); --line-2: rgba(143, 208, 245, .22);
   --text: #eaf3ff; --muted: #93a9cc; --faint: #62799e;
   --ice: #eaf6ff; --accent: #8fd0f5; --lumen: #7df0df; --warn: #e6c58f;
-  --t-tip: #eaf6ff; --t-shallows: #a8d8f5; --t-mid: #6cb8ec; --t-deep: #4f9fe6; --t-abyss: #7df0df;
-  --t-beyond: #e0645b; --beyond-soft: #c98f88; --beyond-glow: 224, 92, 80;   /* Challenger Deep: a muted, readable red, only ever beneath the iceberg */
+  /* The rarity palette. palette.js is the source and sets these on load; the same values here are the fallback. */
+  --t-tip: #F1F8FF; --t-shallows: #B5E5FF; --t-mid: #65C5F5; --t-deep: #528FFF; --t-abyss: #49E8CC;
+  --t-deep-rgb: 82, 143, 255; --t-abyss-rgb: 73, 232, 204;
+  --t-beyond: #FF6259; --beyond-soft: #ff918b; --beyond-glow: 255, 98, 89;   /* Challenger Deep: red, only ever beneath the iceberg */
   --pixel: "Pixelify Sans", ui-monospace, monospace;
   --ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   /* Motion: one language everywhere. Ordinary things are quick and ease out (they arrive at speed and settle);
@@ -135,14 +137,26 @@ section.home::before { content: ""; position: absolute; inset: 0; pointer-events
 @keyframes bob { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
 .race-teaser .go { width: 20px; height: 20px; color: var(--accent); margin-left: 6px; transition: transform var(--t-quick) var(--ease-out); }
 .race-teaser:hover .go { transform: translateX(3px); }
+/* Every answer is written in the colour of its depth, wherever it is listed (the tier's name stays beside it as text). */
+.slot.done .slot-name, #sum li[class*="tier-"] .sum-name, #e-rounds li[class*="tier-"] .e-name, .r-best li[class*="tier-"] .r-ans, .r-answers td[class*="tier-"],
+.cmp-ans[class*="tier-"], i[class*="tier-"], .jn-row[class*="tier-"] .jn-name { color: var(--tier); }
+#sum li.tier-beyond .sum-name, #sum li.tier-abyss .sum-name, .slot.done.tier-beyond .slot-name, .slot.done.tier-abyss .slot-name { text-shadow: 0 0 14px rgba(var(--t-abyss-rgb), .25); }
+#sum li.tier-beyond .sum-name, .slot.done.tier-beyond .slot-name { text-shadow: 0 0 14px rgba(var(--beyond-glow), .35); }
 /* The depth zones, named down the right edge of the water: the premise in one glance. */
 .depth-ruler { position: absolute; z-index: 2; right: max(var(--edge), calc(50vw - 590px + var(--gutter))); top: var(--ruler-top, 60%); bottom: clamp(28px, 6vh, 64px); margin: 0; padding: 0 0 0 16px; list-style: none;
   display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
   border-left: 1px solid var(--line); animation: title-in .7s var(--ease-out) .35s both; }
 .depth-ruler li { display: flex; align-items: center; gap: 9px; margin-left: -20.5px; }
-.depth-ruler li::before { content: ""; width: 8px; height: 8px; transform: rotate(45deg); background: var(--tier); opacity: .85; }
+.depth-ruler li { color: var(--tier); text-shadow: 0 1px 3px rgba(2, 6, 16, .85); }
+.depth-ruler li::before { content: ""; width: 8px; height: 8px; transform: rotate(45deg); background: var(--tier); box-shadow: 0 0 0 1.5px rgba(2, 6, 16, .7); }
 .depth-ruler .tier-tip { margin-top: -6px; }
-.depth-ruler .tier-beyond { color: var(--beyond-soft); }
+/* The deeper zones glow a little: the deeper, the more, and never enough to blur the letters. */
+.depth-ruler .tier-deep { text-shadow: 0 0 12px rgba(var(--t-deep-rgb), .28), 0 1px 3px rgba(2, 6, 16, .85); }
+.depth-ruler .tier-deep::before { box-shadow: 0 0 0 1.5px rgba(2, 6, 16, .7), 0 0 8px rgba(var(--t-deep-rgb), .5); }
+.depth-ruler .tier-abyss { text-shadow: 0 0 14px rgba(var(--t-abyss-rgb), .38), 0 1px 3px rgba(2, 6, 16, .85); }
+.depth-ruler .tier-abyss::before { box-shadow: 0 0 0 1.5px rgba(2, 6, 16, .7), 0 0 10px rgba(var(--t-abyss-rgb), .6); }
+.depth-ruler .tier-beyond { text-shadow: 0 0 16px rgba(var(--beyond-glow), .45), 0 1px 3px rgba(2, 6, 16, .85); }
+.depth-ruler .tier-beyond::before { box-shadow: 0 0 0 1.5px rgba(2, 6, 16, .7), 0 0 12px rgba(var(--beyond-glow), .7); }
 
 /* Game modes in the header: the two ways to play, always one tap away. The ink slides to the one you're in. */
 .modes { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; gap: 4px; padding: 0; }
@@ -192,7 +206,7 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .play { position: fixed; left: 0; top: 0; width: 100%; height: var(--vvh); overflow: hidden; z-index: 0; }
 #ib, #ib2 { position: absolute; inset: 0; }
 .veil { position: absolute; inset: 0; pointer-events: none; transition: opacity .5s;
-  background: linear-gradient(90deg, rgba(3, 8, 20, .78) 0, rgba(3, 8, 20, .55) 300px, rgba(3, 8, 20, 0) 540px), linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
+  background: radial-gradient(ellipse 620px var(--q-bottom, 300px) at 50% 0, rgba(3, 8, 20, .55), rgba(3, 8, 20, 0)), linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
 .play.done .veil { background: linear-gradient(180deg, rgba(3, 8, 20, .5), rgba(3, 8, 20, 0) 110px); }
 .dock { position: absolute; left: var(--edge); top: calc(var(--top-h) + 22px); width: min(372px, 34vw); display: grid; gap: 18px; align-content: start; transition: opacity .2s var(--ease-in), transform .2s var(--ease-in); }
 .play.playing .dock { transition: opacity .3s var(--ease-out) .14s, transform .38s var(--ease-out) .14s; }   /* the next question comes in as the results go out */
@@ -208,7 +222,8 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
   padding-bottom: 22px; filter: drop-shadow(0 6px 18px rgba(2, 8, 20, .45)); transition: opacity .2s var(--ease-in); }   /* position follows the summit every frame, so only opacity eases */
 .play.playing .q-berg { transition: opacity .35s var(--ease-out) .1s; }
 .q-berg.arriving, .q-berg:not(.placed) { opacity: 0; transition: none; }   /* hidden on the way down; appears on the summit */
-.play.done .q-berg { opacity: 0; pointer-events: none; }
+.play.done .q-berg { opacity: 0; pointer-events: none; transition: opacity .25s var(--ease-in) .42s; }   /* after the ice has cleared (frost.js) */
+.play.done .q-berg #play-panel { opacity: 0; transition: opacity .18s var(--ease-in); }
 .q-berg.afloat { clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px); padding-bottom: 14px; }   /* waiting at the top: no point */
 .q-berg h2 { white-space: normal; }
 .q-berg .eyebrow { color: #3a6f99; margin-bottom: 4px; }
@@ -216,6 +231,39 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .q-berg .q-title h2 { color: #06112a; text-shadow: none; font-size: clamp(22px, 2.2vw, 30px); }
 .q-berg .q-icon { color: #2b6ea3; font-size: 30px; }
 .q-berg .q-hint { color: #355a7a; margin-top: 4px; }
+/* The centred column: the panel of ice and the guesses beneath it, on the same line as the iceberg's summit. */
+.q.q-berg { width: min(540px, calc(100vw - 32px)); max-width: none; padding: 0; background: none; clip-path: none; filter: none; color: var(--text); display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.q-berg.afloat { clip-path: none; padding: 0; }
+.q-ice { position: relative; isolation: isolate; padding: 14px 18px 16px; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; min-width: 0; }
+.q-ice > :not(.frost-art) { position: relative; z-index: 1; transition: opacity .25s var(--ease-out); }
+.frost-art { position: absolute; z-index: 0; image-rendering: pixelated; pointer-events: none; }   /* no CSS filter: it would be recomputed on every redraw */
+.frost-fly { position: fixed; z-index: 60; pointer-events: none; image-rendering: pixelated; }
+.q-ice.shattered > :not(.frost-art), .q-ice.dissolved > :not(.frost-art) { opacity: 0; transition: opacity .12s; }
+.q-ice.forming > :not(.frost-art) { opacity: 0; transition: none; }
+.q-berg .q-title h2 { color: var(--ice); text-shadow: 0 1px 2px rgba(2, 8, 20, .6); font-size: clamp(21px, 2.1vw, 28px); line-height: 1.15; text-wrap: balance; max-width: 30ch; }
+.q-berg .eyebrow { color: #9fd3f2; } .q-berg .q-icon { color: #b5e5ff; font-size: 28px; } .q-berg .q-hint { color: #bcd6ec; }
+.q-ice .entry { width: 100%; margin-top: 12px; background: rgba(2, 10, 24, .62); box-shadow: inset 0 0 0 1.5px rgba(181, 229, 255, .45); }
+.q-ice .entry:focus-within { box-shadow: inset 0 0 0 2px #b5e5ff, 0 0 0 4px rgba(181, 229, 255, .14); }
+/* Ancient slab: milky ice, so dark words. */
+.q-ice.ink-dark .q-title h2 { color: #06223f; text-shadow: 0 1px 0 rgba(255, 255, 255, .5); } .q-ice.ink-dark .eyebrow { color: #2e6390; }
+.q-ice.ink-dark .q-icon { color: #245f92; } .q-ice.ink-dark .q-hint { color: #2f5677; }
+.q-ice.ink-dark .entry { background: rgba(3, 12, 28, .86); }
+/* The three guesses beneath the panel, side by side, at every size. */
+.q-berg #play-panel { gap: 4px; padding: 4px 6px 6px; border-radius: 12px; background: rgba(3, 10, 24, .72); box-shadow: inset 0 0 0 1px rgba(181, 229, 255, .12); }
+.q-berg .hint { justify-content: center; text-align: center; margin: 0 4px; min-height: 21px; }
+.q-berg .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; }
+.q-berg .slot { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 1px; height: 66px; min-height: 0; padding: 6px 10px 6px 12px; align-content: center; border-bottom: 0; border-left: 1px solid var(--line); text-align: left; }
+.q-berg li:first-child > .slot { border-left: 0; }
+.q-berg .slot-n { position: absolute; top: 5px; right: 6px; width: 18px; height: 18px; font-size: 10px; }
+.q-berg .slot-main { order: 2; } .q-berg .slot-depth { order: 1; font-size: 19px; }
+.q-berg .slot-name { font-size: 13.5px; } .q-berg .slot-sub { font-size: 11.5px; }
+.q-berg .slot-sub .wide { display: none; } .q-berg .slot-sub b::before { content: " · "; color: var(--faint); font-weight: 400; }
+.q-berg .slot-tag { bottom: 6px; right: 8px; font-size: 8.5px; } .q-berg .slot.best .slot-depth { transform: none; }
+.q-berg .finish-row { justify-content: center; min-height: 0; }
+.q-berg .finish-row:not(:has(#finish:not([hidden]))):not(:has(.finish-note:not(:empty))) { display: none; }
+[data-screen="play"] > .dock { display: none; }
+/* An exceptional find: the column steps aside while it is revealed. */
+.q-berg.aside { opacity: .12; pointer-events: none; transition: opacity .4s var(--ease-out); }
 
 .q-title { display: flex; gap: 14px; align-items: center; min-width: 0; }
 .q-icon { font-size: 38px; line-height: 1; flex: none; }
@@ -245,7 +293,7 @@ html.in-play .top { max-width: none; padding: 0 var(--edge); } /* lines up with 
 .melt.beat .melt-n { animation: beat .5s ease-out; } @keyframes beat { 0% { opacity: .45; } 100% { opacity: 1; } }
 .melt.out .melt-n { color: var(--faint); transform: none; text-shadow: none; }
 .hint { min-height: 21px; margin: -6px 2px -4px; font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
-.hint.warn { color: var(--warn); } .hint.good { color: var(--accent); }
+.hint.warn { color: var(--warn); } .hint.good { color: var(--accent); } .hint.pending { color: var(--text); }
 /* The three guesses: quiet rows divided by hairlines. Empty, waiting, revealed, deepest: each reads at a glance. */
 .slots { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid var(--line); }
 .slot { position: relative; width: 100%; min-height: 58px; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 12px; align-items: center; text-align: left; padding: 8px 6px 8px 2px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); transition: background .25s; }
@@ -366,7 +414,8 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-glow.beyond { width: 520px; height: 520px; margin: -260px 0 0 -260px; background: radial-gradient(circle, rgba(var(--beyond-glow), .3) 0%, rgba(var(--beyond-glow), .1) 26%, rgba(var(--beyond-glow), .03) 46%, rgba(var(--beyond-glow), 0) 64%); animation: beyond-breathe 6s ease-in-out infinite; }
 @keyframes beyond-breathe { 50% { filter: brightness(.72); } }
 .ib-shade { transition: none; }
-.ib-beneath .ib-shade { background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(0, 1, 4, 0) 0, rgba(0, 1, 4, 0) calc(var(--r, 200px) * .55), rgba(0, 1, 4, .985) calc(var(--r, 200px) * 1.9)); }
+.ib[data-region="unknown"] .ib-shade { filter: hue-rotate(calc(var(--unknown, 0) * -18deg)); }
+.ib-beneath .ib-shade { background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(0, 1, 4, 0) 0, rgba(0, 1, 4, 0) calc(var(--r, 200px) * .55), rgba(0, 1, 4, .86) calc(var(--r, 200px) * 1.9)); }
 .ib-layer { position: absolute; inset: 0; pointer-events: none; }
 /* Between questions the answers fade while the camera rises; out of the deep, the dark closes and lifts (.ib-veil). */
 .ib-layer, .ib-lines, .ib-bestline { transition: opacity .2s var(--ease-out); }
@@ -414,6 +463,15 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-share b { font-size: 19px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .ib-below { font-size: 14.5px; color: var(--muted); }
 .ib-below b { font-weight: 700; color: var(--tier); font-variant-numeric: tabular-nums; }
+/* The dive so far: a faint line from the waterline down to you, a small mark where each question ended. */
+.ib-route { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.ib-rope { position: absolute; left: 0; top: 0; width: 1px; margin-left: -.5px; background: linear-gradient(rgba(200, 230, 250, .0), rgba(200, 230, 250, .22) 60px); }
+.ib-way { position: absolute; left: 0; top: 0; width: 9px; height: 1px; margin-left: -4.5px; background: rgba(200, 230, 250, .45); }
+.ib-way::after { content: attr(data-label); position: absolute; right: 13px; top: -7px; font: 700 9.5px/14px var(--ui); letter-spacing: .08em; color: rgba(200, 230, 250, .5); }
+.ib-region { margin-top: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--lumen); }
+.ib-region b { font-weight: 800; }
+.ib-scale span.region-twilight { color: #7fb5e6; } .ib-scale span.region-midnight { color: #8f86e8; } .ib-scale span.region-abyss { color: #6fb0b8; }
+.ib-scale span.region-trench { color: #b89a7a; } .ib-scale span.region-unknown { color: #e07a86; }
 .ib-zone { font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: var(--tier); white-space: nowrap; margin-left: 3px; opacity: .9; }
 .ib-rank { margin-top: 3px; font-size: 13px; color: var(--muted); }
 .ib-meta { margin-top: 7px; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -425,8 +483,8 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 /* The accent follows the water: clear and bright near the surface, living light in the abyss. */
 .ib-note.tier-tip::before, .ib-note.tier-shallows::before { background: linear-gradient(rgba(240, 249, 255, .95), rgba(240, 249, 255, .14)); }
 .ib-note.tier-deep::before { background: linear-gradient(rgba(108, 184, 236, .9), rgba(108, 184, 236, .1)); }
-.ib-note.tier-abyss::before { background: linear-gradient(rgba(125, 240, 223, .95), rgba(125, 240, 223, .1)); box-shadow: 0 0 10px rgba(125, 240, 223, .55); }
-.ib-note.tier-abyss > .ib-name { text-shadow: 0 0 22px rgba(125, 240, 223, .3), 0 1px 2px rgba(2, 8, 20, .85); }
+.ib-note.tier-abyss::before { background: linear-gradient(rgba(var(--t-abyss-rgb), .95), rgba(var(--t-abyss-rgb), .1)); box-shadow: 0 0 10px rgba(var(--t-abyss-rgb), .55); }
+.ib-note.tier-abyss > .ib-name { text-shadow: 0 0 22px rgba(var(--t-abyss-rgb), .3), 0 1px 2px rgba(2, 8, 20, .85); }
 /* Challenger Deep: the answer itself in red, the figures in muted red and pale grey. Same type, same layout. */
 .ib-note.tier-beyond { --muted: #b9c2cf; --faint: #8b8f99; }
 .ib-note.tier-beyond::before { background: linear-gradient(rgba(var(--beyond-glow), .95), rgba(var(--beyond-glow), .08)); box-shadow: 0 0 10px rgba(var(--beyond-glow), .45); }
@@ -440,7 +498,7 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 .ib-mark.tier-beyond.best::before { box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .92), 0 0 0 2.5px var(--t-beyond), 0 0 18px rgba(var(--beyond-glow), .7); }
 .ib-mark.tier-beyond.focus::after { border-color: rgba(var(--beyond-glow), .6); }
 .ib-pill.tier-beyond span, .ib-pill.tier-beyond.best span { color: var(--t-beyond); } .ib-pill.tier-beyond b { color: var(--beyond-soft); }
-.ib-bestline { transition: border-color .6s; } .ib-beneath .ib-bestline { border-top-color: rgba(var(--beyond-glow), .22); }
+.ib-bestline { transition: border-color .6s; } .ib-beneath .ib-bestline { border-top-color: rgba(125, 240, 223, .2); }
 .ib-stack .ib-note { max-width: min(250px, calc(100% - 64px)); }
 .ib-stack .ib-name { font-size: 23px; } .ib-stack .ib-share b { font-size: 17px; }
 .ib-compact .ib-rank, .ib-compact .ib-meta, .ib-compact .ib-blurb, .ib-compact .ib-tag, .ib-compact .ib-sight, .ib-compact .ib-zone, .ib-compact .ib-nav { display: none; }
@@ -479,6 +537,12 @@ details.rules-box summary { cursor: pointer; color: var(--muted); font-size: 13p
 
 /* End of day: your iceberg, as a card you can keep. */
 .end { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: clamp(24px, 4vw, 56px); align-items: start; max-width: 1000px; margin: 0 auto; padding-top: 8px; }
+.end-berg { position: sticky; top: calc(var(--top-h) + 12px); justify-self: center; height: min(calc(100vh - var(--top-h) - 40px), 1000px); max-width: 100%; aspect-ratio: 540 / 1500;
+  /* No frame: the picture melts into the page on every side, so it reads as the iceberg itself. */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent), linear-gradient(to bottom, transparent, #000 9%, #000 80%, transparent);
+  -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent), linear-gradient(to bottom, transparent, #000 9%, #000 80%, transparent); mask-composite: intersect; }
+.end-berg canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+@media (max-width: 920px) { .end-berg { position: relative; top: 0; height: min(62vh, 560px); } }
 .card-wrap { position: relative; border-radius: 18px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 0 1px var(--line); background: #050b20; aspect-ratio: 4 / 5; }
 .card-wrap canvas { display: block; width: 100%; height: 100%; }
 .end-side { display: grid; gap: 22px; min-width: 0; }
@@ -723,8 +787,11 @@ html.in-play .acct-btn { display: none; }
   .play.done .dock { transform: none; }
   .q { padding: 2px var(--gutter) 0; } .q .eyebrow, .q-hint { display: none; }
   [data-screen="play"] > .dock { justify-content: flex-end; }   /* the daily game only: its question sits on the iceberg, not in this column */
-  .q-berg { max-width: calc(100vw - var(--gutter) * 2); padding: 8px 14px 18px; } .q-berg.afloat { padding-bottom: 8px; }
-  .q-berg .q-title h2 { font-size: 19px; } .q-berg .q-icon { font-size: 22px; }
+  .q.q-berg { width: calc(100vw - var(--gutter) * 2); gap: 4px; padding: 0; } .q-ice { padding: 10px 12px 12px; }
+  .q-berg .q-title h2 { font-size: 18px; } .q-berg .q-icon { font-size: 22px; } .q-berg .eyebrow { display: block; margin-bottom: 2px; font-size: 10px; }
+  .q-ice .entry { margin-top: 8px; }
+  .q-berg .hint { height: auto; min-height: 18px; font-size: 12.5px; }
+  .q-berg .slot { height: 60px; }
   .q-icon { font-size: 26px; } .q-title { gap: 10px; }
   .q-title h2 { font-size: 20px; }
   #play-panel { gap: 8px; padding: 0 var(--gutter) calc(8px + env(safe-area-inset-bottom, 0px)); }
@@ -838,7 +905,7 @@ html.in-play .acct-btn { display: none; }
 .jn-record .jn-src { flex-basis: 100%; }
 .jn-region h3 { display: flex; justify-content: space-between; align-items: baseline; }
 .jn-count { color: var(--muted); font-weight: 500; font-size: 13px; }
-.jn-region.beyond h3 { color: var(--t-beyond); }
+.jn-region.beyond h3 { color: #e07a86; } .jn-fiction { font-size: 12px; font-weight: 600; color: #e07a86; }
 .jn-list { list-style: none; margin: 0; padding: 0; }
 .jn-row { display: grid; grid-template-columns: 92px 1fr; gap: 4px 12px; align-items: center; padding: 8px 4px; border-top: 1px solid rgba(143, 208, 245, .1); }
 .jn-row[role=button] { cursor: pointer; }
@@ -864,6 +931,16 @@ html.in-play .acct-btn { display: none; }
 .e-found b { color: var(--lumen); font-weight: 650; }
 /* Spelling: a corrected answer says so quietly; a "Did you mean" offers one answer and a way to keep what was typed. */
 .hint.fixed { color: var(--lumen); }
+/* A spelling question, inside the ice: one suggestion, confirm or keep. */
+.q-ask { position: absolute; z-index: 4; left: 50%; top: calc(100% - 6px); transform: translateX(-50%); width: max-content; max-width: calc(100% - 16px);
+  padding: 8px 14px 9px; border-radius: 0 0 12px 12px; background: rgba(6, 24, 48, .94); box-shadow: inset 0 0 0 1px rgba(181, 229, 255, .35), 0 8px 20px rgba(2, 8, 20, .5);
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 6px; font-size: 15px; color: var(--ice); }
+.q-ask button { border: 0; font: inherit; font-weight: 700; border-radius: 8px; padding: 3px 10px; cursor: pointer; }
+.q-ask .ask-yes { background: #b5e5ff; color: #06112a; box-shadow: 0 0 0 1px rgba(255, 255, 255, .5), 0 2px 10px rgba(181, 229, 255, .25); }
+.q-ask .ask-yes:focus-visible, .q-ask .ask-no:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.q-ask .ask-no { background: none; color: #bcd6ec; text-decoration: underline; text-underline-offset: 2px; margin-left: 6px; padding: 3px 2px; }
+.q-ask .ask-keys { flex-basis: 100%; text-align: center; font-size: 11px; letter-spacing: .06em; color: #9fb7d4; }
+@media (hover: none) { .q-ask .ask-keys { display: none; } }
 .hint.ask { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--text); }
 .hint.ask button { border: 0; font: inherit; font-weight: 700; border-radius: 7px; padding: 1px 8px; cursor: pointer; }
 .hint.ask .ask-yes { background: var(--ice); color: #06112a; }
@@ -898,6 +975,21 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 .r-join input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
 .r-invites, .r-friends { display: grid; gap: 8px; } .r-invites h3, .r-friends h3 { margin: 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .r-inv { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(125, 240, 223, .07); box-shadow: inset 0 0 0 1px rgba(125, 240, 223, .3); }
+.rk-card { display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: rgba(6, 20, 42, .72); box-shadow: inset 0 0 0 1px rgba(181, 229, 255, .18); }
+.rk-me { display: flex; align-items: center; gap: 12px; } .rk-me .eyebrow { margin: 0 0 2px; }
+.rk-div { display: block; font-size: 18px; font-weight: 800; letter-spacing: .02em; } .rk-elo { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.rk-badge { flex: none; filter: drop-shadow(0 2px 6px rgba(2, 8, 20, .5)); }
+.rk-card .link { justify-self: center; }
+.r-unranked { margin: 6px 0 -4px; color: var(--faint); }
+.rk-status { font-size: 17px; font-weight: 700; margin: 8px 0 0; }
+.rk-result .rk-change { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0 4px; padding: 12px; border-radius: 12px; background: rgba(6, 20, 42, .7); }
+.rk-delta { font-weight: 800; margin-left: 4px; } .rk-delta.up { color: var(--t-abyss); } .rk-delta.down { color: var(--t-beyond); }
+.rk-promo { flex-basis: 100%; margin: 0; font-weight: 800; color: var(--t-abyss); } .rk-promo.down { color: var(--muted); }
+.rk-result.win .r-title { color: var(--t-abyss); } .rk-result.loss .r-title { color: var(--muted); }
+.rk-profile .rk-me { margin: 6px 0 10px; } .rk-spark { display: block; width: 100%; max-width: 320px; height: 48px; margin-top: 8px; }
+.rk-board li { display: grid; grid-template-columns: 44px auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.rk-board .empty { display: block; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .rk-promo { animation: rk-pop .5s cubic-bezier(.2, 1.4, .4, 1) both; } @keyframes rk-pop { from { transform: scale(.8); opacity: 0; } } }
 .r-record { display: flex; gap: 18px; margin: 0; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; } .r-record b { color: var(--text); margin-right: 4px; font-variant-numeric: tabular-nums; }
 .r-lobby { display: grid; gap: 16px; }
 .r-code { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; } .r-code span { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
@@ -970,6 +1062,41 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 }
 @media (max-width: 920px) and (max-height: 520px) { .rdock.playing .r-standing, .rdock.playing .finish-row { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* ---------- Round types (experimental) ---------- */
+.round-extra { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 2px 0 8px; font-size: 12.5px; color: var(--muted); }
+.round-extra .rx-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.round-extra.forbid .chip { padding: 2px 8px; border-radius: 999px; background: rgba(255, 140, 120, .12); color: #ffb3a6; text-decoration: line-through; text-decoration-color: rgba(255, 140, 120, .7); font-weight: 600; }
+.round-extra.sonar { flex-direction: column; gap: 4px; width: 100%; }
+.sonar-strip { position: relative; width: 100%; height: 22px; border-radius: 6px; background: linear-gradient(90deg, rgba(143, 208, 245, .06), rgba(143, 208, 245, .14)); box-shadow: inset 0 0 0 1px var(--line-2); overflow: visible; margin-bottom: 12px; }
+.sonar-band { position: absolute; top: 0; bottom: 0; background: rgba(125, 240, 223, .28); box-shadow: 0 0 12px rgba(125, 240, 223, .45), inset 0 0 0 1px rgba(125, 240, 223, .7); border-radius: 4px; animation: sonar 2.4s ease-in-out infinite; }
+@keyframes sonar { 50% { box-shadow: 0 0 22px rgba(125, 240, 223, .65), inset 0 0 0 1px rgba(125, 240, 223, .9); } }
+@media (prefers-reduced-motion: reduce) { .sonar-band { animation: none; } }
+.sonar-tick { position: absolute; top: 100%; margin-top: 2px; transform: translateX(-50%); font-size: 9.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.sonar-ping { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 2px rgba(4, 9, 23, .9); }
+.sonar-mine { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255, 138, 101, .26) 0 4px, rgba(255, 138, 101, .1) 4px 8px); box-shadow: inset 0 0 0 1px rgba(255, 138, 101, .7); }
+.sonar-mine::after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px; border-radius: 50%; background: #ff8a65; box-shadow: 0 0 0 2px rgba(4, 9, 23, .85), 0 0 8px rgba(255, 138, 101, .8); }
+.sonar-mine.gone { opacity: .35; } .sonar-mine.gone::after { display: none; }
+.sonar-ping.boom { background: #ff8a65; box-shadow: 0 0 0 2px rgba(4, 9, 23, .9), 0 0 10px #ff8a65; }
+.rx-more { margin-left: auto; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid rgba(200, 230, 250, .35); background: transparent; color: var(--muted); font: 600 12px/1 var(--font, inherit); cursor: pointer; }
+.rx-more:hover, .rx-more:focus-visible { color: var(--text, #fff); border-color: var(--accent); }
+.title-signal { margin: 8px auto 0; max-width: 520px; font-size: 13px; color: var(--muted); text-align: center; }
+.title-signal b { color: var(--lumen, #7df0df); } .title-signal i { font-style: normal; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; opacity: .7; }
+.e-signal { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: rgba(125, 240, 223, .07); box-shadow: inset 0 0 0 1px rgba(125, 240, 223, .25); font-size: 13.5px; }
+.e-signal b { color: var(--lumen, #7df0df); } .e-signal .btn { margin-top: 8px; } .e-signal small { display: block; margin-top: 6px; color: var(--muted); font-size: 11.5px; } .e-signal-out { margin: 8px 0 0; }
+.rx-head { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.rx-kind { font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+.rx-rule { color: var(--muted); font-size: .92em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sonar-ping.near { background: var(--accent); } .sonar-ping.hit { background: var(--lumen); box-shadow: 0 0 0 2px rgba(4, 9, 23, .9), 0 0 10px var(--lumen); }
+.round-extra.riskline .rx-lbl { color: var(--warn); }
+.round-card { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(2, 6, 16, .55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.round-card .rc { width: min(460px, 100%); padding: 22px 22px 18px; border-radius: 16px; background: var(--panel-solid); box-shadow: 0 0 0 1px var(--line-2), 0 20px 60px rgba(0, 0, 0, .5); }
+.round-card h3 { margin: 4px 0 8px; font-size: 22px; line-height: 1.2; text-wrap: balance; }
+.round-card .rc-body { margin: 0 0 12px; color: var(--muted); font-size: 15px; line-height: 1.45; }
+.round-card .round-extra { justify-content: flex-start; }
+.round-card .rc-actions { display: grid; gap: 8px; margin-top: 8px; }
+.round-card .rc-actions .btn { text-align: left; padding: 12px 14px; font-size: 15px; }
+.round-card .rc-actions .btn small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; opacity: .8; }
 </style>
 </head>
 <body>
@@ -1029,7 +1156,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
     </div>
     <a class="race-teaser" id="race-btn" href="#race"><canvas class="sub-art" id="home-sub" width="40" height="24" aria-hidden="true"></canvas><span><span class="eyebrow">Submarine Race</span><b>Race other players, live</b></span><svg class="go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     <ol class="depth-ruler" aria-hidden="true">
-      <li class="tier-tip">The Tip</li><li class="tier-shallows">Shallows</li><li class="tier-mid">Midwater</li><li class="tier-deep">The Deep</li><li class="tier-abyss">The Abyss</li><li class="tier-beyond">Challenger Deep</li>
+      <li class="tier-tip">Surface</li><li class="tier-shallows">The Iceberg</li><li class="tier-mid">Twilight</li><li class="tier-deep">Midnight</li><li class="tier-abyss">The Abyss</li><li class="tier-beyond">The Unknown</li>
     </ol>
   </section>
 
@@ -1037,25 +1164,30 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
   <section data-screen="play" class="play" hidden>
     <div id="ib" aria-label="The iceberg, with your guesses marked at their depths"></div>
     <div class="veil" aria-hidden="true"></div>
-    <!-- The question: a block of ice resting on the summit, above the iceberg it's asking about. -->
+    <!-- One column on the centre line, above the iceberg: the question and the answer box on a panel of ice (frost.js
+         draws it, cracking as the time runs out), then the three guesses. -->
     <div class="q q-berg">
-      <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
-      <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
-      <p class="q-hint" id="q-hint"></p>
-    </div>
-    <div class="dock">
-      <div id="play-panel">
+      <div class="q-ice" id="q-ice">
+        <p class="eyebrow"><span id="q-num">Question 1 of 5</span></p>
+        <div class="q-title"><span class="q-icon cat-icon" id="q-icon" aria-hidden="true"></span><h2 id="q-title">Name an animal</h2></div>
+        <p class="q-hint" id="q-hint"></p>
+        <div class="round-extra" id="round-extra" hidden></div>
         <form class="entry" id="entry" autocomplete="off" novalidate>
           <div class="melt" id="melt" role="timer" aria-label="Time left" hidden><canvas id="melt-ice" aria-hidden="true"></canvas><span class="melt-n" id="melt-n">20</span></div>
           <label class="sr" for="answer">Your guess</label>
           <input id="answer" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" maxlength="60" placeholder="Type a guess">
           <button id="add" type="submit" aria-label="Submit guess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v15"/><path d="m6 13 6 6 6-6"/></svg></button>
         </form>
+        <div class="q-ask" id="q-ask" role="alert" aria-live="assertive" hidden></div>
+      </div>
+      <div id="play-panel">
         <p class="hint" id="hint" role="status" aria-live="polite"></p>
         <ol class="slots" id="slots" aria-label="Your three guesses"></ol>
         <div class="finish-row"><button class="btn ghost" id="finish" type="button" hidden>Finish</button><span class="finish-note" id="finish-note"></span></div>
       </div>
     </div>
+    <div class="round-card" id="round-card" hidden role="dialog" aria-live="polite"></div>
+    <div class="dock"></div>
 
     <div id="done-panel" class="done-panel drawer" hidden>
       <p class="done-q" id="done-q"></p>
@@ -1075,7 +1207,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
         <ul class="bars" id="rare"></ul>
         <div class="axis" aria-hidden="true"><span></span><span class="ticks" id="axis"></span><span class="pad">0.00% · 99,999</span></div>
         <p class="fine">Each figure is the share of players who gave that answer at least once in their three guesses, so the shares add up to more than 100%. Bar length uses a log scale: each mark is 10× rarer.</p>
-        <p class="fine" id="sample-note"><span class="sample-badge">Sample</span><span id="sample-text"></span></p>
+        <p class="fine" id="sample-note"><span class="sample-badge">Estimate</span><span id="sample-text"></span></p>
         <details class="rules-box fine"><summary>How answers are judged</summary><ul class="rules-list" id="rules"></ul></details>
       </div>
       <div class="next-row"><button class="btn wide" id="next" type="button">Next question</button></div>
@@ -1119,9 +1251,11 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 
   <!-- End of day -->
   <section data-screen="end" class="end" hidden>
-    <div class="card-wrap"><canvas id="share-canvas" width="1200" height="1500" role="img" aria-label="Your iceberg: the depth you reached on each question"></canvas></div>
+    <!-- Just the iceberg with today's five markers. The full card (iceberg and numbers) is drawn off screen for "Save image". -->
+    <div class="end-berg"><canvas id="end-berg" width="540" height="1500" role="img" aria-label="Your dive: from the iceberg down to where your five answers took you"></canvas></div>
+    <canvas id="share-canvas" width="1200" height="1500" hidden></canvas>
     <div class="end-side">
-      <div><p class="eyebrow">Today's total depth</p><div class="total"><span id="e-total">0</span><small>m</small></div></div>
+      <div><p class="eyebrow">Today's dive</p><div class="total"><span id="e-total">0</span><small>m</small></div></div>
       <div class="end-facts"><span id="e-deepest"></span><span id="e-rank"></span><span class="streak" id="e-streak"></span><span class="e-days" id="e-days" role="img" hidden></span><span id="e-seen"></span></div>
       <div class="e-social" id="e-social" hidden></div>
       <a class="race-teaser end-race" id="end-race" href="#race"><canvas class="sub-art" width="40" height="24" aria-hidden="true"></canvas><span><span class="eyebrow">Done for today?</span><b>Race other players, live</b></span><svg class="go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
@@ -1144,22 +1278,22 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
     <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 17 11H7z" fill="currentColor"/><path d="M5 13h14l-3.5 7h-7z" fill="currentColor" opacity=".55"/></svg>Icebreaker<span class="howto-sub"> · the daily five</span></h3>
     <ol class="howto-steps">
       <li><span><b>Five questions a day.</b> Things like <i>Name a bird</i>. Everyone gets the same five.</span></li>
-      <li><span><b>Three guesses each.</b> The fewer players who give your answer, the deeper it sinks.</span></li>
-      <li><span><b>Your deepest guess counts.</b> Add up all five for today's depth. Come back tomorrow to keep your streak.</span></li>
+      <li><span><b>Three guesses each.</b> The fewer players who give your answer, the further it takes you down.</span></li>
+      <li><span><b>One long dive.</b> Your rarest guess on each question takes you deeper, and you never come back up: the five add up to today's depth. Past the iceberg the ocean goes on, and what lives down there is for you to find.</span></li>
     </ol>
     <p class="howto-fine" id="howto-time">You have 20 seconds a question. The clock only runs while you can type.</p>
   </section>
   <section>
-    <h3>Depth zones</h3>
+    <h3>How rare, how far</h3>
     <ul class="depths">
-      <li class="tier-tip"><i></i><b>The Tip</b><span>above water · 1 in 10 players or more</span></li>
-      <li class="tier-shallows"><i></i><b>Shallows</b><span>0 to 50 m · 1 in 10 to 1 in 30</span></li>
-      <li class="tier-mid"><i></i><b>Midwater</b><span>50 to 100 m · 1 in 30 to 1 in 100</span></li>
-      <li class="tier-deep"><i></i><b>The Deep</b><span>100 to 200 m · 1 in 100 to 1 in 1,000</span></li>
-      <li class="tier-abyss"><i></i><b>The Abyss</b><span>200 to 299 m · 1 in 1,000 to 1 in 10,000</span></li>
-      <li class="tier-beyond"><i></i><b>Challenger Deep</b><span>beneath the iceberg · rarer than 1 in 10,000</span></li>
+      <li class="tier-tip"><i></i><b>Common</b><span>+0 m · 1 in 10 players or more</span></li>
+      <li class="tier-shallows"><i></i><b>Uncommon</b><span>+1 to 49 m · 1 in 10 to 1 in 30</span></li>
+      <li class="tier-mid"><i></i><b>Rare</b><span>+50 to 99 m · 1 in 30 to 1 in 100</span></li>
+      <li class="tier-deep"><i></i><b>Very rare</b><span>+100 to 199 m · 1 in 100 to 1 in 1,000</span></li>
+      <li class="tier-abyss"><i></i><b>Exceptional</b><span>+200 to 299 m · 1 in 1,000 to 1 in 10,000</span></li>
+      <li class="tier-beyond"><i></i><b>Unfathomable</b><span>+300 m or more · rarer than 1 in 10,000</span></li>
     </ul>
-    <p class="howto-fine">An answer only goes beneath the iceberg once enough players have given it for its rarity to be trusted.</p>
+    <p class="howto-fine">How rare an answer is decides how far it takes you. An answer is only Unfathomable once enough players have given it for its rarity to be trusted. Where you end up depends on all five: the Twilight Zone starts at 300 m, the Midnight Zone at 600 m, the Abyss at 1,000 m, the Trenches at 1,300 m. Below that, nobody is sure.</p>
   </section>
   <section>
     <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c0-2.5 2.6-4.5 7-4.5h3c3.3 0 6 2 6 4.5S17.3 18 14 18h-3c-4.4 0-7-2-7-4.5z" fill="currentColor"/><path d="M10 9V6h4v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Submarine Race</h3>
@@ -1167,6 +1301,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
   </section>
   <form method="dialog"><button class="btn wide" type="submit">Got it</button></form>
 </dialog>
+<script src="palette.js"></script>
 <script src="brand.js"></script>
 <script>Brand.apply();</script>
 <script src="icons.js"></script>
@@ -1174,6 +1309,7 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 <script src="validate.js"></script>
 <script src="sea.js"></script>
 <script src="icetimer.js"></script>
+<script src="frost.js"></script>
 <script src="iceberg.js"></script>
 <script src="colossal.js"></script>
 <script src="wildlife.js"></script>
@@ -1210,8 +1346,12 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
 <script src="social.js"></script>
 <script src="viewer.js"></script>
 <script src="subs.js"></script>
+<script src="ranked.js"></script>
 <script src="race.js"></script>
 <script src="demo.js"></script>
+<script src="rounds.js"></script>
+<script src="scenery.js"></script>
 <script src="game.js"></script>
+<script src="playtest.js"></script>
 </body>
 </html>

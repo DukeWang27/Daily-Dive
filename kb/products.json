@@ -1,0 +1,1182 @@
+{
+"wearables": {
+"brands": {
+"Rolex": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Omega": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Patek Philippe": {
+"makes": [
+"watch"
+],
+"al": [
+"patek"
+]
+},
+"Audemars Piguet": {
+"makes": [
+"watch"
+],
+"al": [
+"ap"
+]
+},
+"TAG Heuer": {
+"makes": [
+"watch"
+],
+"al": [
+"tag"
+]
+},
+"Breitling": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Seiko": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Grand Seiko": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Citizen": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Casio": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Swatch": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Tissot": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Longines": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"IWC": {
+"makes": [
+"watch"
+],
+"al": [
+"iwc schaffhausen"
+]
+},
+"Jaeger-LeCoultre": {
+"makes": [
+"watch"
+],
+"al": [
+"jlc"
+]
+},
+"Panerai": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Hublot": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Tudor": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Vacheron Constantin": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"A. Lange & Söhne": {
+"makes": [
+"watch"
+],
+"al": [
+"a lange and sohne",
+"lange"
+]
+},
+"Richard Mille": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Zenith": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Bulova": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Timex": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Fossil": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Garmin": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Breguet": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Blancpain": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Oris": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Hamilton": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Movado": {
+"makes": [
+"watch"
+],
+"al": []
+},
+"Cartier": {
+"makes": [
+"watch",
+"ring",
+"bracelet",
+"necklace"
+],
+"al": []
+},
+"Bulgari": {
+"makes": [
+"ring",
+"necklace",
+"watch"
+],
+"al": [
+"bvlgari"
+]
+},
+"Tiffany": {
+"makes": [
+"ring",
+"necklace",
+"bracelet"
+],
+"al": [
+"tiffany and co",
+"tiffanys"
+]
+},
+"Pandora": {
+"makes": [
+"bracelet",
+"ring"
+],
+"al": []
+},
+"Swarovski": {
+"makes": [
+"necklace",
+"earrings"
+],
+"al": []
+},
+"Van Cleef & Arpels": {
+"makes": [
+"necklace",
+"bracelet"
+],
+"al": [
+"van cleef"
+]
+},
+"Nike": {
+"makes": [
+"trainers",
+"hoodie",
+"t-shirt"
+],
+"al": []
+},
+"Adidas": {
+"makes": [
+"trainers",
+"tracksuit"
+],
+"al": []
+},
+"Reebok": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"Puma": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"New Balance": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"Asics": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"Skechers": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"Vans": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"Hoka": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"Salomon": {
+"makes": [
+"trainers",
+"hiking boots"
+],
+"al": []
+},
+"On": {
+"makes": [
+"trainers"
+],
+"al": [
+"on running",
+"on cloud"
+]
+},
+"Fila": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"Saucony": {
+"makes": [
+"trainers"
+],
+"al": []
+},
+"Converse": {
+"makes": [
+"converse"
+],
+"al": []
+},
+"Dr. Martens": {
+"makes": [
+"doc martens"
+],
+"al": [
+"dr martens",
+"docs"
+]
+},
+"Timberland": {
+"makes": [
+"boots"
+],
+"al": [
+"timbs",
+"timberlands"
+]
+},
+"UGG": {
+"makes": [
+"uggs"
+],
+"al": [
+"ugg boots"
+]
+},
+"Crocs": {
+"makes": [
+"crocs"
+],
+"al": []
+},
+"Birkenstock": {
+"makes": [
+"sandals"
+],
+"al": [
+"birkenstocks",
+"birks"
+]
+},
+"Havaianas": {
+"makes": [
+"flip-flops"
+],
+"al": []
+},
+"Christian Louboutin": {
+"makes": [
+"high heels"
+],
+"al": [
+"louboutin",
+"louboutins"
+]
+},
+"Manolo Blahnik": {
+"makes": [
+"high heels"
+],
+"al": [
+"manolos"
+]
+},
+"Jimmy Choo": {
+"makes": [
+"high heels"
+],
+"al": []
+},
+"Clarks": {
+"makes": [
+"shoe"
+],
+"al": []
+},
+"Hush Puppies": {
+"makes": [
+"shoe"
+],
+"al": []
+},
+"Church's": {
+"makes": [
+"brogues"
+],
+"al": []
+},
+"Red Wing": {
+"makes": [
+"boots"
+],
+"al": []
+},
+"Hunter": {
+"makes": [
+"wellies"
+],
+"al": [
+"hunter boots"
+]
+},
+"Levi's": {
+"makes": [
+"jeans"
+],
+"al": [
+"levis",
+"levi strauss"
+]
+},
+"Wrangler": {
+"makes": [
+"jeans"
+],
+"al": []
+},
+"Lee": {
+"makes": [
+"jeans"
+],
+"al": []
+},
+"True Religion": {
+"makes": [
+"jeans"
+],
+"al": []
+},
+"Ray-Ban": {
+"makes": [
+"sunglasses"
+],
+"al": [
+"rayban",
+"ray bans"
+]
+},
+"Oakley": {
+"makes": [
+"sunglasses"
+],
+"al": []
+},
+"Persol": {
+"makes": [
+"sunglasses"
+],
+"al": []
+},
+"Warby Parker": {
+"makes": [
+"glasses"
+],
+"al": []
+},
+"Gucci": {
+"makes": [
+"shoe",
+"belt",
+"sunglasses"
+],
+"al": []
+},
+"Prada": {
+"makes": [
+"shoe",
+"sunglasses"
+],
+"al": []
+},
+"Louis Vuitton": {
+"makes": [
+"belt",
+"scarf"
+],
+"al": [
+"lv"
+]
+},
+"Chanel": {
+"makes": [
+"jacket",
+"shoe"
+],
+"al": []
+},
+"Hermès": {
+"makes": [
+"scarf",
+"tie",
+"belt"
+],
+"al": [
+"hermes"
+]
+},
+"Burberry": {
+"makes": [
+"trench coat",
+"scarf"
+],
+"al": []
+},
+"Versace": {
+"makes": [
+"shirt"
+],
+"al": []
+},
+"Dior": {
+"makes": [
+"shoe",
+"dress"
+],
+"al": [
+"christian dior"
+]
+},
+"Balenciaga": {
+"makes": [
+"trainers",
+"hoodie"
+],
+"al": []
+},
+"Armani": {
+"makes": [
+"suit"
+],
+"al": [
+"giorgio armani",
+"emporio armani"
+]
+},
+"Ralph Lauren": {
+"makes": [
+"polo shirt"
+],
+"al": [
+"polo ralph lauren"
+]
+},
+"Lacoste": {
+"makes": [
+"polo shirt"
+],
+"al": []
+},
+"Fred Perry": {
+"makes": [
+"polo shirt"
+],
+"al": []
+},
+"Tommy Hilfiger": {
+"makes": [
+"shirt",
+"jacket"
+],
+"al": []
+},
+"Calvin Klein": {
+"makes": [
+"underpants",
+"jeans"
+],
+"al": [
+"ck"
+]
+},
+"Supreme": {
+"makes": [
+"hoodie",
+"t-shirt"
+],
+"al": []
+},
+"Stone Island": {
+"makes": [
+"jacket"
+],
+"al": []
+},
+"Canada Goose": {
+"makes": [
+"parka"
+],
+"al": []
+},
+"Moncler": {
+"makes": [
+"puffer jacket"
+],
+"al": []
+},
+"The North Face": {
+"makes": [
+"jacket",
+"puffer jacket"
+],
+"al": [
+"north face",
+"tnf"
+]
+},
+"Patagonia": {
+"makes": [
+"fleece",
+"jacket"
+],
+"al": []
+},
+"Barbour": {
+"makes": [
+"jacket"
+],
+"al": []
+},
+"Arc'teryx": {
+"makes": [
+"jacket"
+],
+"al": [
+"arcteryx"
+]
+},
+"Columbia": {
+"makes": [
+"jacket"
+],
+"al": []
+},
+"Champion": {
+"makes": [
+"hoodie",
+"sweatshirt"
+],
+"al": []
+},
+"Carhartt": {
+"makes": [
+"jacket",
+"beanie"
+],
+"al": []
+},
+"Victoria's Secret": {
+"makes": [
+"bra",
+"lingerie"
+],
+"al": [
+"victorias secret"
+]
+},
+"Spanx": {
+"makes": [
+"shapewear"
+],
+"al": []
+},
+"Speedo": {
+"makes": [
+"swimsuit",
+"swimming trunks"
+],
+"al": []
+},
+"Stetson": {
+"makes": [
+"cowboy hat"
+],
+"al": []
+},
+"Kangol": {
+"makes": [
+"flat cap",
+"beret"
+],
+"al": []
+},
+"Borsalino": {
+"makes": [
+"fedora"
+],
+"al": []
+},
+"Uniqlo": {
+"makes": [
+"t-shirt",
+"jacket"
+],
+"al": []
+},
+"Zara": {
+"makes": [
+"dress",
+"jacket"
+],
+"al": []
+},
+"H&M": {
+"makes": [
+"t-shirt",
+"dress"
+],
+"al": [
+"h and m"
+]
+},
+"Gap": {
+"makes": [
+"jeans",
+"hoodie"
+],
+"al": []
+},
+"Hanes": {
+"makes": [
+"t-shirt",
+"underpants"
+],
+"al": []
+}
+},
+"models": {
+"Submariner": {
+"brand": "Rolex",
+"is": "watch",
+"al": [
+"sub"
+]
+},
+"Daytona": {
+"brand": "Rolex",
+"is": "watch",
+"al": [
+"cosmograph daytona"
+]
+},
+"Datejust": {
+"brand": "Rolex",
+"is": "watch",
+"al": []
+},
+"Day-Date": {
+"brand": "Rolex",
+"is": "watch",
+"al": [
+"president"
+]
+},
+"GMT-Master": {
+"brand": "Rolex",
+"is": "watch",
+"al": [
+"gmt master ii",
+"pepsi"
+]
+},
+"Explorer": {
+"brand": "Rolex",
+"is": "watch",
+"al": []
+},
+"Oyster Perpetual": {
+"brand": "Rolex",
+"is": "watch",
+"al": []
+},
+"Yacht-Master": {
+"brand": "Rolex",
+"is": "watch",
+"al": []
+},
+"Speedmaster": {
+"brand": "Omega",
+"is": "watch",
+"al": [
+"moonwatch",
+"speedy"
+]
+},
+"Seamaster": {
+"brand": "Omega",
+"is": "watch",
+"al": []
+},
+"Constellation": {
+"brand": "Omega",
+"is": "watch",
+"al": []
+},
+"Tank": {
+"brand": "Cartier",
+"is": "watch",
+"al": [
+"tank louis cartier",
+"tank francaise"
+]
+},
+"Santos": {
+"brand": "Cartier",
+"is": "watch",
+"al": []
+},
+"Ballon Bleu": {
+"brand": "Cartier",
+"is": "watch",
+"al": []
+},
+"Love bracelet": {
+"brand": "Cartier",
+"is": "bracelet",
+"al": []
+},
+"Royal Oak": {
+"brand": "Audemars Piguet",
+"is": "watch",
+"al": []
+},
+"Nautilus": {
+"brand": "Patek Philippe",
+"is": "watch",
+"al": []
+},
+"Aquanaut": {
+"brand": "Patek Philippe",
+"is": "watch",
+"al": []
+},
+"Calatrava": {
+"brand": "Patek Philippe",
+"is": "watch",
+"al": []
+},
+"Reverso": {
+"brand": "Jaeger-LeCoultre",
+"is": "watch",
+"al": []
+},
+"Carrera": {
+"brand": "TAG Heuer",
+"is": "watch",
+"al": []
+},
+"Monaco": {
+"brand": "TAG Heuer",
+"is": "watch",
+"al": []
+},
+"Navitimer": {
+"brand": "Breitling",
+"is": "watch",
+"al": []
+},
+"G-Shock": {
+"brand": "Casio",
+"is": "watch",
+"al": [
+"gshock"
+]
+},
+"F-91W": {
+"brand": "Casio",
+"is": "watch",
+"al": [
+"f91w"
+]
+},
+"Black Bay": {
+"brand": "Tudor",
+"is": "watch",
+"al": []
+},
+"Luminor": {
+"brand": "Panerai",
+"is": "watch",
+"al": []
+},
+"Big Bang": {
+"brand": "Hublot",
+"is": "watch",
+"al": []
+},
+"Overseas": {
+"brand": "Vacheron Constantin",
+"is": "watch",
+"al": []
+},
+"Portugieser": {
+"brand": "IWC",
+"is": "watch",
+"al": []
+},
+"Prospex": {
+"brand": "Seiko",
+"is": "watch",
+"al": []
+},
+"Apple Watch": {
+"brand": "Apple",
+"is": "watch",
+"al": []
+},
+"Fitbit": {
+"brand": "Fitbit",
+"is": "watch",
+"al": []
+},
+"Fenix": {
+"brand": "Garmin",
+"is": "watch",
+"al": []
+},
+"Air Force 1": {
+"brand": "Nike",
+"is": "trainers",
+"al": [
+"af1",
+"air forces"
+]
+},
+"Air Jordan": {
+"brand": "Nike",
+"is": "trainers",
+"al": [
+"jordans",
+"jordan 1",
+"air jordan 1"
+]
+},
+"Air Max": {
+"brand": "Nike",
+"is": "trainers",
+"al": [
+"air max 90",
+"air max 1"
+]
+},
+"Cortez": {
+"brand": "Nike",
+"is": "trainers",
+"al": []
+},
+"Dunk": {
+"brand": "Nike",
+"is": "trainers",
+"al": [
+"dunks",
+"sb dunk"
+]
+},
+"Blazer": {
+"brand": "Nike",
+"is": "trainers",
+"al": []
+},
+"Samba": {
+"brand": "Adidas",
+"is": "trainers",
+"al": [
+"sambas"
+]
+},
+"Stan Smith": {
+"brand": "Adidas",
+"is": "trainers",
+"al": []
+},
+"Superstar": {
+"brand": "Adidas",
+"is": "trainers",
+"al": []
+},
+"Gazelle": {
+"brand": "Adidas",
+"is": "trainers",
+"al": []
+},
+"Ultraboost": {
+"brand": "Adidas",
+"is": "trainers",
+"al": []
+},
+"Yeezy": {
+"brand": "Adidas",
+"is": "trainers",
+"al": [
+"yeezys"
+]
+},
+"Chuck Taylor All Star": {
+"brand": "Converse",
+"is": "converse",
+"al": [
+"chuck taylors",
+"chucks",
+"all star"
+]
+},
+"Old Skool": {
+"brand": "Vans",
+"is": "trainers",
+"al": []
+},
+"Sk8-Hi": {
+"brand": "Vans",
+"is": "trainers",
+"al": []
+},
+"Club C": {
+"brand": "Reebok",
+"is": "trainers",
+"al": []
+},
+"Suede": {
+"brand": "Puma",
+"is": "trainers",
+"al": []
+},
+"990": {
+"brand": "New Balance",
+"is": "trainers",
+"al": []
+},
+"550": {
+"brand": "New Balance",
+"is": "trainers",
+"al": []
+},
+"Gel-Lyte": {
+"brand": "Asics",
+"is": "trainers",
+"al": []
+},
+"1460": {
+"brand": "Dr. Martens",
+"is": "doc martens",
+"al": []
+},
+"Classic Short": {
+"brand": "UGG",
+"is": "uggs",
+"al": []
+},
+"501": {
+"brand": "Levi's",
+"is": "jeans",
+"al": [
+"501s"
+]
+},
+"Wayfarer": {
+"brand": "Ray-Ban",
+"is": "sunglasses",
+"al": [
+"wayfarers"
+]
+},
+"Aviator": {
+"brand": "Ray-Ban",
+"is": "sunglasses",
+"al": [
+"aviators"
+]
+},
+"Clubmaster": {
+"brand": "Ray-Ban",
+"is": "sunglasses",
+"al": []
+},
+"Holbrook": {
+"brand": "Oakley",
+"is": "sunglasses",
+"al": []
+},
+"Expedition Parka": {
+"brand": "Canada Goose",
+"is": "parka",
+"al": []
+},
+"Maya": {
+"brand": "Moncler",
+"is": "puffer jacket",
+"al": []
+},
+"Nuptse": {
+"brand": "The North Face",
+"is": "puffer jacket",
+"al": []
+},
+"Better Sweater": {
+"brand": "Patagonia",
+"is": "fleece",
+"al": []
+},
+"Bedale": {
+"brand": "Barbour",
+"is": "jacket",
+"al": []
+},
+"Birkin": {
+"brand": "Hermès",
+"is": "bag",
+"al": []
+},
+"Kelly": {
+"brand": "Hermès",
+"is": "bag",
+"al": []
+},
+"Speedy": {
+"brand": "Louis Vuitton",
+"is": "bag",
+"al": []
+},
+"Neverfull": {
+"brand": "Louis Vuitton",
+"is": "bag",
+"al": []
+},
+"Boston": {
+"brand": "Birkenstock",
+"is": "clog",
+"al": []
+},
+"Arizona": {
+"brand": "Birkenstock",
+"is": "sandals",
+"al": []
+}
+}
+}
+}

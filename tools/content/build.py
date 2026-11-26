@@ -181,11 +181,12 @@ def schedule(qs=None, reps=None, seed=7):
     sched = json.load(open(sched_path)) if os.path.exists(sched_path) else {"days": {}}
     today = (datetime.date.today() - datetime.date(2026, 11, 24)).days + 1      # day 1 = launch (24 Nov 2026)
     # Days already published (today and earlier) never change. Future days are rebuilt from the approved pool.
-    fixed = {d: v for d, v in sched["days"].items() if int(d) <= today + 1}
+    fixed = {d: v for d, v in sched["days"].items() if int(d) <= today + 2}   # today, tomorrow (already begun east of UTC) and the day after
     used = {q for v in fixed.values() for q in v}
     # Ready questions, minus any an editor has turned down, plus held-back ones an editor has approved by hand
     # (cms.py approve). An approval can lift a question with no flags that only missed the score; never a rejected one or a duplicate.
-    ok = lambda i, r: (r["status"] == "ready" and byid[i].get("approved") is not False) or (r["status"] == "review" and byid[i].get("approved") is True and not r["flags"])
+    ok = lambda i, r: (r["status"] == "ready" and byid[i].get("approved") is not False) or (r["status"] == "review" and byid[i].get("approved") is True and not r["flags"]) \
+        or (byid[i].get("set") == "curated-1" and byid[i].get("approved") is True and r["status"] != "reject")   # the curated set, approved by the owner (26 Nov 2026)
     pool = [byid[i] for i, r in reps.items() if i in byid and i not in used and ok(i, r)]
     rng = random.Random(seed)
     rng.shuffle(pool)
@@ -202,6 +203,9 @@ def schedule(qs=None, reps=None, seed=7):
     planned = {}
     for q in pool:
         if q.get("plan") and q.get("set"): planned.setdefault(FIRST_NEW_DAY + int(q["plan"]["day"]) - 1, []).append(q)
+    # Where two sets planned the same day, the curated set keeps it; the other's questions go back into the pool.
+    for d, v in planned.items():
+        if any(q.get("set") == "curated-1" for q in v): planned[d] = [q for q in v if q.get("set") == "curated-1"]
     for v in planned.values(): v.sort(key=lambda q: q["plan"].get("slot", 9))
     reserved = {id(q) for d, v in planned.items() if d >= day for q in v}
     def penalty(q, chosen):
@@ -269,7 +273,8 @@ def client_question(q, rows):
         out.append(row)
     return {"key": q["id"], "title": q["title"], "icon": q["icon"], "prompt": voiced(q), "hint": q["hint"], "rules": q["rules"]["player"],
             "answers": out, "general": q.get("general", []), "notIn": q.get("notIn", []), "category": q["category"],
-            "criteria": {k: q["rules"].get(k) for k in ("accept", "exclude", "granularity", "synonyms") if q["rules"].get(k)}}
+            "criteria": {k: q["rules"].get(k) for k in ("accept", "exclude", "granularity", "synonyms") if q["rules"].get(k)},
+            **({"kb": q["client_kb"]} if q.get("client_kb") else {}), **({"granularity": q["granularity_mode"]} if q.get("granularity_mode") else {})}
 
 def client_depth(share):
     """The game's own rule (iceberg.js depthOf), so the build can check the files agree with the server."""
@@ -277,16 +282,92 @@ def client_depth(share):
     d = max(1, math.floor(100 * math.log10(SURFACE / share) + 0.5))
     return BEYOND_M - 1 if d >= BEYOND_M and not round(share * 120000) >= 3 else d
 
+# ---------- the daily mix of round types (from MIX_FROM) ----------
+# Most days: the opener and one more ordinary rarity round, one rarity target, one forbidden round and one special
+# (risk and reward or sea mines, alternating; a wildcard when the day has a lateral question). Some days swap the
+# target or the forbidden round for a third rarity round. Everything follows from the day number (a fixed seed), so
+# every player gets the same day. A round type only goes on a question that can carry it (enough answers measured
+# by estimate, a target band with answers in it). Rules and scoring: rounds.js, and supabase/0010 + 0011 on the server.
+MIX_FROM = 6
+TARGETS = [dict(lo=0.01, hi=0.03), dict(goal="closest", pct=0.005, rule="Get as close as you can to 0.5% of players: uncommon, not obscure."),
+           dict(lo=0.003, hi=0.02, rule="Uncommon but not obscure: an answer 0.3% to 2% of players give."), dict(goal="common", rule="Find the most common answer.")]
+SHAPES = [["std", "std", "target", "forbidden", "special"]] * 4 + [["std", "std", "std", "target", "special"], ["std", "std", "std", "forbidden", "special"]]
+
+def _measured(cq): return sorted([a["s"] for a in cq["answers"] if not a.get("pv")], reverse=True)
+def _target_mode(cq, t):
+    s = _measured(cq)
+    if len(s) < 40: return None
+    m = {"type": "target", **{k: v for k, v in t.items()}}
+    if t.get("goal") == "common": m["top"] = s[0]; lo, hi = s[0] * 0.999, 1
+    elif t.get("goal") == "closest": lo, hi = t["pct"] / 1.18, t["pct"] * 1.18
+    else: lo, hi = t["lo"], t["hi"]
+    return m if sum(lo <= x <= hi for x in s) >= (1 if t.get("goal") == "common" else 3) else None
+def _forbid_mode(cq, n):
+    rows = sorted([a for a in cq["answers"] if not a.get("pv")], key=lambda a: -a["s"])
+    if len(rows) < 60: return None
+    return {"type": "forbidden", "forbid": [a["a"] for a in rows[:n]]}
+def _mines_mode(cq):
+    s = _measured(cq)
+    if len(s) < 45: return None
+    band = lambda x, w: {"lo": round(x / w, 7), "hi": round(x * w, 7)}
+    m1, m2 = band(s[12], 1.6), band(s[max(30, len(s) // 3)], 1.6)
+    if m2["hi"] >= m1["lo"]: m2 = band(m1["lo"] / 4, 1.6)
+    return {"type": "mines", "mines": [m1, m2]}
+
+def mix(day, qlist, styles):
+    """Round types for one day's client questions (in place). The first question stays an ordinary rarity round."""
+    if day < MIX_FROM:
+        for cq in qlist: cq.pop("mode", None)
+        return
+    # Round types a question was written for come first, but a day never has two of one kind (a risk at most once a
+    # day), more than three that aren't ordinary, or an opener that isn't ordinary.
+    if qlist and qlist[0].get("mode"): qlist[0].pop("mode")
+    seen = set()
+    for cq in qlist[1:]:
+        k = (cq.get("mode") or {}).get("type")
+        if k and (k in seen or len(seen) >= 3): cq.pop("mode")
+        elif k: seen.add(k)
+    r = random.Random(day * 104729 + 17)
+    shape = SHAPES[r.randrange(len(SHAPES))]
+    want = [k for k in shape[2:] if k != "std"]   # round types for questions 2-5; the rest stay ordinary
+    special = "mines" if day % 2 else "risk"
+    if any(st in ("lateral", "wildcard") for st in styles[1:]) and r.random() < 0.5: special = "wildcard"
+    free = [i for i in range(1, len(qlist)) if not qlist[i].get("mode")]
+    r.shuffle(free)
+    have = {(q.get("mode") or {}).get("type") for q in qlist} - {None}
+    want = [k for k in want if (special if k == "special" else k) not in have and not (k == "special" and have & {"risk", "mines", "wildcard"})][:max(0, 3 - len(have))]
+    for k in want:
+        for i in list(free):
+            cq = qlist[i]
+            if k == "target": m = _target_mode(cq, TARGETS[r.randrange(len(TARGETS))])
+            elif k == "forbidden": m = _forbid_mode(cq, r.choice([5, 6, 7]))
+            elif special == "wildcard": m = {"type": "wildcard"} if styles[i] in ("lateral", "wildcard") else None
+            elif special == "mines": m = _mines_mode(cq) or {"type": "risk"}
+            else: m = {"type": "risk"}
+            if m: cq["mode"] = m; free.remove(i); break
+
 def days(public=False):
     qs = {q["id"]: q for q in load_questions()}
     sched = json.load(open(os.path.join(C, "schedule.json")))
     outd = os.path.join(C, "build", "days"); outs = os.path.join(C, "build", "sql")
     os.makedirs(outd, exist_ok=True); os.makedirs(outs, exist_ok=True)
     for d, ids in sorted(sched["days"].items(), key=lambda x: int(x[0])):
-        day = int(d); qlist = []; sql = [f"-- Day {day}: built by tools/content/build.py. Safe to run again.", "begin;"]
+        day = int(d); qlist = []; tables = []; keysets = []; sql = [f"-- Day {day}: built by tools/content/build.py. Safe to run again.", "begin;"]
         for rnd, i in enumerate(ids, 1):
             q = qs[i]; rows, _ = answers_of(q); cq = client_question(q, rows); qlist.append(cq)
-            table = {r["a"] if r["a"][:1].isupper() else norm(r["a"]): [round(r["p"], 7), depth_of(r["p"], bool(r.get("pv")))] for r in rows}
+            if q.get("mode"):   # a round type the question was written for: re-read against the published answers
+                m = dict(q["mode"]); have = {norm(x["a"]): x["a"] for x in cq["answers"]}
+                if m.get("type") == "forbidden": m["forbid"] = [have[norm(f)] for f in m.get("forbid", []) if norm(f) in have]
+                if m.get("type") == "mines": m = _mines_mode(cq) or {"type": "risk"}
+                if m.get("type") == "target" and m.get("goal") == "common": m["top"] = _measured(cq)[0]
+                cq["mode"] = m
+            # The server keeps the share the game shows (capped where there's no evidence yet), so a target band or a
+            # mine reads the same number on both sides; the depth is the same either way.
+            pub = {x["a"]: x["s"] for x in cq["answers"]}
+            table = {}
+            for r in rows:
+                k = r["a"] if r["a"][:1].isupper() else norm(r["a"])
+                table.setdefault(k, [pub.get(k, round(r["p"], 7)), depth_of(r["p"], bool(r.get("pv"))), bool(r.get("pv"))])
             shown = {x["a"]: client_depth(x["s"]) for x in cq["answers"]}
             wrong = [k for k, v in table.items() if k in shown and shown[k] != v[1]]
             if wrong: sys.exit(f"day {day} round {rnd}: the game would show a different depth from the server for {wrong[:5]}")
@@ -296,11 +377,14 @@ def days(public=False):
                 for n in [r["a"], *r.get("al", [])]:
                     k = norm(n)
                     if k and k not in keys: keys[k] = canon
+            tables.append(table); keysets.append(keys)
+        mix(day, qlist, [qs[i].get("style", "") for i in ids])
+        for rnd, (table, keys) in enumerate(zip(tables, keysets), 1):
             sql.append(f"delete from public.set_answers where set_id = {day} and round = {rnd}; delete from public.set_keys where set_id = {day} and round = {rnd};")
-            sql.append(f"insert into public.set_answers select {day}, {rnd}, key, (value->>0)::double precision, (value->>1)::int from jsonb_each({sql_q(json.dumps(table, separators=(',', ':')))}::jsonb);")
+            sql.append(f"insert into public.set_answers (set_id, round, answer, share, depth, pv) select {day}, {rnd}, key, (value->>0)::double precision, (value->>1)::int, (value->>2)::boolean from jsonb_each({sql_q(json.dumps(table, separators=(',', ':')))}::jsonb);")
             sql.append(f"insert into public.set_keys select {day}, {rnd}, key, value #>> '{{}}' from jsonb_each({sql_q(json.dumps(keys, separators=(',', ':')))}::jsonb);")
         payload = {"v": 4, "day": day, "questions": qlist}
-        meta = [{"key": q["key"], "title": q["title"]} for q in qlist]
+        meta = [{"key": q["key"], "title": q["title"], **({"mode": q["mode"]} if q.get("mode") else {})} for q in qlist]
         sql.insert(2, f"insert into public.answer_sets values ({day}, {sql_q(json.dumps(meta))}::jsonb) on conflict (set_id) do update set questions = excluded.questions;")
         sql.append(f"insert into public.content_days (day, set_id, payload) values ({day}, {day}, {sql_q(json.dumps(payload, separators=(',', ':')))}::jsonb) on conflict (day) do update set payload = excluded.payload, set_id = excluded.set_id;")
         sql.append("commit;")

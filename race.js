@@ -384,9 +384,19 @@
     const waiting = h("span.r-wait", "\u00a0");
     const code = h("input", { type: "text", maxLength: 6, placeholder: "CODE", autocapitalize: "characters", autocomplete: "off", spellcheck: false, "aria-label": "Race code", enterkeyhint: "go" });
     const err = h("p.msg.bad", { role: "status" }, error || "");
+    // Ranked 1v1 first: your division and rating, and one button. Then the unranked ways to race.
+    const rk = h("div.rk-card", h("div.rk-me", h("span.rk-badge-slot"), h("div", h("p.eyebrow", "Ranked 1v1"), h("b.rk-div", "\u00a0"), h("span.rk-elo", "\u00a0"))),
+      h("button.btn.wide", { type: "button", id: "r-ranked", onclick: () => searchRanked() }, "Find a ranked match"),
+      h("p.fine.center", "One opponent near your rating. 5 questions, 20 seconds, deepest total wins."),
+      h("button.link", { type: "button", id: "r-board", onclick: () => rankedBoard() }, "Ranked leaderboard"));
+    add(box, rk);
+    A.rpc("ranked_profile", {}).then(pr => { const R = window.Ranked; if (!pr || !R) return; const d = R.divisionOf(pr.elo);
+      rk.querySelector(".rk-badge-slot").replaceWith(R.badge(pr.elo, 3)); rk.querySelector(".rk-div").textContent = d.name; rk.querySelector(".rk-div").style.color = d.colour;
+      rk.querySelector(".rk-elo").textContent = `${fmt(pr.elo)} rating${pr.placement_left ? ` \u00b7 ${pr.placement_left} placement match${pr.placement_left === 1 ? "" : "es"} left` : ` \u00b7 ${pr.wins}W ${pr.losses}L${pr.draws ? ` ${pr.draws}D` : ""}`}`; }).catch(() => {});
     add(box,
       h("div.r-choices",
-        h("button.btn.wide", { type: "button", id: "r-quick", onclick: e => act(e.currentTarget, async () => { race = await call("race_quick"); enter(); }, err) }, "Quick race"),
+        h("p.eyebrow.r-unranked", "Unranked"),
+        h("button.btn.wide.ghost", { type: "button", id: "r-quick", onclick: e => act(e.currentTarget, async () => { race = await call("race_quick"); enter(); }, err) }, "Quick race"),
         h("p.fine.center.r-waiting", waiting),
         h("div.r-pair",
           h("button.btn.ghost", { type: "button", id: "r-private", onclick: e => act(e.currentTarget, async () => { race = await call("race_create", { p_kind: "private" }); enter(); }, err) }, "Race friends"),
@@ -425,8 +435,70 @@
     if (st === "lobby") return lobby(changed);
     if (st === "question") return question(changed);
     if (st === "between") return between(changed);
-    if (st === "finished") return results(changed);
+    if (st === "finished") return race.kind === "ranked" ? rankedResults(changed) : results(changed);
   }
+
+  // ----- Ranked -----
+  let searchTimer = 0;
+  async function searchRanked() {
+    view = "search"; stopPolling(); fleet(true);
+    const box = dock(); box.textContent = ""; box.className = "rdock home landing";
+    const status = h("p.rk-status", { role: "status" }, "Looking for an opponent\u2026"), detail = h("p.fine.center", "\u00a0");
+    add(box, h("div.q", h("p.eyebrow.r-live", h("i"), "Ranked 1v1"), h("h2.r-title", "Finding an opponent"), status, detail),
+      h("div.r-choices", h("button.btn.wide.ghost", { type: "button", id: "r-cancel", onclick: () => { clearTimeout(searchTimer); A.rpc("ranked_cancel").catch(() => {}); showHome(); } }, "Cancel")));
+    const step = async () => {
+      if (view !== "search") return;
+      try {
+        const res = await call("ranked_find");
+        if (res.status === "matched") { race = res.race; window.Sound.play("go"); return enter(); }
+        status.textContent = res.searching > 1 ? `${res.searching - 1} other player${res.searching === 2 ? " is" : "s are"} searching` : "Waiting for another player to search";
+        detail.textContent = `Within \u00b1${res.range} of your rating (${fmt(res.elo)}) \u00b7 ${res.waited}s`;
+      } catch (e) { status.textContent = e.message === "sign_in_required" ? "Sign in to play ranked." : "Can't reach the race service. Retrying\u2026"; }
+      searchTimer = setTimeout(step, 2000);
+    };
+    step();
+  }
+  async function rankedBoard() {
+    view = "board"; const box = dock(); box.textContent = ""; box.className = "rdock home landing";
+    const list = h("ol.rows.rk-board"), R = window.Ranked;
+    add(box, h("div.q", h("p.eyebrow", "Ranked 1v1"), h("h2.r-title", "Leaderboard")), list,
+      h("p.fine", "Players appear after ten placement matches. Separate from the daily rankings."), h("button.link", { type: "button", onclick: () => showHome() }, "Back"));
+    try {
+      const rows = await A.rpc("ranked_board", { p_limit: 50, p_offset: 0 });
+      if (!rows.length) add(list, h("li.empty", "Nobody has finished their placement matches yet."));
+      rows.forEach(x => add(list, h("li" + (x.me ? ".me" : ""), h("span.rank-n", "#" + x.place), R.badge(x.elo, 2), h("span.name", x.username), h("span.sub", `${x.wins}W ${x.losses}L`), h("b", fmt(x.elo)))));
+    } catch { add(list, h("li.empty", "Can't load the leaderboard right now.")); }
+  }
+  // Victory, defeat or a draw; the rating change; promotion or demotion; then question by question.
+  async function rankedResults(changed) {
+    view = "results"; live(false);
+    if (!changed && !rankedWaiting) return;
+    const r = race, R = window.Ranked; let res;
+    try { res = await A.rpc("ranked_result", { p_race: r.id }); } catch { res = { outcome: "error", players: [] }; }
+    const me = res.players.find(p => p.me), them = res.players.find(p => !p.me) || { username: (r.players.find(p => !p.me) || {}).username || "Opponent" };
+    rankedWaiting = res.outcome === "waiting";
+    if (rankedWaiting) { clearTimeout(rankedTimer); rankedTimer = setTimeout(() => { if (race && race.id === r.id) rankedResults(true); }, 5000); }
+    const box = dock(); box.textContent = ""; box.className = "rdock results";
+    const title = rankedWaiting ? "Checking answers" : !me ? "Match over" : me.result === "win" ? "Victory" : me.result === "loss" ? "Defeat" : me.result === "draw" ? "Draw" : "No contest";
+    const why = { forfeit: me && me.result === "win" ? `${them.username} left the match.` : "You left the match.", unresolved: "An answer still under review could have changed the result, so this match doesn't count.",
+      repeat_pair: "You've played each other three times today: this one doesn't change your rating.", abandoned: "The match was abandoned." }[me && me.reason] || "";
+    const head = h("div.rk-result" + (me ? "." + me.result : ""),
+      h("p.eyebrow", "Ranked 1v1"), h("h2.r-title", title),
+      rankedWaiting ? h("p.r-sum", "An answer is being checked. The result is decided within three minutes.") : null,
+      me ? h("p.r-sum", h("b", m(me.distance)), " \u2013 ", h("b", m(them.distance || 0)), ` against ${them.username}`) : null, why ? h("p.fine", why) : null);
+    if (me && !rankedWaiting) {
+      const was = R.divisionOf(me.before), now = R.divisionOf(me.after), up = now.from > was.from, down = now.from < was.from;
+      const delta = h("span.rk-delta" + (me.delta > 0 ? ".up" : me.delta < 0 ? ".down" : ""), (me.delta > 0 ? "+" : "") + me.delta);
+      add(head, h("div.rk-change", R.badge(me.after, 3), h("div", h("b.rk-div", { style: `color:${now.colour}` }, now.name), h("span.rk-elo", `${fmt(me.before)} \u2192 ${fmt(me.after)} `, delta)),
+        up ? h("p.rk-promo", `Promoted to ${now.name}`) : down ? h("p.rk-promo.down", `Down to ${now.name}`) : null));
+    }
+    add(box, head);
+    // Question by question, as in any race (answers are visible now the match is over).
+    const tmp = h("div"); const keep = box; await results.call(null, true); const rest = [...dock().querySelectorAll(".r-results > details, .r-results > ol")];
+    keep.textContent = ""; add(keep, head); rest.forEach(n => add(keep, n));
+    add(keep, h("div.row.r-actions", h("button.btn", { type: "button", id: "r-again", onclick: () => { leave(); searchRanked(); } }, "Queue again"), h("button.btn.ghost", { type: "button", onclick: () => leave() }, "Leave")));
+  }
+  let rankedWaiting = false, rankedTimer = 0;
   // Sounds and small events from one state to the next: arrivals, readiness, overtakes, new regions.
   let prev = null;
   function soundsFor(r) {
@@ -441,10 +513,11 @@
       if (prev.status === "finished" && r.status === "lobby") S2.play("rematch");
       const rank = rankOf(r);
       if (r.status === "question" && prev.rank && rank !== prev.rank) S2.play("overtake", { dir: rank < prev.rank ? 1 : -1 });
+      if (rank > prev.rank && r.status === "question" && r.kind === "ranked") { const lead = r.players.find(p => !p.me); if (lead) flash(`${lead.username} took the lead`); }
       if (rank < prev.rank && r.status === "question") { const passed = r.players.filter(p => !p.me).sort((a, b) => b.distance - a.distance)[rank - 1]; if (passed) flash(`You passed ${passed.username}`); }
     }
     // Another racer's Challenger Deep find: everyone sees their submarine light up red and hears it, but not the answer.
-    for (const s of S.subs.values()) if (s.newFind) { s.newFind = false; if (!s.me) { s.beneath = r.round; if (prev && prev.id === r.id) { flash(`${s.name} reached Challenger Deep`); S2.play("unfathomable"); } } }
+    for (const s of S.subs.values()) if (s.newFind) { s.newFind = false; if (!s.me) { s.beneath = r.round; if (prev && prev.id === r.id) { flash(`${s.name} found something Unfathomable`); S2.play("unfathomable"); } } }
     if (r.status !== "question") for (const s of S.subs.values()) s.beneath = 0;
     const me = r.players.find(p => p.me), z = zoneAt(me ? me.distance : 0);
     if (prev && z > lastZone) { S2.play("zone", { level: z }); flash(`${ZONES[z].name}`); }
@@ -591,17 +664,18 @@
     if (rKeep && V.normalize(text) === rKeep) given.noCorrect = true;
     const j = V.judge(text, P, given); if (!j) return;
     // A likely spelling mistake: one answer offered (the race clock keeps running, as for everyone).
-    if (j.status === "confirm") { rConfirm = { key: j.key, row: j.row, raw: j.text }; window.Sound.play("pending"); say(`Did you mean ${j.row.d || j.row.a}? Enter for yes, Escape to keep “${j.text}”.`); input.select(); return; }
-    if (j.status === "dup") { say(`Already tried. No guess used.`, "warn"); window.Sound.play("duplicate"); input.select(); return; }
+    if (j.status === "confirm" && (rChecks.round !== r.round || rChecks.n < 3)) { rChecks = rChecks.round === r.round ? { round: r.round, n: rChecks.n + 1 } : { round: r.round, n: 1 }; rConfirm = { key: j.key, row: j.row, raw: j.text }; window.Sound.play("pending"); say(`Did you mean ${j.row.d || j.row.a}? Enter for yes, Escape to keep “${j.text}”.`); input.select(); return; }
+    if (j.status === "dup") { say(j.row && window.IcebergValidate.normalize(j.text) !== window.IcebergValidate.normalize(j.row.d || j.row.a) ? "You've already discovered this answer. No guess used." : `Already tried. No guess used.`, "warn"); window.Sound.play("duplicate"); input.select(); return; }
     if (j.status === "invalid") { say(`${j.reason}. No guess used.`, "warn"); window.Sound.play("invalid"); const f = $("#r-entry"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); input.select(); return; }
     if (j.status === "pending" && unknownKey !== j.key) { unknownKey = j.key; window.Sound.play("pending"); say(j.suggest ? `Did you mean ${j.suggest.join(" or ")}? Enter again to send “${j.text}” anyway (no depth).` : `“${j.text}” isn't one we know. Enter again uses a guess for no depth.`, "warn"); input.select(); return; }
     return send(text, j);
   }
-  let rConfirm = null, rKeep = "";
+  let rChecks = { round: 0, n: 0 }, rConfirm = null, rKeep = "";
   async function send(text, j) {
     const r = race, input = $("#r-answer"), mine = myRound();
     // A corrected spelling goes to the server as the answer's own name, so its check matches exactly.
-    if (j.status === "ok" && j.row && (j.via === "typo" || j.via === "confirmed" || j.via === "joined")) text = j.row.d || j.row.a;
+    // Another name for it ("Mexican Hairless Dog") goes the same way, so it scores exactly as the answer does.
+    if (j.status === "ok" && j.row && j.via !== "exact") text = j.row.d || j.row.a;
     unknownKey = ""; rKeep = ""; rConfirm = null; busy = true; input.value = "";
     window.Sound.play(mine.length === 2 ? "final" : "submit", { step: mine.length });
     try {
@@ -612,9 +686,9 @@
       const me = race.players.find(p => p.me); if (me) { me.distance = res.distance; me.used = res.slot; }
       const beneath = res.status === "ok" && window.Iceberg.isBeyond(res.depth);
       const sub = [...S.subs.values()].find(s => s.me);
-      if (sub) { sub.dist = res.distance; sub.note = res.status === "ok" ? `${j.row ? (j.row.d || j.row.a) : text} · ${beneath ? "Challenger Deep" : G().pctText(res.share)}` : ""; if (beneath) { sub.beneath = r.round; sub.finds = (sub.finds || 0) + 1; } setTimeout(() => { if (sub.note && sub.dist === res.distance) sub.note = ""; }, beneath ? 6500 : 3200); }
+      if (sub) { sub.dist = res.distance; sub.note = res.status === "ok" ? `${j.row ? (j.row.d || j.row.a) : text} · ${beneath ? "Unfathomable" : G().pctText(res.share)}` : ""; if (beneath) { sub.beneath = r.round; sub.finds = (sub.finds || 0) + 1; } setTimeout(() => { if (sub.note && sub.dist === res.distance) sub.note = ""; }, beneath ? 6500 : 3200); }
       if (res.status !== "ok") say(`Saved for review: no depth.${res.left ? ` ${res.left} left.` : ""}`);
-      else if (beneath) { say(`Challenger Deep: ${res.depth} m, ${G().pctText(res.share)} of players.${res.moved > 0 ? ` Down ${res.moved} m.` : ""}${res.left ? ` ${res.left} left.` : ""}`, "beyond"); if (res.moved > 0) window.Sound.play("thrust", { size: Math.min(1, res.moved / 260) }); window.Sound.play("unfathomable"); }
+      else if (beneath) { say(`Unfathomable: ${res.depth} m, ${G().pctText(res.share)} of players.${res.moved > 0 ? ` Down ${res.moved} m.` : ""}${res.left ? ` ${res.left} left.` : ""}`, "beyond"); if (res.moved > 0) window.Sound.play("thrust", { size: Math.min(1, res.moved / 260) }); window.Sound.play("unfathomable"); }
       else if (res.moved > 0) { say(`${res.depth} m · ${G().pctText(res.share)} of players. Down ${res.moved} m.${res.left ? ` ${res.left} left.` : ""}`, "good"); window.Sound.play("thrust", { size: Math.min(1, res.moved / 260) }); window.Sound.play(res.depth >= 200 ? "rare" : "reveal", { m: res.depth, lead: 0.6 }); }
       else { say(`${res.depth} m · not deeper than your best, so you stay at ${m(res.distance)}.${res.left ? ` ${res.left} left.` : ""}`); window.Sound.play("neutral"); }
       // An exceptional answer: something large comes past your submarine.
@@ -643,7 +717,7 @@
     const nameOf = g => q ? ((q.answers.find(a => a.a === g.answer) || {}).d || g.answer) : g.answer;
     const rows = r.players.slice().sort((a, b) => ((best[b.username] || {}).depth || 0) - ((best[a.username] || {}).depth || 0));
     add(box, h("div.r-between", h("p.eyebrow", `Question ${r.round} of ${r.q_count} · ${title}`), h("h2.r-title", "Deepest answers"),
-      h("ul.r-best", rows.map(p => { const g = best[p.username]; return h("li" + (g && g.depth === top && top > 0 ? ".won" : "") + (p.me ? ".me" : "") + (g && window.Iceberg.isBeyond(g.depth) ? ".beyond" : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` },
+      h("ul.r-best", rows.map(p => { const g = best[p.username]; return h("li" + (g && g.depth === top && top > 0 ? ".won" : "") + (p.me ? ".me" : "") + (g && window.Iceberg.isBeyond(g.depth) ? ".beyond" : "") + (g ? ".tier-" + window.Iceberg.tierOfDepth(g.depth).key : ""), { style: `--who:${window.SubArt.look(p.seat).hull.base}` },
         h("i.r-dot"), h("span.r-name", p.me ? "You" : p.username), h("span.r-ans", g ? nameOf(g) : "nothing counted"), h("span.r-pct", g ? G().pctText(g.share) : ""), h("b", g ? m(g.depth) : "0 m")); })),
       h("p.fine#r-next"), h("button.link#r-leave", { type: "button", onclick: () => { if (confirm("Leave this race? You can't rejoin it once you leave.")) leave(); } }, "Leave race")));
     // The answers, briefly, above each submarine.
@@ -676,7 +750,7 @@
         h("span.r-links", h("button.link", { type: "button", onclick: () => window.Viewer.openRace(r.id, r.match, x.username) }, "Explore"),
           x.username !== r.me && p.friend === false ? h("button.link", { type: "button", onclick: e => act(e.currentTarget, async () => { await A.rpc("friend_request", { p_username: x.username }); e.target.textContent = "Request sent"; }) }, "Add friend") : null)); })),
       h("details.r-answers", h("summary", "Best answer on each question"), h("div.scroll", h("table", h("tr", h("th", "Question"), ...res.map(x => h("th", x.username === r.me ? "You" : x.username))),
-        ...(r.questions || []).map((_, i) => h("tr", h("td", rowsFor(r.me)[i].title), ...res.map(x => { const c = rowsFor(x.username)[i]; return h("td" + (window.Iceberg.isBeyond(c.depth) ? ".beyond" : ""), c.name ? `${c.name} · ${c.depth} m` : "–"); })))))),
+        ...(r.questions || []).map((_, i) => h("tr", h("td", rowsFor(r.me)[i].title), ...res.map(x => { const c = rowsFor(x.username)[i]; return h("td" + (window.Iceberg.isBeyond(c.depth) ? ".beyond" : "") + (c.name ? ".tier-" + window.Iceberg.tierOfDepth(c.depth).key : ""), c.name ? `${c.name} · ${c.depth} m` : "–"); })))))),
       h("div.row.r-actions",
         h("button.btn", { type: "button", id: "r-rematch", onclick: e => act(e.currentTarget, async () => { race = await call("race_rematch", { p_race: r.id }); nudge(); update(); }) }, r.kind === "public" ? "Race again" : r.kind === "practice" ? "Practice again" : "Rematch"),
         h("button.btn.ghost", { type: "button", onclick: () => leave() }, "Leave"))));

@@ -13,7 +13,7 @@ const guess = async (p, text) => { await enter(p, text); await settle(p); };
 // Where the camera is the moment a guess has landed (the results view takes over shortly after the third).
 const landed = async (p, text) => { await enter(p, text); await p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 10000 }); };
 const waitDone = p => p.waitForFunction(() => ICEBERG_TEST.state && ICEBERG_TEST.state.phase === 'done', null, { timeout: 10000 });
-const hint = p => p.textContent('#hint');
+const hint = p => p.evaluate(() => { const a = document.querySelector('#q-ask'); return (document.querySelector('#hint').textContent + ' ' + (a && !a.hidden ? a.textContent : '')).trim(); });   // the hint line, plus a spelling question in the ice panel
 // Nothing on the iceberg overlaps: visible labels, the card and markers.
 const overlaps = p => p.evaluate(() => {
   const vis = n => { const cs = getComputedStyle(n); return !n.classList.contains('dim') && cs.display !== 'none' && +cs.opacity > 0.05; };
@@ -45,15 +45,15 @@ async function fullGame(b, vp) {
   for (const a of ['kangaroo', 'octopus', 'axolotl']) { await guess(p, a); await p.waitForTimeout(350); depths.push(await p.evaluate(() => ICEBERG_TEST.berg.depth)); hints.push(await hint(p)); huds.push(await p.textContent('.ib-depth')); ok(T(`q1 ${a}: nothing overlaps on the iceberg`), !(await overlaps(p)).length, (await overlaps(p)).join('; ')); if (a === 'octopus') await p.screenshot({ path: `tests/shot-${vp}-play.png` }); }
   ok(T('q1 rarer each time: camera goes deeper each guess'), depths[0] > 0 && depths[1] > depths[0] && depths[2] > depths[1], depths.join(' < '));
   ok(T('q1: depth gauge matches each answer'), huds.every((h, i) => h === depths[i] + ' m'), huds.join(', '));
-  ok(T('q1: feedback says first depth, then "New deepest" twice'), /m down\. Can you go deeper/.test(hints[0]) && /New deepest: \d+ m, \d+ m further down/.test(hints[1]) && /New deepest/.test(hints[2]), hints.join(' || '));
+  ok(T('q1: feedback says how far the first takes you, then how much further each better one goes'), /^\+\d+ m\. You're down to \d+ m/.test(hints[0]) && /\+\d+ m beats your \+\d+ m: \d+ m further down, to \d+ m/.test(hints[1]) && /beats your/.test(hints[2]), hints.join(' || '));
   ok(T('q1: input stayed in place and focused'), Math.abs((await p.locator('#answer').boundingBox()).y - inputY) < 1 && await p.evaluate(() => document.activeElement.id === 'answer'));
   st = await slots(p);
-  ok(T('q1: slots show name, share, zone and depth; the third is marked deepest'), st.every(s => /done/.test(s.cls) && /%/.test(s.text) && /\d+m/.test(s.text)) && /best/.test(st[2].cls) && !/best/.test(st[0].cls) && /Deepest/i.test(st[2].text) && (vp !== 'desk' || /Midwater/.test(st[0].text)), st.map(s => s.text).join(' || '));
+  ok(T('q1: slots show name, share, zone and depth; the third is marked deepest'), st.every(s => /done/.test(s.cls) && /%/.test(s.text) && /\d+m/.test(s.text)) && /best/.test(st[2].cls) && !/best/.test(st[0].cls) && /Counts/i.test(st[2].text) && (vp !== 'desk' || /Rare/.test(st[0].text)), st.map(s => s.text).join(' || '));
   ok(T('q1: all three markers stay on the iceberg'), await p.evaluate(() => document.querySelectorAll('.ib-mark').length === 3));
   await waitDone(p); await p.waitForTimeout(400);
   let d = await p.evaluate(() => ({ best: document.querySelector('#best-name').textContent, depth: document.querySelector('#best-depth').textContent, rows: document.querySelectorAll('#sum li').length, bars: [...document.querySelectorAll('#common li, #rare li')].map(l => l.innerText.replace(/\n/g, ' ')), players: document.querySelector('#players').textContent, sample: !document.querySelector('#sample-note').hidden, meta: document.querySelector('#top-meta').textContent }));
-  ok(T('q1 results: deepest answer and its depth are the score'), d.best === 'axolotl' && d.depth === depths[2] + 'm' && d.meta === depths[2] + ' m', `${d.best} ${d.depth} / header ${d.meta}`);
-  ok(T('q1 results: 5 common + 5 rare with % and player counts, labelled sample data'), d.bars.length === 10 && d.bars.every(x => /%\s*·\s*[\d,]+/.test(x)) && /Sample data · 50,000 simulated players/.test(d.players) && d.sample, d.bars[0] + ' ... ' + d.bars[9]);
+  ok(T('q1 results: deepest answer and its depth are the score'), d.best === 'axolotl' && d.depth === '+' + depths[2] + 'm' && d.meta === depths[2] + ' m', `${d.best} ${d.depth} / header ${d.meta}`);
+  ok(T('q1 results: 5 common + 5 rare with %, labelled as estimates, and no invented head-counts'), d.bars.length === 10 && d.bars.every(x => /%/.test(x) && !/·\s*[\d,]+/.test(x)) && /^Estimated/.test(d.players) && !/simulated/.test(d.players) && d.sample, d.bars[0] + ' ... ' + d.bars[9]);
   ok(T('q1 results layout'), !(await audit(p)).length, (await audit(p)).join('; '));
   await p.screenshot({ path: `tests/shot-${vp}-done.png` });
   // Compare guesses without replaying.
@@ -69,7 +69,7 @@ async function fullGame(b, vp) {
   for (const a of ['jabuticaba', 'apple', 'kiwi']) { await landed(p, a); d2.push(await p.evaluate(() => ICEBERG_TEST.berg.depth)); await p.waitForTimeout(250); h2.push(await hint(p)); ok(T(`q2 ${a}: nothing overlaps`), !(await overlaps(p)).length, (await overlaps(p)).join('; ')); }
   st = await slots(p);
   ok(T('q2 rarest first: camera rises to the real spot of later guesses (not forced deeper)'), d2[0] > 200 && d2[1] === 0 && d2[2] > 0 && d2[2] < d2[0], d2.join(', '));
-  ok(T('q2: first guess stays the deepest; later ones get neutral feedback'), /best/.test(st[0].cls) && !/best/.test(st[1].cls) && !/best/.test(st[2].cls) && /Not deeper\. Your \d+ m still counts\. 1 guess left/.test(h2[1]) && /Not deeper/.test(h2[2]), h2.join(' || '));
+  ok(T('q2: first guess stays the deepest; later ones get neutral feedback'), /best/.test(st[0].cls) && !/best/.test(st[1].cls) && !/best/.test(st[2].cls) && /Your \+\d+ m still counts: you stay at \d+ m\. 1 guess left/.test(h2[1]) && /still counts/.test(h2[2]), h2.join(' || '));
   await waitDone(p);
   ok(T('q2: score is still the first guess'), await p.evaluate(() => document.querySelector('#best-name').textContent === 'jabuticaba'), await p.textContent('#best-depth'));
   await p.click('#next');
@@ -83,24 +83,26 @@ async function fullGame(b, vp) {
   // Q4: typo, duplicate, invalid, pending.
   await p.waitForFunction(() => ICEBERG_TEST.state.round === 3 && ICEBERG_TEST.state.phase === 'play'); await p.waitForTimeout(500);
   await enter(p, 'snaek'); let s4 = await S(p);
-  ok(T('q4 unclear typo "snaek" (snake? sneak? snack?): no guess used, and never a list of possible answers'), s4.n === 0 && !/,.* or /.test(await hint(p)) && /isn't on today's list|Did you mean (snake|snack|sneak)\?/.test(await hint(p)), await hint(p));
-  await guess(p, 'snorkle');
-  ok(T('q4 typo "snorkle": corrected to snorkel and placed'), (await S(p)).names[0] === 'snorkel' && /Spelling corrected: snorkel|Counted as snorkel/.test(await hint(p)), await hint(p));
+  ok(T('q4 unclear typo "snaek" (snake? sneak? snack?): no guess used, and never a list of possible answers'), s4.n === 0 && !/(snake|snack|sneak).*(snake|snack|sneak)/.test(await hint(p)) && /isn't on our list, and it's close|Did you mean (snake|snack|sneak)\?/.test(await hint(p)), await hint(p));
+  await enter(p, 'snorkle'); await settle(p);
+  ok(T('q4 clear typo "snorkle": corrected at once and said so ("Accepted as: snorkel")'), (await S(p)).n === 1 && /Accepted as: snorkel \(spelling corrected\)/.test(await hint(p)), await hint(p));
+  ok(T('q4 corrected typo: placed as snorkel'), (await S(p)).names[0] === 'snorkel', JSON.stringify(await S(p)));
   await enter(p, 'Snorkels'); s4 = await S(p);
-  ok(T('q4 duplicate "Snorkels": no guess used, no rarity shown again'), s4.n === 1 && /counts as snorkel, which you've already tried/.test(await hint(p)), await hint(p));
+  ok(T('q4 duplicate "Snorkels": no guess used, no rarity shown again'), s4.n === 1 && /already tried snorkel|already discovered this answer/.test(await hint(p)), await hint(p));
   await enter(p, 'apple'); s4 = await S(p);
   ok(T('q4 invalid "apple": reason given, no guess used'), s4.n === 1 && s4.misses === 1 && /Doesn't start with SN\. No guess used/.test(await hint(p)), await hint(p));
   await enter(p, 'snorlax'); s4 = await S(p);
-  // Unknown to the list: either a warning, or (here, close to "snarls") one "Did you mean ...?". Neither uses a guess.
+  // Unknown to the list: kept at once as a guess waiting for review, unless it looks like a slip of a listed answer
+  // (then one "Did you mean ...?" first, which uses nothing).
   const asked = /Did you mean/.test(await hint(p));
-  ok(T('q4 unknown "snorlax": first Enter uses no guess (a warning, or one spelling question)'), s4.n === 1 && (asked || /isn't on today's list\. Enter again sends it for review and uses a guess/.test(await hint(p))), await hint(p));
-  // Keeping it as typed (Escape after a spelling question, or a second Enter after the warning) sends it for review.
-  await p.keyboard.press(asked ? 'Escape' : 'Enter'); await p.waitForTimeout(150); s4 = await S(p); st = await slots(p);
+  ok(T('q4 unknown "snorlax": kept for review straight away, or one spelling question first'), asked ? s4.n === 1 : (s4.n === 2 && /isn't on our list yet\. Kept for review/.test(await hint(p))), await hint(p));
+  if (asked) { await p.keyboard.press('Escape'); await p.waitForTimeout(150); }
+  s4 = await S(p); st = await slots(p);
   ok(T('q4 pending: keeping it as typed uses a guess, slot shows pending with no depth or rarity'), s4.n === 2 && s4.status[1] === 'pending' && /pending/.test(st[1].cls) && /Waiting for review/.test(st[1].text) && !/%|\d+m/.test(st[1].text), st[1].text);
   await guess(p, 'snafu');
   await waitDone(p); await p.waitForTimeout(300);
   d = await p.evaluate(() => ({ best: document.querySelector('#best-name').textContent, rows: [...document.querySelectorAll('#sum li')].map(l => l.innerText.replace(/\n/g, ' | ')), note: document.querySelector('#review-note').textContent }));
-  ok(T('q4 results: best is snafu; pending and rejected answers listed with dispute buttons'), d.best === 'snafu' && d.rows.length === 4 && d.rows.some(x => /snorlax.*I think this counts/.test(x)) && d.rows.some(x => /apple.*Dispute.*didn't use a guess/.test(x)), d.rows.join(' || '));
+  ok(T('q4 results: best is snafu; pending, rejected and typed-but-unsent answers all listed, with dispute buttons'), d.best === 'snafu' && d.rows.length === 5 && d.rows.some(x => /snaek.*Typed but not sent/.test(x)) && d.rows.some(x => /snorlax.*I think this counts/.test(x)) && d.rows.some(x => /apple.*Dispute.*didn't use a guess/.test(x)), d.rows.join(' || '));
   await p.click('#sum .dispute'); await p.waitForTimeout(100);
   ok(T('q4: dispute is recorded and the button locks'), await p.evaluate(() => document.querySelector('#sum .dispute').disabled && JSON.parse(localStorage.getItem('iceberg:flags')).some(f => /dispute/.test(f.kind))));
   ok(T('q4 results layout'), !(await audit(p)).length, (await audit(p)).join('; '));
@@ -112,7 +114,7 @@ async function fullGame(b, vp) {
   ok(T('q5: no finish button before the first guess'), await p.evaluate(() => document.querySelector('#finish').hidden));
   await guess(p, 'Ferrari');
   const fin = await p.evaluate(() => ({ hidden: document.querySelector('#finish').hidden, label: document.querySelector('#finish').textContent, note: document.querySelector('#finish-note').textContent }));
-  ok(T('q5 finish early: button shows what you keep and how many guesses go unused'), !fin.hidden && /Finish with \d+ m/.test(fin.label) && fin.note === '2 guesses unused', `${fin.label} · ${fin.note}`);
+  ok(T('q5 finish early: button shows what you keep and how many guesses go unused'), !fin.hidden && /Finish with \+\d+ m/.test(fin.label) && fin.note === '2 guesses unused', `${fin.label} · ${fin.note}`);
   await p.click('#finish'); await waitDone(p);
   ok(T('q5: finished with one guess, no confirmation step'), (await S(p)).n === 1 && await p.evaluate(() => document.querySelector('#best-name').textContent === 'Ferrari'));
   await p.click('#next');
@@ -121,9 +123,9 @@ async function fullGame(b, vp) {
     return { total: document.querySelector('#e-total').textContent, rows: [...document.querySelectorAll('#e-rounds li')].map(l => l.innerText.replace(/\n/g, ' ')), text: document.querySelector('#e-card').textContent, deepest: document.querySelector('#e-deepest').textContent, rank: document.querySelector('#e-rank').textContent, lit, emoji: /\p{Extended_Pictographic}/u.test(document.querySelector('[data-screen="end"]').innerText), icons: document.querySelectorAll('#e-rounds .cat-svg').length }; });
   const sum = depths[2] + d2[0] + (+q3.replace('m', '')) + (await p.evaluate(() => ICEBERG_TEST.depthOf(ICEBERG_TEST.shareOf('snafu', 3)) + ICEBERG_TEST.depthOf(ICEBERG_TEST.shareOf('ferrari', 4))));
   ok(T('end: total is the sum of the five deepest answers'), +end.total.replace(/,/g, '') === sum, `${end.total} = ${sum}`);
-  ok(T('end: five rows, deepest find named, custom icons, no emoji'), end.rows.length === 5 && /Deepest find: (axolotl|jabuticaba|zester)/.test(end.deepest) && end.icons === 5 && !end.emoji, end.deepest);
+  ok(T('end: five rows, deepest find named, custom icons, no emoji'), end.rows.length === 5 && /rarest answer (axolotl|jabuticaba|zester)/.test(end.deepest) && end.icons === 5 && !end.emoji, end.deepest);
   ok(T('end: no ranking is invented without real players'), end.rank === '');
-  ok(T('end: share text is spoiler-free (depths only)'), /^Deeple #\d+ · [\d,]+ m\n1 [▓░]{10} \d+ m/.test(end.text) && !/axolotl|jabuticaba|zester|snorkel|ferrari|animal|fruit/i.test(end.text), end.text.replace(/\n/g, ' / '));
+  ok(T('end: share text is spoiler-free (depths only)'), /^Deeple #\d+ · [\d,]+ m down · [A-Za-z ]+\n1 [▓░]{10} \+\d+ m/.test(end.text) && !/axolotl|jabuticaba|zester|snorkel|ferrari|animal|fruit/i.test(end.text), end.text.replace(/\n/g, ' / '));
   ok(T('end: share card image is drawn'), end.lit > 100, `${end.lit} sampled bright pixels`);
   const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 8000 }).catch(() => null), p.click('#save-card')]);
   ok(T('end: image saves as a PNG'), !!dl && /deeple-\d+\.png/.test(dl.suggestedFilename()), dl ? dl.suggestedFilename() : 'no download');
@@ -144,7 +146,7 @@ async function edge(b) {
   const same = await p.evaluate(async () => { const cats = (await (await fetch('days/0.json')).json()).questions, by = {}; for (const r of cats[0].answers) if (!r.x && !/ /.test(r.a)) (by[r.s] = by[r.s] || []).push(r.a); return Object.values(by).filter(v => v.length >= 3).sort((a, b) => 0)[0].slice(0, 3); });
   const hs = []; for (const a of same) { await guess(p, a); await p.waitForTimeout(350); hs.push(await hint(p)); ok(`identical rarity (${a}): labels and markers don't overlap`, !(await overlaps(p)).length, (await overlaps(p)).join('; ')); }
   let s = await S(p), st = await slots(p);
-  ok('identical rarity: all three sit at the same depth, the first stays the deepest', new Set(s.shares).size === 1 && /best/.test(st[0].cls) && !/best/.test(st[1].cls) && !/best/.test(st[2].cls) && /Level with your deepest/.test(hs[1]), `${same.join(', ')} | ${hs[1]}`);
+  ok('identical rarity: all three sit at the same depth, the first stays the deepest', new Set(s.shares).size === 1 && /best/.test(st[0].cls) && !/best/.test(st[1].cls) && !/best/.test(st[2].cls) && /level with your best/.test(hs[1]), `${same.join(', ')} | ${hs[1]}`);
   ok('identical rarity: three separate markers', await p.evaluate(() => new Set([...document.querySelectorAll('.ib-mark')].map(m => m.style.transform)).size === 3));
   await p.screenshot({ path: 'tests/shot-edge-identical.png' });
   await waitDone(p); await p.waitForTimeout(600);
@@ -216,8 +218,9 @@ async function reload(b) {
 async function review(b) {
   const p = await fresh(b, 'desk', '&verify=/verify-mock'); let bodies = [];
   await p.route('**/verify-mock', async route => { if (route.request().method() !== 'POST') return route.continue(); const body = JSON.parse(route.request().postData()); bodies.push(body); await new Promise(r => setTimeout(r, 250));
-    const verdict = { batmobile: { status: 'ok', canonical: 'batmobile', reason: 'A car' }, 'time machine': { status: 'invalid', canonical: '', reason: 'Not a real thing with wheels' }, whip: { status: 'ok', canonical: 'car', reason: 'Slang for car' } }[body.answers[0]];
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: body.answers[0], ...verdict }] }) }); });
+    // The review endpoint's contract (api/verify.js): one answer per request, with nearby listed answers as candidates.
+    const verdict = { batmobile: { status: 'ok', relationship: 'new', canonical: 'batmobile' }, 'time machine': { status: 'invalid', relationship: 'none', canonical: '', reason: 'Not a real thing with wheels' }, whip: { status: 'ok', relationship: 'alias', canonical: 'car' } }[body.answer];
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(verdict || { status: 'pending' }) }); });
   await start(p); await p.evaluate(() => { const s = ICEBERG_TEST.state; s.round = 4; localStorage.setItem('iceberg:game:' + s.day, JSON.stringify(s)); });
   await p.goto(URL + '?test&day=0&fast&verify=/verify-mock'); await p.waitForSelector('[data-screen="play"]:not([hidden])'); await p.waitForTimeout(300);
   await enter(p, 'batmobile'); await p.keyboard.press('Enter'); await p.waitForTimeout(80);
@@ -225,18 +228,18 @@ async function review(b) {
   ok('review: an unknown answer takes a slot at once and waits', s.n === 1 && s.status[0] === 'pending' && /Being checked/.test((await slots(p))[0].text));
   await p.waitForFunction(() => ICEBERG_TEST.state.rounds[4].guesses[0].status === 'ok', null, { timeout: 6000 }); await settle(p); await p.waitForTimeout(300);
   let st = await slots(p);
-  ok('review approved: it is revealed on the iceberg at 52 m (Midwater), never the maximum', /done/.test(st[0].cls) && /52m/.test(st[0].text) && /Midwater/.test(st[0].text) && await p.evaluate(() => document.querySelectorAll('.ib-mark').length === 1), st[0].text);
+  ok('review approved: it is revealed at +52 m (Rare), never the maximum', /done/.test(st[0].cls) && /\+52m/.test(st[0].text) && /Rare/.test(st[0].text) && await p.evaluate(() => document.querySelectorAll('.ib-mark').length === 1), st[0].text);
   await enter(p, 'time machine'); await p.keyboard.press('Enter');
   await p.waitForFunction(() => ICEBERG_TEST.state.rounds[4].guesses[1].status === 'miss', null, { timeout: 6000 }); await p.waitForTimeout(200); st = await slots(p);
   ok('review rejected: the slot stays used, with the reason and no depth', /miss/.test(st[1].cls) && /Not a real thing with wheels/.test(st[1].text) && (await S(p)).n === 2, st[1].text);
-  ok('review: only the unknown answer was sent, one per request', bodies.length === 2 && bodies.every(x => x.answers.length === 1 && x.category === 'wheels'), JSON.stringify(bodies.map(x => x.answers)));
+  ok('review: only the unknown answer was sent, one per request, with the question, its rule, at most 5 nearby listed answers and nothing else', bodies.length === 2 && bodies.every(x => typeof x.answer === 'string' && x.question.key === 'wheels' && Array.isArray(x.question.rules) && x.candidates.length <= 5 && Object.keys(x).sort().join() === 'answer,candidates,player,question'), JSON.stringify(bodies.map(x => x.answer)));
   await guess(p, 'car'); await waitDone(p);
-  ok('review: best is still the approved answer (52 m beats car)', await p.evaluate(() => document.querySelector('#best-name').textContent === 'batmobile' && document.querySelector('#best-depth').textContent === '52m'));
+  ok('review: best is still the approved answer (52 m beats car)', await p.evaluate(() => document.querySelector('#best-name').textContent === 'batmobile' && document.querySelector('#best-depth').textContent === '+52m'));
   ok('review: verdicts are remembered, so the same answer is judged instantly next time', await p.evaluate(() => ICEBERG_TEST.judge('Batmobile', 4).status === 'ok' && ICEBERG_TEST.judge('time machine', 4).status === 'invalid'));
   await p.context().close();
   // Same-as-earlier verdict, and a dead service.
   const q = await fresh(b, 'desk', '&verify=/verify-mock');
-  await q.route('**/verify-mock', route => route.request().method() !== 'POST' ? route.continue() : route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: 'whip', status: 'ok', canonical: 'car', reason: 'Slang for car' }] }) }));
+  await q.route('**/verify-mock', route => route.request().method() !== 'POST' ? route.continue() : route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', relationship: 'alias', canonical: 'car' }) }));
   await start(q); await q.evaluate(() => { const s = ICEBERG_TEST.state; s.round = 4; localStorage.setItem('iceberg:game:' + s.day, JSON.stringify(s)); });
   await q.goto(URL + '?test&day=0&fast&verify=/verify-mock'); await q.waitForSelector('[data-screen="play"]:not([hidden])'); await q.waitForTimeout(300);
   await guess(q, 'car'); await enter(q, 'whip'); await q.keyboard.press('Enter');
@@ -248,11 +251,11 @@ async function review(b) {
   let ds = await S(d);
   ok('review service down: the answer stays pending, uses its guess, and the game carries on', ds.n === 1 && ds.status[0] === 'pending' && /Waiting for review/.test((await slots(d))[0].text));
   await guess(d, 'dog'); await d.click('#finish'); await waitDone(d);
-  ok('pending answers earn nothing: score comes from the valid guess only', await d.evaluate(() => document.querySelector('#best-name').textContent === 'dog' && document.querySelector('#best-depth').textContent === '0m'));
+  ok('pending answers earn nothing: score comes from the valid guess only', await d.evaluate(() => document.querySelector('#best-name').textContent === 'dog' && document.querySelector('#best-depth').textContent === '+0m'));
   // A verdict that arrives later (remembered on the device) updates the pending guess and the score.
   await d.evaluate(() => localStorage.setItem('iceberg:verdicts:animals', JSON.stringify({ pikachu: { status: 'ok' } })));
   await d.goto(URL + '?test&day=0&fast'); await d.waitForTimeout(600);
-  ok('pending verified later: the score updates', await d.evaluate(() => document.querySelector('#best-name').textContent === 'pikachu' && document.querySelector('#best-depth').textContent === '52m'), await d.textContent('#best-depth'));
+  ok('pending verified later: the score updates', await d.evaluate(() => document.querySelector('#best-name').textContent === 'pikachu' && document.querySelector('#best-depth').textContent === '+52m'), await d.textContent('#best-depth'));
   ok('review runs: no errors', !d.errs.filter(e => !/nope|404/.test(e)).length, d.errs.join(' | '));
   await d.context().close();
 }
@@ -363,12 +366,12 @@ async function scene(b) {
   let p = await fresh(b, 'desk'); await start(p);
   const life = () => p.evaluate(() => ICEBERG_TEST.life.stats());
   const cast = await p.evaluate(() => Wildlife.species());
-  ok('wildlife: every animal names a real species, its real range and a depth band', cast.length >= 18 && cast.every(s => s.name && /^[A-Z][a-z]+( [a-z]+)?$/.test(s.latin) && s.real.length > 20 && (s.rare ? s.min >= 200 : s.zone[1] > s.zone[0])), cast.length + ' animals');
+  ok('wildlife: every real animal names its species, its real range and a depth band; the inventions are marked as such', cast.length >= 18 && cast.every(s => s.name && s.real.length > 20 && (s.fiction ? s.rare : /^[A-Z][a-z]+( [a-z]+)?$/.test(s.latin) && (s.rare ? s.min >= 200 : s.zone[1] > s.zone[0]))), cast.length + ' animals');
   ok('wildlife: bands cover the surface, midwater, the deep and the abyss', ['surface', 'mid', 'deep', 'abyss'].every(k => cast.filter(s => s.band === k).length >= 3), ['surface', 'mid', 'deep', 'abyss'].map(k => k + ' ' + cast.filter(s => s.band === k).length).join(', '));
   await p.waitForTimeout(900);
   const top = await life();
   ok('wildlife: the water is populated, drawn on its own layers behind and in front of the iceberg', top.animals >= 15 && await p.evaluate(() => ['back', 'front', 'lume'].every(k => { const c = document.querySelector('.ib-life-' + k); return c && c.width > 50 && getComputedStyle(c).imageRendering === 'pixelated'; })), top.animals + ' animals');
-  ok('wildlife: layer order is sea, animals, ice, animals, darkness, living light, fade, text', await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ').startsWith('ib-sea ib-life-back ib-ice ib-life-front ib-snow ib-shade ib-life-lume ib-glow ib-veil ib-bestline ib-lines ib-layer')), await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ')));
+  ok('wildlife: layer order is sea, animals, ice, animals, darkness, living light, fade, text', await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ').startsWith('ib-sea ib-life-back ib-ice ib-life-front ib-snow ib-shade ib-life-lume ib-glow ib-veil ib-bestline ib-route ib-lines ib-layer')), await p.evaluate(() => [...document.querySelector('#ib').children].map(n => n.getAttribute('class').split(' ').pop()).join(' ')));
   ok('wildlife: same pixel size as the iceberg artwork', await p.evaluate(() => { const v = ICEBERG_TEST.berg.view, c = document.querySelector('.ib-life-back'); return Math.abs(c.getBoundingClientRect().width / c.width - v.u) < 0.01; }));
   const surfaceView = top.inView;
   ok('at the surface: only surface animals are in view', surfaceView.length > 0 && surfaceView.every(k => cast.find(s => s.key === k).band === 'surface'), surfaceView.join(', '));
@@ -382,9 +385,9 @@ async function scene(b) {
   const made0 = (await life()).made;
   await guess(p, 'numbat'); await p.waitForTimeout(900);
   const deep = (await life()).inView;
-  ok('at 317 m (beneath the iceberg): the water is almost empty, and nothing from the surface', deep.every(k => cast.find(s => s.key === k).band === 'abyss'), deep.join(', ') || 'nothing in view');
+  ok('at 317 m (the Twilight Zone): nothing from the surface in view', deep.every(k => cast.find(s => s.key === k).band !== 'surface'), deep.join(', ') || 'nothing in view');
   await p.waitForTimeout(600);
-  ok('Challenger Deep answer (317 m): the colossal squid comes, and the annotation says so', (await p.evaluate(() => ICEBERG_TEST.life.guests)).includes('colossal') && /colossal squid/i.test(await p.textContent('.ib-sight')), await p.evaluate(() => ICEBERG_TEST.life.guests.join(',')));
+  ok('Unfathomable answer (+317 m): the colossal squid comes, and the annotation says so', (await p.evaluate(() => ICEBERG_TEST.life.guests)).includes('colossal') && /colossal squid/i.test(await p.textContent('.ib-sight')), await p.evaluate(() => ICEBERG_TEST.life.guests.join(',')));
   ok('encounter plays its own quiet sound', (await p.evaluate(() => window.__snd)).includes('encounter'));
   await waitDone(p); await p.waitForTimeout(500);
   // Back up to the first guess and down again: the same water, not a fresh one.
@@ -398,14 +401,15 @@ async function scene(b) {
   ok('scene: no errors', !p.errs.length, p.errs.join('; '));
   await p.context().close();
 
-  // Thresholds: each great squid has its own depth, and a deeper one never brings the shallower one with it.
-  for (const [word, want] of [['rattlesnake', 'giant'], ['axolotl', 'bigfin'], ['monkey', '']]) {
-    p = await fresh(b, 'desk'); await start(p); await guess(p, word); await p.waitForTimeout(900);
-    const got = await p.evaluate(() => ICEBERG_TEST.life.guests.join(','));
-    ok(`threshold: ${word} (${await p.evaluate(() => ICEBERG_TEST.berg.depth)} m) brings ${want || 'nothing'}`, got === want, got || 'nothing');
-    if (word === 'rattlesnake') { await guess(p, 'great white shark'); await p.waitForTimeout(900); ok('a second answer in the same band does not repeat the encounter', (await p.evaluate(() => ICEBERG_TEST.life.guests.join(','))) === 'giant' && !(await p.$('.ib-sight'))); }
-    await p.context().close();
+  // Thresholds: an encounter needs the answer's own rarity (its depth) and the dive's region (the running total).
+  // A deeper one never brings the shallower one with it, and none comes twice in a question.
+  p = await fresh(b, 'desk'); await start(p);
+  for (const [depth, at, want] of [[200, 200, ''], [199, 400, ''], [200, 350, 'giant'], [250, 350, 'giant'], [250, 650, 'bigfin'], [300, 330, 'colossal'], [0, 1600, ''], [40, 1600, 'megalodon'], [210, 1750, 'coil'], [320, 1750, 'colossal']]) {
+    const got = await p.evaluate(([d, a]) => { const e = ICEBERG_TEST.life.encounterFor(d, [], a); return e ? e.key : ''; }, [depth, at]);
+    ok(`threshold: a +${depth} m answer at ${at} m brings ${want || 'nothing'}`, got === want, got || 'nothing');
   }
+  ok('a second answer in the same question does not repeat the encounter', await p.evaluate(() => !ICEBERG_TEST.life.encounterFor(220, ['giant'], 400)));
+  await p.context().close();
 
   // The annotation.
   for (const vp of ['desk', 'phone']) {
@@ -420,7 +424,7 @@ async function scene(b) {
         d: document.querySelector('.ib-leader').getAttribute('d'), last: +getComputedStyle(n.querySelector('.ib-meta')).opacity, inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight,
         overControls: ['.q', '#play-panel', '.top'].filter(hit).join(','), overMark: r.left < m.right && m.left < r.right && r.top < m.bottom && m.top < r.bottom, sizes: [...n.children].map(c => parseFloat(getComputedStyle(c).fontSize)) };
     });
-    ok(`${vp} annotation: reads answer, share of players, depth, rarity, then guess (no simulated player count)`, /^ib-name ib-share ib-below ib-rank ib-meta/.test(a.order) && /great white shark \| 0\.\d+% of players \| 203 m below the surface/.test(a.text) && /Rarer than \d+% of answers given \| Guess 1(?! · [\d,]+ of)/.test(a.text) && !/50,000/.test(a.text), a.text);
+    ok(`${vp} annotation: reads answer, share of players, depth, rarity, then guess (no simulated player count)`, /^ib-name ib-share ib-below ib-rank ib-meta/.test(a.order) && /great white shark \| (~?0\.\d+%|under 0\.1%) of players( \(est\.\))? EXCEPTIONAL \| \+203 m · down to 203 m/i.test(a.text) && /Rarer than \d+% of answers given \| Guess 1(?! · [\d,]+ of)/.test(a.text) && !/50,000/.test(a.text), a.text);
     ok(`${vp} annotation: the answer is the largest line, the small print the smallest`, a.sizes[0] > a.sizes[1] && a.sizes[1] >= a.sizes[2] && a.sizes[2] > a.sizes[4], a.sizes.join(' > '));
     ok(`${vp} annotation: open, not a card (no fill, border, rounded box or drop shadow)`, /rgba\(0, 0, 0, 0\)|transparent/.test(a.bg) && a.border === '0px' && a.radius === '0px' && a.shadow === 'none', `${a.bg} ${a.border} ${a.radius} ${a.shadow}`);
     ok(`${vp} annotation: joined to its marker by a line, and clear of the marker, the controls and the window edge`, /^M[\d.-]+ [\d.-]+[HV]/.test(a.d) && a.inside && !a.overControls && !a.overMark, `${a.d} ${a.overControls}`);
@@ -501,9 +505,9 @@ async function timer(b) {
     await settle(p); const took = Date.now() - t0, after = await C(p);
     ok(`${vp} timer: stops for the reveal and the camera's journey down`, !mid.on && took > 1500 && before.left - after.left < 600, `reveal took ${took} ms, clock moved ${Math.round(before.left - after.left)} ms`);
     ok(`${vp} timer: carries on, from where it stopped, when the box is ready again`, after.on && after.left > 38000);
-    // Back up to a common answer: the camera travels the other way; same rule.
+    // A common answer now: in the dive the camera stays where it is (only ever down); the clock rule is the same.
     const b2 = await C(p); await p.fill('#answer', 'dog'); const t1 = Date.now(); await p.keyboard.press('Enter'); await settle(p); const a2 = await C(p);
-    ok(`${vp} timer: also stops while the camera travels back up`, Date.now() - t1 > 1200 && b2.left - a2.left < 600, `clock moved ${Math.round(b2.left - a2.left)} ms`);
+    ok(`${vp} timer: also stops for an answer that doesn't take you deeper (no journey, the dive only goes down)`, b2.left - a2.left < 600, `clock moved ${Math.round(b2.left - a2.left)} ms`);
     await p.waitForTimeout(1200); const s1 = await C(p);
     ok(`${vp} timer: the ice matches the time left`, Math.abs(s1.ice.fraction - s1.left / s1.total) < 0.02 && s1.ice.length < 16.6 && s1.ice.length > 2.4, `${(s1.ice.fraction * 100).toFixed(1)}% ice, ${(100 * s1.left / s1.total).toFixed(1)}% time`);
     // Third guess: the question ends in the ordinary way, with time to spare.
@@ -518,15 +522,15 @@ async function timer(b) {
   let p = await timed('desk', 7); await begin(p); await running(p);
   await guess(p, 'octopus'); await waitDone(p); await p.waitForTimeout(300);
   let d = await p.evaluate(() => ({ r: ICEBERG_TEST.state.rounds[0], best: document.querySelector('#best-name').textContent, depth: document.querySelector('#best-depth').textContent, aside: document.querySelector('#sum-aside').textContent, snd: window.__snd }));
-  ok('time runs out after one guess: the question ends and that answer is kept and scored', d.r.timeout && d.r.guesses.length === 1 && d.best === 'octopus' && d.depth === '121m' && /time ran out · 2 unused/.test(d.aside), `${d.best} ${d.depth}, ${d.aside}`);
+  ok('time runs out after one guess: the question ends and that answer is kept and scored', d.r.timeout && d.r.guesses.length === 1 && d.best === 'octopus' && d.depth === '+121m' && /time ran out · 2 unused/.test(d.aside), `${d.best} ${d.depth}, ${d.aside}`);
   ok('last seconds: a water drop each second, then a soft dissolve; no alarm', d.snd.filter(x => x === 'drip').length >= 4 && d.snd.filter(x => x === 'drip').length <= 5 && d.snd.includes('melt') && (await C(p)).ice.melted, d.snd.filter(x => /drip|melt|crack/.test(x)).join(','));
   await p.click('#next'); await running(p);
   await guess(p, 'banana'); await guess(p, 'kiwano'); await waitDone(p); await p.waitForTimeout(300);
   d = await p.evaluate(() => ({ r: ICEBERG_TEST.state.rounds[1], best: document.querySelector('#best-name').textContent, depth: document.querySelector('#best-depth').textContent }));
-  ok('time runs out after two guesses: the deeper of the two is the score', d.r.timeout && d.r.guesses.length === 2 && d.best === 'kiwano' && d.depth === '260m', `${d.best} ${d.depth}`);
+  ok('time runs out after two guesses: the deeper of the two is the score', d.r.timeout && d.r.guesses.length === 2 && d.best === 'kiwano' && d.depth === '+260m', `${d.best} ${d.depth}`);
   await p.click('#next'); await running(p); await waitDone(p); await p.waitForTimeout(300);
   d = await p.evaluate(() => ({ r: ICEBERG_TEST.state.rounds[2], lbl: document.querySelector('#best-lbl').textContent, depth: document.querySelector('#best-depth').textContent, next: !document.querySelector('#next').closest('[hidden]') }));
-  ok('time runs out with no answer: 0 m, said plainly, and the game carries on', d.r.timeout && d.r.guesses.length === 0 && d.lbl === 'Time ran out' && d.depth === '0m' && d.next, `${d.lbl} ${d.depth}`);
+  ok('time runs out with no answer: 0 m, said plainly, and the game carries on', d.r.timeout && d.r.guesses.length === 0 && /^Time ran out/.test(d.lbl) && d.depth === '+0m' && d.next, `${d.lbl} ${d.depth}`);
   await p.click('#next'); await running(p);
   ok('each question starts with its full time', Math.abs((await C(p)).left - 7000) < 500);
   ok('timed-out questions: no errors', !p.errs.length, p.errs.join('; '));
@@ -566,13 +570,13 @@ async function timer(b) {
 
   // An answer still being checked when time runs out is not lost.
   p = await timed('desk', 4, '&verify=/verify-mock');
-  await p.route('**/verify-mock', async route => { if (route.request().method() !== 'POST') return route.continue(); await new Promise(r => setTimeout(r, 6000)); await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [{ text: 'jackalope', status: 'ok', canonical: '', reason: 'ok' }] }) }); });
+  await p.route('**/verify-mock', async route => { if (route.request().method() !== 'POST') return route.continue(); await new Promise(r => setTimeout(r, 6000)); await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', relationship: 'new', canonical: 'jackalope' }) }); });
   await begin(p); await running(p);
   await enter(p, 'jackalope'); await p.keyboard.press('Enter'); await waitDone(p);
   const v0 = await p.evaluate(() => ICEBERG_TEST.state.rounds[0].guesses[0].status);
   await p.waitForFunction(() => ICEBERG_TEST.state.rounds[0].guesses[0].status === 'ok', null, { timeout: 9000 }); await p.waitForTimeout(500);
   d = await p.evaluate(() => ({ depth: document.querySelector('#best-depth').textContent, t: ICEBERG_TEST.state.rounds[0].timeout }));
-  ok('slow checking: an answer approved after time ran out still gets its depth', v0 === 'pending' && d.t && d.depth === '52m', `${v0} -> ${d.depth}`);
+  ok('slow checking: an answer approved after time ran out still gets its depth', v0 === 'pending' && d.t && d.depth === '+52m', `${v0} -> ${d.depth}`);
   await p.context().close();
 
   // Sound off, and reduced motion.

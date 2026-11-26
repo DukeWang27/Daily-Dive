@@ -1,0 +1,739 @@
+{
+ "question": {
+  "day": 3,
+  "key": "jobs",
+  "kb": "occupations"
+ },
+ "cases": [
+  {
+   "text": "optometrist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "speech therapist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "sign language interpreter",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "court reporter",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "forensic scientist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "crime scene investigator",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "air marshal",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "flight dispatcher",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "ship's pilot",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "ferry captain",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "bus mechanic",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "tram driver",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "locomotive engineer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "signal engineer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "land surveyor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "quantity surveyor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "loss adjuster",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "claims adjuster",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "mortgage broker",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "stockbroker",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "hedge fund manager",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "fund accountant",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "forensic accountant",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "payroll specialist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "bank teller",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "barista",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "line cook",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "pastry chef",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "food critic",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "wine taster",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "brewmaster",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "cheesemaker",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "butcher",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "fishmonger",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "greengrocer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "florist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "gardener",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "arborist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "landscape architect",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "urban planner",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "civil servant",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "diplomat",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "ambassador",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "senator",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "mayor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "city councillor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "police detective",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "prison guard",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "probation officer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "social worker",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "youth worker",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "care worker",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "hospice nurse",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "midwife",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "doula",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "paramedic",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "dental hygienist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "orthodontist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "dermatologist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "cardiologist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "oncologist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "psychotherapist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "art therapist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "music therapist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "personal trainer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "yoga teacher",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "ski instructor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "lifeguard",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "mountain guide",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "tour guide",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "travel agent",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "flight instructor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "driving instructor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "stunt performer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "session musician",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "conductor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "composer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "sound engineer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "lighting designer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "set designer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "costume designer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "makeup artist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "special effects artist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "video editor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "colorist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "animator",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "game tester",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "QA tester",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "technical writer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "copy editor",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "proofreader",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "translator",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "librarian",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "archivist",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "museum curator",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "art restorer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "auctioneer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "antique dealer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "pawnbroker",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "locksmith",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "glazier",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "roofer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "plasterer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "tiler",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "scaffolder",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "crane operator",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "heavy equipment operator",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "miner",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "oil rig worker",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "offshore driller",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "wind turbine technician",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "solar panel installer",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "HVAC technician",
+   "expect": "ok",
+   "tier": "holdout"
+  },
+  {
+   "text": "dermatology",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "cardiology",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "oncology",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "orthodontics",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "veterinary science",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "horticulture",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "choreography",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "cinematography",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "stenography",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "taxidermy",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "carpentry",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "bricklaying",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "glassblowing",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "beekeeping",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "locksmithing",
+   "expect": "ok",
+   "tier": "holdout-field"
+  },
+  {
+   "text": "dog",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "car",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "sunshine",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "football",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "guitar",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "coffee",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "sleep",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "friday",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "tuesday",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "water",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "money",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "house",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "phone",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "tree",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "sad",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "fast",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "red",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  },
+  {
+   "text": "yes",
+   "expect": "invalid_or_pending",
+   "tier": "holdout-invalid"
+  }
+ ]
+}

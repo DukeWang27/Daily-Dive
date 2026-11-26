@@ -10,4 +10,6 @@ for f in tests/db/auth_stub.sql supabase/0001_community.sql supabase/0002_accoun
 $RUN -d $DB -f supabase/0001_community.sql > /dev/null   # twice, to prove each file can be run again
 $RUN -d $DB -f supabase/0002_accounts.sql > /dev/null
 $RUN -d $DB -f supabase/0004_race.sql > /dev/null
+# The later files, in the order production gets them (0011 twice, to prove it can be run again).
+for f in supabase/0007_intelligence.sql supabase/0008_ranked.sql supabase/0009_first_discoveries.sql supabase/0010_round_types.sql supabase/0011_live_rounds.sql supabase/0011_live_rounds.sql; do $RUN -d $DB -f "$f" > /dev/null; done
 echo "database $DB ready"

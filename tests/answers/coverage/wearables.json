@@ -1,0 +1,621 @@
+{
+ "question": {
+  "day": 3,
+  "key": "clothing",
+  "kb": "products:wearables",
+  "fixture": "clothing-wide"
+ },
+ "cases": [
+  {
+   "text": "shirt",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "jeans",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "socks",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "hat",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "watch",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "scarf",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "gloves",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "dress",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "hoodie",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "sunglasses",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "trainers",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "sneakers",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "boots",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "tie",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "belt",
+   "expect": "ok",
+   "as": null,
+   "tier": "common"
+  },
+  {
+   "text": "cummerbund",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "balaclava",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "fascinator",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "kilt",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "sporran",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "obi",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "hakama",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "dirndl",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "lederhosen",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "cravat",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "spats",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "gaiters",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "pince-nez",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "monocle",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "jabot",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "kippah",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "fez",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "chullo",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "ushanka",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "mukluks",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "huaraches",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "geta",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "jodhpurs",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "plus fours",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "cufflinks",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "tie clip",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "signet ring",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "nose ring",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "toe ring",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "anklet",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "tiara",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "circlet",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "hairnet",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "shower cap",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "wetsuit",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "drysuit",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "rash guard",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "waders",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "exoskeleton",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "hazmat suit",
+   "expect": "ok",
+   "as": null,
+   "tier": "obscure"
+  },
+  {
+   "text": "Rolex",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Rolex Submariner",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Cartier Tank",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Omega Speedmaster",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Casio G-Shock",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Patek Philippe",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Seiko watch",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Nike Air Force 1",
+   "expect": "ok",
+   "as": "trainers",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Adidas Samba",
+   "expect": "ok",
+   "as": "trainers",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Air Jordans",
+   "expect": "ok",
+   "as": "trainers",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Converse Chuck Taylors",
+   "expect": "ok",
+   "as": "converse",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Vans Old Skool",
+   "expect": "ok",
+   "as": "trainers",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Stan Smiths",
+   "expect": "ok",
+   "as": "trainers",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Levi's 501",
+   "expect": "ok",
+   "as": "jeans",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Ray-Ban Wayfarers",
+   "expect": "ok",
+   "as": "sunglasses",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Birkenstocks",
+   "expect": "ok",
+   "as": "sandals",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Doc Martens",
+   "expect": "ok",
+   "as": "doc martens",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Timberlands",
+   "expect": "ok",
+   "as": "boots",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Herm\u00e8s silk tie",
+   "expect": "ok",
+   "as": "tie",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Canada Goose parka",
+   "expect": "ok",
+   "as": "parka",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Uggs",
+   "expect": "ok",
+   "as": "uggs",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Crocs",
+   "expect": "ok",
+   "as": "crocs",
+   "tier": "brand-model"
+  },
+  {
+   "text": "Louboutins",
+   "expect": "ok",
+   "as": "high heels",
+   "tier": "brand-model"
+  },
+  {
+   "text": "my friend's blue watch with a slightly scratched silver buckle",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "description"
+  },
+  {
+   "text": "a very expensive diamond studded gold watch",
+   "expect": "ok",
+   "as": "watch",
+   "tier": "description"
+  },
+  {
+   "text": "ugly christmas jumper",
+   "expect": "ok",
+   "as": "sweater",
+   "tier": "description"
+  },
+  {
+   "text": "old pair of jeans",
+   "expect": "ok",
+   "as": "jeans",
+   "tier": "description"
+  },
+  {
+   "text": "the hat my grandad gave me",
+   "expect": "ok",
+   "as": "hat",
+   "tier": "description"
+  },
+  {
+   "text": "Nike",
+   "expect": "ambiguous",
+   "tier": "vague-brand"
+  },
+  {
+   "text": "Gucci",
+   "expect": "ambiguous",
+   "tier": "vague-brand"
+  },
+  {
+   "text": "Zara",
+   "expect": "ambiguous",
+   "tier": "vague-brand"
+  },
+  {
+   "text": "jeens",
+   "expect": "ok_or_ask",
+   "as": "jeans",
+   "tier": "misspelling"
+  },
+  {
+   "text": "sunglases",
+   "expect": "ok_or_ask",
+   "as": "sunglasses",
+   "tier": "misspelling"
+  },
+  {
+   "text": "Rollex",
+   "expect": "ok_or_ask",
+   "as": "watch",
+   "tier": "misspelling"
+  },
+  {
+   "text": "Addidas Samba",
+   "expect": "ok_or_ask",
+   "as": "trainers",
+   "tier": "misspelling"
+  },
+  {
+   "text": "balaklava",
+   "expect": "ok_or_ask",
+   "as": "balaclava",
+   "tier": "misspelling"
+  },
+  {
+   "text": "cummberbund",
+   "expect": "ok_or_ask",
+   "as": "cummerbund",
+   "tier": "misspelling"
+  },
+  {
+   "text": "perfume",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "umbrella",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "phone",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "wallet",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "handbag",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "Birkin",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "makeup",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "tattoo",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "a smile",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "confidence",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "car",
+   "expect": "invalid_or_pending",
+   "tier": "invalid"
+  },
+  {
+   "text": "Rolex Daytona Moon Edition X",
+   "expect": "ok",
+   "tier": "made-up-model",
+   "as": "watch",
+   "why": "A made-up model of a one-product brand counts as that product (a watch) and scores as a watch: no extra rarity, no claim the model exists."
+  }
+ ]
+}

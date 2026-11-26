@@ -4,7 +4,7 @@ when nobody thought to list it. Used by the build (tools/content/build.py) and b
 Rarity for a dataset-only answer is a PROVISIONAL prior, marked pv=1: nobody has estimated it and no player has given it
 yet. It starts very rare (about 1 in 50,000), nudged up a little if its words are common in English, and it is capped
 (see build.py: provisional answers can't reach the deepest zones until real players supply evidence)."""
-import json, os, re, unicodedata
+import json, re, os, re, unicodedata
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 try:
     from wordfreq import zipf_frequency
@@ -16,9 +16,21 @@ def norm(s):
     s = s.replace("&", " and ").replace("'", "").replace("’", "")
     return re.sub(r"^(a|an|the|some) ", "", re.sub(r"[^a-z0-9]+", " ", s).strip())
 
-def prior(name, base=2e-5, cap=2e-4):
+def prior(name, base=2e-5, cap=2e-4, links=None):
+    """A first guess at the share of players who'd give a name nobody listed. Two signals, the larger wins: how common
+    its words are in English (wordfreq), and how well known the thing is: the number of Wikipedia language editions
+    with an article on it (Wikidata sitelinks). 1 edition is about 1 in 65,000 players; 10 about 1 in 6,500; 200 or
+    more about 1 in 330 (150 m). Nothing from a dataset can reach Unfathomable on this alone: that needs real players."""
     z = min((zipf_frequency(w, "en") for w in norm(name).split()), default=0.0)   # the rarest word decides
-    return round(min(cap, base * 10 ** (0.35 * max(0.0, z - 2.5))), 7)
+    wf = min(cap, base * 10 ** (0.35 * max(0.0, z - 2.5)))
+    lk = min(3e-3, 1.5e-5 * float(links)) if links else 0.0
+    return round(max(wf, lk), 7)
+
+# Designations and descriptive tails people don't type: "Castelmagno PDO" is Castelmagno, "Sbrinz (cheese)" is Sbrinz.
+TAIL = re.compile(r"\s*(\([^)]*\)|,? (pdo|aop|dop|aoc|pgi|igp|doc|docg|dog breed|cheese|sauce|soup|bread|pasta|opera|painting|typeface|font|desert))+$", re.I)
+def clean(label):
+    c = TAIL.sub("", label).strip(" ,")
+    return c if len(c) >= 2 else label
 
 def load(domain):
     return json.load(open(os.path.join(ROOT, "content", "kb", domain + ".json")))
@@ -27,6 +39,26 @@ SHORT_OK = {"uk", "us", "usa", "uae", "drc", "png", "nz", "ussr"}
 def good_alias(a):
     """Datasets list codes and one-letter tags as other names ("PE", "B"): only real names a player would type."""
     k = norm(a); return len(k) >= 3 or k in SHORT_OK
+
+# Names that keep their capitals (people, places, works, brands).
+PROPER = {"countries", "cities", "former_countries", "languages", "constellations", "volcanoes", "car_brands", "deities", "mathematicians",
+          "inventors", "photographers", "operas", "paintings", "typefaces", "deserts", "seas", "creatures"}
+# Things a category drags in that aren't answers to it (a shrine filed under deities, "music of Russia" as a genre).
+EXCLUDE = {"deities": r"shrine|temple|church|monastery|cult of|statue", "music_genres": r"^music of |music in |^history of ",
+           "car_brands": r"alliance|holdings|group$|^[a-z]+ [A-Z]", "creatures": r"^list of ", "sports": r" at the |^list of ",
+           "paintings": r"^untitled$", "film_genres": r"^list of "}
+# Entries a dataset files under the right class but that aren't answers a player would mean: for things people wear,
+# medals and orders (worn, but awards), period overviews ("1100-1200 in European fashion"), whole national wardrobes
+# ("Japanese clothing"), techniques and named one-off objects.
+DROP = {"wearables": re.compile(r"(?i)\b(medal|order of|decoration|award|cross for|star of|insignia|commendation|citation|ribbon bar|badge of)\b|\d|"
+                                r"\bin (european|western)? ?fashion\b|\b(clothing|costume|dress|fashion|garments?|wear)$|\bof [A-Z]|^academic dress\b|knitting|weaving|sewing|^[A-Z][a-z]+ [A-Z]")}
+
+COMMON_DROP = {"wearables"}
+_cw = None
+def COMMON_WORDS():
+    global _cw
+    if _cw is None: _cw = set(json.load(open(os.path.join(ROOT, "words.json"))).get("commonWords", "").split())
+    return _cw
 
 def items_of(kb, flt=None):
     """Dataset entries as {a, al}: birds use species (+ scientific name) and group names; others use items."""
@@ -42,10 +74,20 @@ def items_of(kb, flt=None):
         if flt.get("groups", True): out += [{"a": g, "al": [], "kind": "group"} for g in kb["groups"]]
         return out
     out = []
+    drop = DROP.get(kb["domain"])
     for x in kb["items"]:
+        if drop and drop.search(x["a"]): continue
+        # A single everyday word ("claw", "grip", "pulsar") that a dataset files here in some narrow sense: the
+        # question's own list already has the everyday things people wear, so these would only accept jokes.
+        if kb["domain"] in COMMON_DROP and " " not in x["a"].strip() and x["a"].lower() in COMMON_WORDS(): continue
         ok = all((x.get(k) == v) if not isinstance(v, list) else any(c in x.get(k, []) for c in v) for k, v in flt.items() if k not in ("groups",))
-        if ok: out.append({"a": x["a"] if x["a"][:1].isupper() and kb["domain"] in ("countries", "cities", "former_countries", "languages", "constellations", "volcanoes") else x["a"].lower(),
-                           "al": [a for a in x.get("al", []) if len(a) <= 50 and good_alias(a)][:12], "kind": "item"})
+        if not ok: continue
+        if kb["domain"] in EXCLUDE and re.search(EXCLUDE[kb["domain"]], x["a"], re.I if not kb["domain"] == "car_brands" else 0): continue
+        a0 = clean(x["a"]); names = [x["a"]] if a0 != x["a"] else []
+        proper = kb["domain"] in PROPER
+        out.append({"a": a0 if a0[:1].isupper() and proper else a0.lower(),
+                    "al": [a for a in names + [clean(y) for y in x.get("al", [])] + x.get("al", []) if len(a) <= 50 and good_alias(a) and norm(a) != norm(a0)][:12],
+                    "kind": "item", "links": int(x["links"]) if x.get("links") else None})
     return out
 
 def merge(answers, domain, flt=None, share_key="s"):
@@ -63,7 +105,7 @@ def merge(answers, domain, flt=None, share_key="s"):
             extra = [n for n in names if norm(n) not in have and norm(n) not in index]
             if extra: hit.setdefault("al", []).extend(extra); [index.setdefault(norm(n), hit) for n in extra]
             continue
-        row = {"a": it["a"], "al": [n for n in it["al"] if norm(n) not in index], share_key: prior(it["a"]) * (3 if it["kind"] == "group" else 1), "src": "dataset:" + domain, "pv": 1}
+        row = {"a": it["a"], "al": sorted({n for n in it["al"] if norm(n) not in index}), share_key: prior(it["a"], links=it.get("links")) * (3 if it["kind"] == "group" else 1), "src": "dataset:" + domain, "pv": 1}
         answers.append(row); added += 1
         for n in names: index.setdefault(norm(n), row)
     return answers, added

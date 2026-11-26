@@ -21,15 +21,16 @@ const ok = (name, cond, extra) => { if (cond) { pass++; console.log('PASS  ' + n
     const zoneOk = []; const sp = Wildlife.species();
     for (let day = 1; day < 40; day++) for (const d of [5, 30, 60, 110, 180, 260, 299]) { const s = sp.find(x => x.key === J.residentAt(d, day, 1).key); zoneOk.push(s.zone[0] <= d && d <= s.zone[1]); }
     const varied = new Set(); for (let day = 1; day < 40; day++) varied.add(J.residentAt(150, day, 3).key);
-    const f = (depth, name = 'x') => J.finds({ day: 5, rounds: [{ title: 'T', name, depth }] }).map(x => x.sp.key);
-    return { same: sameAll.every(Boolean), zone: zoneOk.every(Boolean), varied: varied.size, tip: f(0), d199: f(199), d200: f(200), d250: f(250), d300: f(300), none: J.finds({ day: 5, rounds: [{ title: 'T', name: null, depth: 0 }, null] }).length };
+    // f(depth, before): one answer of that depth, after earlier questions that took the dive to 'before' metres.
+    const f = (depth, before = 0, name = 'x') => J.finds({ day: 5, rounds: [...(before ? [{ title: 'P', name: 'p', depth: before }] : []), { title: 'T', name, depth }] }).filter(x => x.round === (before ? 2 : 1)).map(x => x.sp.key);
+    return { same: sameAll.every(Boolean), zone: zoneOk.every(Boolean), varied: varied.size, tip: f(0), d199: f(199, 150), d200: f(200, 150), d200shallow: f(200), d250: f(250, 400), d250tw: f(250, 100), d300: f(300, 100), none: J.finds({ day: 5, rounds: [{ title: 'T', name: null, depth: 0 }, null] }).length };
   });
   ok('fair: the same depth on the same question always meets the same animal', rules.same);
   ok('the animal met always lives at that depth', rules.zone);
   ok('different days bring different animals at the same depth', rules.varied >= 3, rules.varied);
   ok('an answer at the tip (everyone said it) only meets the seabirds', rules.tip.length === 1 && rules.tip[0] === 'auk', rules.tip);
-  ok('the giant squid needs 200 m', !rules.d199.includes('giant') && rules.d200.includes('giant'));
-  ok('the bigfin squid needs 250 m, the colossal squid 300 m (Challenger Deep)', rules.d250.includes('bigfin') && !rules.d250.includes('colossal') && rules.d300.includes('colossal'));
+  ok('the giant squid needs a +200 m answer, and the dive in the Twilight Zone (300 m) or deeper', !rules.d199.includes('giant') && rules.d200.includes('giant') && !rules.d200shallow.includes('giant'), JSON.stringify([rules.d199, rules.d200, rules.d200shallow]));
+  ok('the bigfin needs +250 m in the Midnight Zone (600 m); the colossal squid an Unfathomable answer (+300 m)', rules.d250.includes('bigfin') && !rules.d250tw.includes('bigfin') && !rules.d250.includes('colossal') && rules.d300.includes('colossal'), JSON.stringify([rules.d250, rules.d250tw, rules.d300]));
   ok('a question with no verified answer records nothing', rules.none === 0);
 
   // ---------- Nothing yet ----------
@@ -44,7 +45,7 @@ const ok = (name, cond, extra) => { if (cond) { pass++; console.log('PASS  ' + n
   // ---------- A history ----------
   await seed(p, [
     { day: 1, rounds: [R('Birds', 'raven', 12), R('Cheese', 'feta', 64), R('Countries', 'Bhutan', 148), R('Sports', 'sepak takraw', 212), R('Words', 'quagmire', 0)] },
-    { day: 2, rounds: [R('Fish', 'cod', 3), R('Trees', 'rowan', 96), { title: 'Gods', name: null, depth: 0 }, R('Tools', 'spokeshave', 257), R('Colours', 'teal', 40)] },
+    { day: 2, rounds: [R('Fish', 'cod', 120), R('Trees', 'rowan', 296), { title: 'Gods', name: null, depth: 0 }, R('Tools', 'spokeshave', 257), R('Colours', 'teal', 40)] },
   ]);
   await p.evaluate(() => { location.hash = '#log'; }); await open(p);
   const page = await p.evaluate(() => {
@@ -54,11 +55,11 @@ const ok = (name, cond, extra) => { if (cond) { pass++; console.log('PASS  ' + n
     return { known, leaked: all.filter(n => !known.includes(n) && text.includes(n)), count: j.log.size, deepest: j.deepest && j.deepest.depth, colossal: !!j.log.get('colossal'),
       great: [...document.querySelectorAll('.jn-row.great .jn-name')].map(n => n.firstChild.textContent.trim()), lead: document.querySelector('.jn-lead').innerText };
   });
-  ok('entries are made from the saved dives', page.count === page.known.length && page.count >= 8, page.count);
+  ok('entries are made from the saved dives', page.count === page.known.length && page.count >= 6, page.count);
   ok('undiscovered animals stay unnamed on the page', page.leaked.length === 0, page.leaked);
   ok('the giant and bigfin squid are recorded from deep answers; the colossal squid is not', page.great.includes('Giant squid') && page.great.includes('Bigfin squid') && !page.colossal, page.great);
-  ok('the deepest answer is kept as a personal record', page.deepest === 257 && /spokeshave/.test(page.lead));
-  ok('each entry says which answer found it', await p.evaluate(() => /“quagmire” for Words/.test(document.querySelector('#hub-body').innerText)));
+  ok('the rarest answer and the deepest dive are kept as personal records', page.deepest === 296 && /rowan/.test(page.lead) && /Deepest dive/.test(page.lead));
+  ok('each entry says which answer found it', await p.evaluate(() => /“raven” for Birds/.test(document.querySelector('#hub-body').innerText)));
 
   // Opening an entry shows the animal, larger, with what it really is.
   await p.click('.jn-row:not(.unknown) >> nth=1'); await p.waitForSelector('.jn-detail canvas');
@@ -77,7 +78,7 @@ const ok = (name, cond, extra) => { if (cond) { pass++; console.log('PASS  ' + n
     ok(`${vp}: the journal fits the width`, await q.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     ok(`${vp}: reachable from the menu`, await q.evaluate(() => !!document.querySelector('#menu-panel [data-go="journal"]')));
     await q.evaluate(() => { location.hash = '#log'; }); await q.waitForSelector('.jn-link');
-    ok(`${vp}: the dive log links to it, and no extra tab crowds the tab row`, await q.evaluate(() => /1 of 20|of 20 animals/.test(document.querySelector('.jn-link').innerText) && document.querySelector('#hub-tabs').scrollWidth <= document.querySelector('#hub-tabs').clientWidth));
+    ok(`${vp}: the dive log links to it, and no extra tab crowds the tab row`, await q.evaluate(() => /of \d+ animals/.test(document.querySelector('.jn-link').innerText) && document.querySelector('#hub-tabs').scrollWidth <= document.querySelector('#hub-tabs').clientWidth));
     await c.close();
   }
   await b.close(); site.close();

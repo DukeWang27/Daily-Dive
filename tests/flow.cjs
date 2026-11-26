@@ -110,7 +110,7 @@ const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${na
     const n = await nextQ(q);
     ok('reduced motion (phone): the next question is ready almost at once, with no camera journey', n.clock >= 0 && n.clock < 450, Math.round(n.clock) + ' ms');
     await q.fill('#answer', (await answers(q, 1))[0]); await q.keyboard.press('Enter'); await idle(q);
-    await q.goto(q.url().replace('&reset', '')); await q.waitForFunction(() => ICEBERG_TEST.screen === 'play', null, { timeout: 5000 });
+    await q.goto(q.url().replace('&reset', '')); await q.waitForFunction(() => window.ICEBERG_TEST && ICEBERG_TEST.screen === 'play', null, { timeout: 5000 });
     ok('a reload mid-question comes back to the same question with the guess in place', await q.evaluate(() => ICEBERG_TEST.state.round === 1 && ICEBERG_TEST.state.rounds[1].guesses.length === 1));
     ok('no script errors', !q.errs.length, q.errs.slice(0, 2).join(' | '));
     await q.context().close(); }

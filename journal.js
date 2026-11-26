@@ -16,9 +16,10 @@
   const W = window.Wildlife, I = window.Iceberg;
   if (!W || !I) return;
   const all = W.species(), residents = all.filter(s => !s.rare), great = all.filter(s => s.rare);
-  const mid = s => s.rare ? s.min : (s.zone[0] + s.zone[1]) / 2;
-  const regionOf = s => I.tierOfDepth(s.zone && s.zone[1] < 0 ? 0 : Math.round(mid(s)));
-  const ORDER = I.TIERS.map(t => t.key);
+  // Where an animal belongs in the journal: the region of the ocean it lives in (by the dive's running depth).
+  const mid = s => s.rare ? s.region || 300 : (s.zone[0] + s.zone[1]) / 2;
+  const regionOf = s => I.regionOf(s.zone && s.zone[1] < 0 ? 0 : Math.round(mid(s)));
+  const ORDER = I.REGIONS.map(t => t.key);
 
   // The resident animal a depth reaches on a given day and question. Above the water (0 m: an answer many people
   // gave) there are only seabirds.
@@ -30,17 +31,21 @@
     x = (x ^ (x >>> 15)) >>> 0; x = Math.imul(x, 2246822519) >>> 0; x = (x ^ (x >>> 13)) >>> 0;   // kept unsigned: a negative index picks nothing
     return here[x % here.length];
   }
-  // The deepest of the great squid an answer this deep brings (the same rule as the dive's encounters).
-  const greatAt = depth => great.filter(s => depth >= s.min).sort((a, b) => b.min - a.min)[0] || null;
+  // The great encounter an answer brings: its own rarity (depth) and where the dive had got to (at), by the same rule
+  // and order as the dive itself (wildlife.js, encounterFor).
+  const PRIORITY = ["giant", "bigfin", "megalodon", "coil", "colossal"];
+  const greatAt = (depth, at) => great.filter(s => depth >= s.min && at >= (s.region || 0) && (!s.fiction || depth > 0)).sort((a, b) => PRIORITY.indexOf(b.key) - PRIORITY.indexOf(a.key))[0] || null;
 
-  // What one finished day adds: for each question with a scored answer, the animal its depth reached.
+  // What one finished day adds. The dive is one descent: each question's best answer takes you further down, and the
+  // animal living where it leaves you (the running total) is recorded, with any great encounter the answer brought.
   function finds(rec) {
-    const out = [];
+    const out = []; let run = 0;
     (rec.rounds || []).forEach((r, i) => {
       if (!r || !r.name) return;                       // no verified answer: nothing reached
-      const d = r.depth || 0, at = { day: rec.day, round: i + 1, depth: d, title: r.title, answer: r.name };
-      out.push({ sp: residentAt(d, rec.day, i + 1), ...at });
-      const g = greatAt(d); if (g) out.push({ sp: g, ...at });
+      const d = r.depth || 0; run += d;
+      const at = { day: rec.day, round: i + 1, depth: d, at: run, title: r.title, answer: r.name };
+      out.push({ sp: residentAt(run, rec.day, i + 1), ...at });
+      const g = greatAt(d, run); if (g) out.push({ sp: g, ...at });
     });
     return out;
   }
@@ -59,7 +64,7 @@
   const history = () => { const d = window.Game ? window.Game.days() : []; showingSample = !d.length && sampleOk(); return showingSample ? SAMPLE : d; };
   // The whole journal, from every saved day.
   function compute(days = history()) {
-    const log = new Map(); let deepest = null, dives = 0;
+    const log = new Map(); let deepest = null, dives = 0, furthest = null;
     for (const rec of days.slice().sort((a, b) => a.day - b.day)) {
       dives++;
       for (const f of finds(rec)) {
@@ -68,8 +73,9 @@
         else { e.n++; if (f.depth > e.deepest.depth) e.deepest = f; }
       }
       (rec.rounds || []).forEach((r, i) => { if (r && r.name && (!deepest || r.depth > deepest.depth)) deepest = { day: rec.day, round: i + 1, depth: r.depth, title: r.title, answer: r.name }; });
+      const tot = (rec.rounds || []).reduce((a, r) => a + (r && r.depth || 0), 0); if (!furthest || tot > furthest.total) furthest = { day: rec.day, total: tot };
     }
-    return { log, deepest, dives, total: all.length };
+    return { log, deepest, furthest, dives, total: all.length };
   }
   // What today's dive added, and which of those are new to the journal.
   function today(rec) {
@@ -126,28 +132,30 @@
       showingSample ? h("p.jn-sample", "Example entries, made up to show how the journal fills in. Play a dive to start your own.") : null,
       h("p.note-line", found
         ? `${found} of ${j.total} animals recorded over ${j.dives === 1 ? "one dive" : fmt(j.dives) + " dives"}. Each entry was reached by one of your answers.`
-        : "Nothing recorded yet. Each question's best answer reaches a depth, and the animal that lives there goes in here. Answers everyone gives stay at the surface; rarer ones reach deeper water."),
-      j.deepest ? h("p.jn-record", h("span", "Deepest answer"), h("b", m(j.deepest.depth)), h("span.jn-src", `“${j.deepest.answer}” · ${j.deepest.title} · ${date(j.deepest.day)}`)) : null));
+        : "Nothing recorded yet. Each question's best answer takes your dive further down, and the animal living where it leaves you goes in here. Some things only come to an answer rare enough."),
+      j.furthest ? h("p.jn-record", h("span", "Deepest dive"), h("b", m(j.furthest.total)), h("span.jn-src", `${I.regionOf(j.furthest.total).name} · ${date(j.furthest.day)}`)) : null,
+      j.deepest ? h("p.jn-record", h("span", "Rarest answer"), h("b", "+" + m(j.deepest.depth)), h("span.jn-src", `“${j.deepest.answer}” · ${j.deepest.title} · ${date(j.deepest.day)}`)) : null));
     const byRegion = new Map(ORDER.map(k => [k, []]));
     for (const s of all) byRegion.get(regionOf(s).key).push(s);
     for (const key of ORDER) {
       const list = byRegion.get(key).sort((a, b) => mid(a) - mid(b)); if (!list.length) continue;
-      const tier = I.TIERS.find(t => t.key === key), got = list.filter(s => j.log.has(s.key)).length;
-      const sec = h("section.section.jn-region" + (key === "beyond" ? ".beyond" : ""), h("h3", tier.name, h("span.jn-count", `${got} of ${list.length}`)));
+      const reg = I.REGIONS.find(t => t.key === key), got = list.filter(s => j.log.has(s.key)).length;
+      const sec = h("section.section.jn-region" + (key === "unknown" ? ".beyond" : ""), h("h3", reg.name, h("span.jn-count", `${got} of ${list.length}`)));
       const ul = h("ul.jn-list");
       for (const s of list) {
         const e = j.log.get(s.key);
         if (!e) {
-          const where = s.rare ? (s.key === "colossal" ? "Something enormous is said to live beneath the iceberg itself." : `Unconfirmed reports of something very large below ${m(s.min)}.`)
+          // Locked entries hint at where, never at how: a region for the great ones, nothing at all for the inventions.
+          const where = s.fiction ? "No record. Only rumours." : s.rare ? `Unconfirmed reports of something very large in ${I.regionOf(s.region || 0).name}.`
             : `Unidentified · somewhere between ${m(Math.max(0, s.zone[0]))} and ${m(s.zone[1])}`;
           ul.append(h("li.jn-row.unknown", s.rare ? h("span.jn-pic.mystery", { "aria-hidden": "true" }, "?") : picture(s, { dark: true }), h("div", h("div.jn-name", "Not yet recorded"), h("div.jn-sub", where))));
           continue;
         }
         const f = e.first, row = h("li.jn-row" + (s.rare ? ".great" : ""), { tabindex: "0", role: "button", "aria-expanded": "false" },
           picture(s),
-          h("div", h("div.jn-name", s.name, h("i", ` ${s.latin}`)),
-            h("div.jn-sub", `First recorded ${date(f.day)} at ${m(f.depth)}: “${f.answer}” for ${f.title}`),
-            e.n > 1 ? h("div.jn-sub", `Recorded ${fmt(e.n)} times · deepest at ${m(e.deepest.depth)}`) : null));
+          h("div", h("div.jn-name", s.name, s.latin ? h("i", ` ${s.latin}`) : null, s.fiction ? h("span.jn-fiction", " · not a real animal") : null),
+            h("div.jn-sub", `First recorded ${date(f.day)} at ${m(f.at != null ? f.at : f.depth)}: “${f.answer}” for ${f.title}`),
+            e.n > 1 ? h("div.jn-sub", `Recorded ${fmt(e.n)} times`) : null));
         const open = () => {
           const was = row.getAttribute("aria-expanded") === "true";
           box.querySelectorAll(".jn-row[aria-expanded=true]").forEach(r => { r.setAttribute("aria-expanded", "false"); const d = r.querySelector(".jn-detail"); if (d) d.remove(); });
@@ -155,7 +163,7 @@
           row.setAttribute("aria-expanded", "true");
           const big = document.createElement("canvas"); big.className = "jn-big"; big.setAttribute("aria-hidden", "true");
           W.sheet(big, 1.2, 3, { keys: [s.key], cols: 1, cw: SIZE(s)[0], ch: SIZE(s)[1], clear: true, bare: true });
-          row.append(h("div.jn-detail", big, h("p", s.real + "."), s.rare ? null : h("p.jn-sub", `Lives in the game between ${m(Math.max(0, s.zone[0]))} and ${m(s.zone[1])}.`)));
+          row.append(h("div.jn-detail", big, h("p", s.fiction ? s.real : s.real + "."), s.rare ? null : h("p.jn-sub", `In the dive, between ${m(Math.max(0, s.zone[0]))} and ${m(s.zone[1])}.`)));
           animate(big, s);
         };
         row.onclick = open; row.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(); } };
@@ -163,7 +171,7 @@
       }
       add(sec, ul); add(box, sec);
     }
-    add(box, h("p.note-line.jn-foot", "Animals you only glimpse in passing aren't recorded: an entry needs an answer that reached its depth. Everyone who reaches the same depth on the same question meets the same animal."));
+    add(box, h("p.note-line.jn-foot", "Animals you only glimpse in passing aren't recorded: an entry needs an answer that took your dive there. Everyone who reaches the same depth on the same question meets the same animal. Nothing here can be bought."));
   }
 
   window.Journal = { compute, today, finds, residentAt, render };

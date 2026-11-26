@@ -70,10 +70,18 @@
     met.add(it.id); const at = berg.view.focus; setTimeout(() => { if (G().screen === "dive") life.encounter(it.sightKey, at); }, 900);
   }
   const SIGHT = () => Object.fromEntries((window.Wildlife ? window.Wildlife.ENCOUNTERS : []).map(e => [e.key, e.line]));
+  // Where a guess left that dive: the questions before it (their best answers) plus the best so far in its own.
+  // The same rule as the game: an answer that doesn't beat the question's best leaves the dive where it was.
+  const baseOf = (d, qi) => d.qs.slice(0, qi).reduce((a, x) => a + (x.best ? x.best.depth : 0), 0);
+  function diveAt(d, qi, g) {
+    let best = 0;
+    for (const x of d.qs[qi].guesses) { if (x.status === "ok") best = Math.max(best, x.depth || 0); if (x === g) break; }
+    return { base: baseOf(d, qi), at: baseOf(d, qi) + best, gain: 0 };
+  }
   // One guess as the scene wants it.
   function item(d, qi, g, who) {
-    const game = G(), them = who === "them", label = mine ? (them ? d.name : "You") : null;
-    return { id: `${who}:${qi}:${g.slot}`, n: g.slot, name: g.name, share: g.share, shareText: game.pctText(g.share), countText: "", rankText: g.rank, blurb: g.blurb, sight: SIGHT()[g.sight] || "", sightKey: g.sight || "",
+    const game = G(), them = who === "them", label = mine ? (them ? d.name : "You") : null, dv = d.qs[qi].guesses.includes(g) ? diveAt(d, qi, g) : { at: baseOf(d, qi) + (g.depth || 0) };
+    return { at: dv.at, gain: g.best ? g.depth : 0, id: `${who}:${qi}:${g.slot}`, n: g.slot, name: g.name, share: g.share, shareText: game.pctText(g.share), countText: "", rankText: g.rank, blurb: g.blurb, sight: SIGHT()[g.sight] || "", sightKey: g.sight || "",
       who: them ? "them" : "me", label, dx: mine ? (them ? -17 : 17) : undefined, side: mine ? (them ? -1 : 1) : undefined,
       meta: `${them || !d.own || mine ? (them ? d.name : mine ? "You" : d.name) + " · " : ""}Question ${qi + 1} · guess ${g.slot}` };
   }
@@ -143,7 +151,7 @@
     dive.qs.forEach((x, i) => { if (x.best) items.push({ ...item(dive, i, x.best, mine ? "them" : "me"), n: i + 1, label: mine ? `${i + 1} ${dive.name}` : String(i + 1) }); });
     if (mine) mine.qs.forEach((x, i) => { if (x.best) items.push({ ...item(mine, i, x.best, "me"), n: i + 1, label: `${i + 1} You` }); });
     if (life) life.reset(dive.day * 10 + 7);
-    berg.overview(items, { glide });
+    berg.overview(items, { glide, at: Math.max(dive.total || 0, mine ? mine.total || 0 : 0) });
   }
   function pick(i, glide = true) {
     stopReplay(); q = i; draw();
@@ -152,7 +160,7 @@
       : x.guesses.filter(g => g.status === "ok").map(g => item(dive, i, g, "me"));
     if (life) life.reset(dive.day * 10 + i + 1);
     if (!items.length) { berg.restore([]); return; }
-    berg.restore(items, { glide });
+    berg.restore(items, { glide, base: baseOf(dive, i), at: baseOf(dive, i) + (x.best ? x.best.depth : 0) });
     if (!mine) x.guesses.filter(g => g.status === "ok").forEach((g, j) => { if (g.best && x.guesses.filter(k => k.status === "ok").length > 1) berg.setTag(j, dive.own ? "Deepest discovery" : "Their deepest discovery"); });
   }
   // Replay: the guesses again in the order they were made, question by question. Any tap stops it.
@@ -164,7 +172,7 @@
     for (let i = Math.max(0, q); i < dive.qs.length && run === mineRun; i++) {
       q = i; draw(); items = []; if (life) life.reset(dive.day * 10 + i + 1);
       const ok = dive.qs[i].guesses.filter(g => g.status === "ok");
-      await berg.enter(true); if (run !== mineRun) return;
+      await berg.enter(true, { at: baseOf(dive, i) }); if (run !== mineRun) return;
       for (const g of ok) { const it = item(dive, i, g, "me"); items.push(it); await berg.add(it, { special: g.depth >= 200 && g.best }); if (run !== mineRun) return; await wait(1500); if (run !== mineRun) return; }
       if (!ok.length) await wait(700);
     }

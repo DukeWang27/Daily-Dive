@@ -9,6 +9,8 @@ const ENGINE = arg('engine', 'new'), DATA = arg('data', 'old'), ROOT = path.join
 global.window = {}; global.localStorage = { getItem: () => null, setItem: () => {} };
 require(ENGINE === 'old' ? './validate.v1.js' : '../../validate.js');
 const V = window.IcebergValidate;
+if (window.IcebergValidate.setRealWords) { try { window.IcebergValidate.setRealWords(require('fs').readFileSync(require('path').join(__dirname, '../../realwords.txt'), 'utf8')); } catch {} }
+
 const words = JSON.parse(fs.readFileSync(path.join(ROOT, 'words.json'), 'utf8')); if (words.commonWords) V.setCommonWords(words.commonWords);
 const cases = JSON.parse(fs.readFileSync(path.join(__dirname, 'labeled.json'), 'utf8'));
 const cats = {}, prepared = {};

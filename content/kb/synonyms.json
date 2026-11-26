@@ -1,0 +1,1309 @@
+{
+"about": "Hand-checked groups of names for the same thing. Domains ending in -loose or a regional suffix are only applied where the question's own list already treats them as one answer.",
+"groups": [
+{
+"names": [
+"aubergine",
+"eggplant",
+"brinjal"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"courgette",
+"zucchini"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"rocket",
+"arugula",
+"roquette"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"spring onion",
+"scallion",
+"green onion"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"swede",
+"rutabaga",
+"yellow turnip"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"chickpea",
+"garbanzo bean",
+"garbanzo",
+"chana"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"coriander",
+"cilantro"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"beetroot",
+"beet"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"mangetout",
+"snow pea"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"butternut squash",
+"butternut pumpkin"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"capsicum",
+"bell pepper",
+"sweet pepper"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"broad bean",
+"fava bean"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"runner bean",
+"pole bean"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"pak choi",
+"bok choy",
+"bok choi"
+],
+"kind": "spelling",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"okra",
+"ladies fingers",
+"bhindi"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"celeriac",
+"celery root"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"sweetcorn",
+"corn",
+"maize"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"jacket potato",
+"baked potato"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"prawn",
+"shrimp"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"biscuit",
+"cookie"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"crisps",
+"potato chips"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"chips",
+"french fries",
+"fries"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"icing sugar",
+"powdered sugar",
+"confectioners sugar"
+],
+"kind": "regional",
+"domain": "food",
+"source": "editorial"
+},
+{
+"names": [
+"jam",
+"jelly"
+],
+"kind": "regional",
+"domain": "food-uk-us-spread",
+"source": "editorial"
+},
+{
+"names": [
+"sodium chloride",
+"nacl",
+"table salt"
+],
+"kind": "scientific",
+"domain": "chemistry",
+"source": "editorial"
+},
+{
+"names": [
+"water",
+"h2o",
+"dihydrogen monoxide"
+],
+"kind": "scientific",
+"domain": "chemistry",
+"source": "editorial"
+},
+{
+"names": [
+"carbon dioxide",
+"co2"
+],
+"kind": "abbreviation",
+"domain": "chemistry",
+"source": "editorial"
+},
+{
+"names": [
+"jumper",
+"sweater",
+"pullover"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"trousers",
+"pants",
+"slacks"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"trainers",
+"sneakers",
+"running shoes",
+"tennis shoes"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"tuxedo",
+"dinner jacket",
+"tux"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"flip flops",
+"thongs",
+"jandals"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"vest",
+"undershirt",
+"singlet"
+],
+"kind": "regional",
+"domain": "clothing-uk",
+"source": "editorial"
+},
+{
+"names": [
+"waistcoat",
+"vest"
+],
+"kind": "regional",
+"domain": "clothing-us",
+"source": "editorial"
+},
+{
+"names": [
+"dressing gown",
+"bathrobe",
+"robe"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"braces",
+"suspenders"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"wellies",
+"wellington boots",
+"rain boots",
+"gumboots"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"dungarees",
+"overalls"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"pyjamas",
+"pajamas",
+"pjs"
+],
+"kind": "spelling",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"nappy",
+"diaper"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"tights",
+"pantyhose"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"bum bag",
+"fanny pack"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"beanie",
+"toque",
+"woolly hat"
+],
+"kind": "regional",
+"domain": "clothing",
+"source": "editorial"
+},
+{
+"names": [
+"doctor",
+"physician",
+"medic"
+],
+"kind": "alias",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"lawyer",
+"attorney"
+],
+"kind": "regional",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"police officer",
+"cop",
+"policeman",
+"policewoman",
+"constable"
+],
+"kind": "alias",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"postman",
+"mailman",
+"mail carrier",
+"postal worker",
+"postie"
+],
+"kind": "regional",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"firefighter",
+"fireman"
+],
+"kind": "alias",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"chemist",
+"pharmacist",
+"druggist"
+],
+"kind": "regional",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"dustman",
+"garbage collector",
+"bin man",
+"refuse collector",
+"sanitation worker"
+],
+"kind": "regional",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"flight attendant",
+"air hostess",
+"steward",
+"stewardess",
+"cabin crew"
+],
+"kind": "alias",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"vet",
+"veterinarian",
+"veterinary surgeon"
+],
+"kind": "alias",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"cook",
+"chef"
+],
+"kind": "alias",
+"domain": "jobs-loose",
+"source": "editorial"
+},
+{
+"names": [
+"realtor",
+"estate agent",
+"real estate agent"
+],
+"kind": "regional",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"dentist",
+"dental surgeon"
+],
+"kind": "alias",
+"domain": "jobs",
+"source": "editorial"
+},
+{
+"names": [
+"accountant",
+"bookkeeper"
+],
+"kind": "alias",
+"domain": "jobs-loose",
+"source": "editorial"
+},
+{
+"names": [
+"killer whale",
+"orca",
+"orcinus orca"
+],
+"kind": "scientific",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"cougar",
+"puma",
+"mountain lion",
+"catamount",
+"puma concolor"
+],
+"kind": "regional",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"moose",
+"elk",
+"alces alces"
+],
+"kind": "regional",
+"domain": "animals-moose",
+"source": "editorial"
+},
+{
+"names": [
+"reindeer",
+"caribou",
+"rangifer tarandus"
+],
+"kind": "regional",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"bison",
+"buffalo"
+],
+"kind": "regional",
+"domain": "animals-loose",
+"source": "editorial"
+},
+{
+"names": [
+"groundhog",
+"woodchuck",
+"marmota monax"
+],
+"kind": "regional",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"daddy longlegs",
+"crane fly"
+],
+"kind": "regional",
+"domain": "animals-uk",
+"source": "editorial"
+},
+{
+"names": [
+"ladybird",
+"ladybug"
+],
+"kind": "regional",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"harbour porpoise",
+"harbor porpoise"
+],
+"kind": "spelling",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"hippopotamus",
+"hippo"
+],
+"kind": "abbreviation",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"rhinoceros",
+"rhino"
+],
+"kind": "abbreviation",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"giant panda",
+"panda",
+"ailuropoda melanoleuca"
+],
+"kind": "alias",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"red panda",
+"lesser panda",
+"firefox"
+],
+"kind": "alias",
+"domain": "animals",
+"source": "editorial"
+},
+{
+"names": [
+"mahi mahi",
+"dolphinfish",
+"dorado",
+"coryphaena hippurus"
+],
+"kind": "regional",
+"domain": "fish",
+"source": "editorial"
+},
+{
+"names": [
+"sockeye salmon",
+"sockeye",
+"red salmon"
+],
+"kind": "alias",
+"domain": "fish",
+"source": "editorial"
+},
+{
+"names": [
+"basa",
+"pangasius",
+"swai",
+"river cobbler"
+],
+"kind": "regional",
+"domain": "fish",
+"source": "editorial"
+},
+{
+"names": [
+"pollock",
+"pollack",
+"coley",
+"saithe"
+],
+"kind": "regional",
+"domain": "fish-loose",
+"source": "editorial"
+},
+{
+"names": [
+"rock salmon",
+"dogfish"
+],
+"kind": "regional",
+"domain": "fish-uk",
+"source": "editorial"
+},
+{
+"names": [
+"sea bass",
+"branzino",
+"european seabass",
+"dicentrarchus labrax"
+],
+"kind": "regional",
+"domain": "fish",
+"source": "editorial"
+},
+{
+"names": [
+"john dory",
+"st pierre",
+"zeus faber"
+],
+"kind": "regional",
+"domain": "fish",
+"source": "editorial"
+},
+{
+"names": [
+"monkfish",
+"anglerfish",
+"goosefish",
+"lophius piscatorius"
+],
+"kind": "regional",
+"domain": "fish",
+"source": "editorial"
+},
+{
+"names": [
+"skate",
+"ray"
+],
+"kind": "alias",
+"domain": "fish-loose",
+"source": "editorial"
+},
+{
+"names": [
+"whale shark",
+"rhincodon typus"
+],
+"kind": "scientific",
+"domain": "fish",
+"source": "editorial"
+},
+{
+"names": [
+"great white shark",
+"great white",
+"white shark",
+"carcharodon carcharias"
+],
+"kind": "alias",
+"domain": "fish",
+"source": "editorial"
+},
+{
+"names": [
+"german shepherd",
+"alsatian",
+"gsd",
+"german shepherd dog"
+],
+"kind": "regional",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"dachshund",
+"sausage dog",
+"wiener dog",
+"doxie"
+],
+"kind": "alias",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"xoloitzcuintli",
+"xolo",
+"mexican hairless",
+"mexican hairless dog"
+],
+"kind": "alias",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"west highland white terrier",
+"westie"
+],
+"kind": "abbreviation",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"labrador retriever",
+"labrador",
+"lab"
+],
+"kind": "abbreviation",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"golden retriever",
+"goldie"
+],
+"kind": "abbreviation",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"yorkshire terrier",
+"yorkie"
+],
+"kind": "abbreviation",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"staffordshire bull terrier",
+"staffie",
+"staffy",
+"staffordshire terrier"
+],
+"kind": "abbreviation",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"pembroke welsh corgi",
+"corgi"
+],
+"kind": "abbreviation",
+"domain": "dog_breeds-loose",
+"source": "editorial"
+},
+{
+"names": [
+"shih tzu",
+"chrysanthemum dog"
+],
+"kind": "alias",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"basenji",
+"congo dog"
+],
+"kind": "alias",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"komondor",
+"hungarian sheepdog"
+],
+"kind": "alias",
+"domain": "dog_breeds",
+"source": "editorial"
+},
+{
+"names": [
+"robin",
+"european robin",
+"robin redbreast"
+],
+"kind": "alias",
+"domain": "birds-uk",
+"source": "editorial"
+},
+{
+"names": [
+"magpie",
+"eurasian magpie",
+"common magpie"
+],
+"kind": "alias",
+"domain": "birds",
+"source": "editorial"
+},
+{
+"names": [
+"blackbird",
+"common blackbird",
+"eurasian blackbird"
+],
+"kind": "alias",
+"domain": "birds",
+"source": "editorial"
+},
+{
+"names": [
+"raven",
+"common raven",
+"northern raven"
+],
+"kind": "alias",
+"domain": "birds",
+"source": "editorial"
+},
+{
+"names": [
+"loon",
+"diver"
+],
+"kind": "regional",
+"domain": "birds",
+"source": "editorial"
+},
+{
+"names": [
+"puffin",
+"atlantic puffin",
+"sea parrot"
+],
+"kind": "alias",
+"domain": "birds",
+"source": "editorial"
+},
+{
+"names": [
+"budgerigar",
+"budgie",
+"parakeet"
+],
+"kind": "regional",
+"domain": "birds-loose",
+"source": "editorial"
+},
+{
+"names": [
+"hoatzin",
+"stinkbird"
+],
+"kind": "alias",
+"domain": "birds",
+"source": "editorial"
+},
+{
+"names": [
+"shoebill",
+"whalehead",
+"shoe-billed stork"
+],
+"kind": "alias",
+"domain": "birds",
+"source": "editorial"
+},
+{
+"names": [
+"netherlands",
+"holland",
+"the netherlands"
+],
+"kind": "alias",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"myanmar",
+"burma"
+],
+"kind": "historical",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"ivory coast",
+"cote d ivoire",
+"cote divoire"
+],
+"kind": "alias",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"czech republic",
+"czechia"
+],
+"kind": "alias",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"eswatini",
+"swaziland"
+],
+"kind": "historical",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"north macedonia",
+"macedonia"
+],
+"kind": "historical",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"united kingdom",
+"uk",
+"britain",
+"great britain"
+],
+"kind": "abbreviation",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"united states",
+"usa",
+"us",
+"america",
+"united states of america"
+],
+"kind": "abbreviation",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"democratic republic of the congo",
+"drc",
+"dr congo",
+"congo kinshasa",
+"zaire"
+],
+"kind": "historical",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"republic of the congo",
+"congo brazzaville"
+],
+"kind": "alias",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"turkey",
+"turkiye"
+],
+"kind": "alias",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"sri lanka",
+"ceylon"
+],
+"kind": "historical",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"timor leste",
+"east timor"
+],
+"kind": "alias",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"cabo verde",
+"cape verde"
+],
+"kind": "alias",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"united arab emirates",
+"uae"
+],
+"kind": "abbreviation",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"south korea",
+"republic of korea",
+"korea"
+],
+"kind": "alias",
+"domain": "countries-loose",
+"source": "editorial"
+},
+{
+"names": [
+"north korea",
+"dprk"
+],
+"kind": "abbreviation",
+"domain": "countries",
+"source": "editorial"
+},
+{
+"names": [
+"grey",
+"gray"
+],
+"kind": "spelling",
+"domain": "colours",
+"source": "editorial"
+},
+{
+"names": [
+"fuchsia",
+"fuschia"
+],
+"kind": "spelling",
+"domain": "colours",
+"source": "editorial"
+},
+{
+"names": [
+"navy",
+"navy blue"
+],
+"kind": "alias",
+"domain": "colours",
+"source": "editorial"
+},
+{
+"names": [
+"violet",
+"purple"
+],
+"kind": "alias",
+"domain": "colours-loose",
+"source": "editorial"
+},
+{
+"names": [
+"football",
+"soccer",
+"association football"
+],
+"kind": "regional",
+"domain": "sports",
+"source": "editorial"
+},
+{
+"names": [
+"american football",
+"gridiron"
+],
+"kind": "alias",
+"domain": "sports",
+"source": "editorial"
+},
+{
+"names": [
+"table tennis",
+"ping pong"
+],
+"kind": "alias",
+"domain": "sports",
+"source": "editorial"
+},
+{
+"names": [
+"ice hockey",
+"hockey"
+],
+"kind": "regional",
+"domain": "sports-us",
+"source": "editorial"
+},
+{
+"names": [
+"field hockey",
+"hockey"
+],
+"kind": "regional",
+"domain": "sports-uk",
+"source": "editorial"
+},
+{
+"names": [
+"mma",
+"mixed martial arts",
+"cage fighting"
+],
+"kind": "abbreviation",
+"domain": "sports",
+"source": "editorial"
+},
+{
+"names": [
+"double bass",
+"contrabass",
+"upright bass",
+"bass fiddle"
+],
+"kind": "alias",
+"domain": "instruments",
+"source": "editorial"
+},
+{
+"names": [
+"timpani",
+"kettle drums",
+"kettledrum"
+],
+"kind": "alias",
+"domain": "instruments",
+"source": "editorial"
+},
+{
+"names": [
+"glockenspiel",
+"orchestra bells"
+],
+"kind": "alias",
+"domain": "instruments",
+"source": "editorial"
+},
+{
+"names": [
+"harmonica",
+"mouth organ",
+"blues harp"
+],
+"kind": "alias",
+"domain": "instruments",
+"source": "editorial"
+},
+{
+"names": [
+"piano",
+"pianoforte"
+],
+"kind": "alias",
+"domain": "instruments",
+"source": "editorial"
+},
+{
+"names": [
+"french horn",
+"horn"
+],
+"kind": "alias",
+"domain": "instruments-loose",
+"source": "editorial"
+}
+]
+}

@@ -369,7 +369,7 @@ function roundExtras(cat, r) {
     box.append(el("span", "rx-lbl", `Target: ${b.text}`), strip);
   } else if (k === "risk" && r.choice) {
     box.classList.add("riskline");
-    box.append(el("span", "rx-lbl", r.choice.kind === "risk" ? `At risk: +${r.choice.stake} m. Beat it for ×${Rounds.RISK_MULT}.` : r.choice.kind === "secure" ? `Secured +${r.choice.stake} m` : "Playing on: best of three"));
+    box.append(el("span", "rx-lbl", r.choice.kind === "risk" ? `At risk: +${r.choice.stake} m. Beat it and every metre past it counts ×${Rounds.RISK_MULT}.` : r.choice.kind === "secure" ? `Kept: +${r.choice.stake} m with the bonus makes +${Rounds.keepValue(r.choice.stake)} m` : "Playing on: best of three"));
   } else box.hidden = true;
   if (box.childNodes.length) box.hidden = false;
 }
@@ -406,9 +406,9 @@ async function askRisk(cat, r) {
   const v = await roundCard({ eyebrow: "Risk and reward", title: `${guessName(cat, first)} is worth +${stake} m`,
     body: `It hasn't moved you yet. Choose what happens to it. Earlier questions are safe whatever you choose.`,
     buttons: [
-      { label: `Keep +${stake} m`, note: " and finish this question", value: "secure" },
+      { label: `Keep it: +${Rounds.keepValue(stake)} m`, note: ` · +${stake} m plus a ${Math.round(Rounds.KEEP_BONUS * 100)}% bonus, question over`, value: "secure" },
       { label: "Play on", note: ` · best of three, nothing at stake`, value: "continue" },
-      { label: `Risk it`, note: ` · beat +${stake} m with your ${left === 1 ? "last guess" : left + " guesses"} for ×${Rounds.RISK_MULT}; miss and this question earns 0`, value: "risk" },
+      { label: `Risk it`, note: ` · beat +${stake} m with your ${left === 1 ? "last guess" : left + " guesses"} and the gain counts ×${Rounds.RISK_MULT}; miss and this question earns 0`, value: "risk" },
     ] });
   if (!state || cur() !== r) return;
   r.choice = { kind: v, stake, at: r.guesses.length }; save();
@@ -418,7 +418,7 @@ async function askRisk(cat, r) {
     // The first answer's distance now counts (play on) or is staked (risk): move down for play on, stay for risk.
     if (v === "continue" && stake > 0) { berg.setDive({ base: diveBefore(state.round), at: diveNow() }); syncFrame(0); }
     const left2 = GUESSES - r.guesses.length;
-    setHint(v === "risk" ? `Risked +${stake} m. Beat it with your next ${left2 === 1 ? "guess" : left2 + " guesses"} for ×${Rounds.RISK_MULT}, or this question earns nothing.` : `+${stake} m counts. Best of three from here.`, v === "risk" ? "warn" : "good");
+    setHint(v === "risk" ? `Risked +${stake} m. Beat it with your next ${left2 === 1 ? "guess" : left2 + " guesses"} and the gain counts ×${Rounds.RISK_MULT}, or this question earns nothing.` : `+${stake} m counts. Best of three from here.`, v === "risk" ? "warn" : "good");
   }
 }
 function setHint(text, kind) { const h = $("#hint"); h.className = "hint" + (kind ? " " + kind : ""); h.textContent = text || ""; const a = $("#q-ask"); if (a && !a.dataset.keep) a.hidden = true; }
@@ -752,7 +752,7 @@ async function reveal(cat, r, g) {
     const at = fmt(dv.at), vt = Rounds.verdict(cat, g, dv.had, dv.now);
     if (vt) { setHint(counted + vt + more, dv.gain > 0 ? "good" : ""); return; }
     if (Rounds.kind(cat) === "risk" && r.choice && r.choice.kind === "risk") {
-      const won = dv.now > 0; setHint(counted + (won ? `Risk paid off: +${valueOf(r, g)} m beats +${r.choice.stake} m, ×${Rounds.RISK_MULT} makes +${dv.now} m.` : `+${valueOf(r, g)} m doesn't beat your +${r.choice.stake} m.${more ? more : " The risk is lost: this question earns nothing."}`) + (won ? more : ""), won ? "good" : "warn"); return;
+      const won = dv.now > 0; setHint(counted + (won ? `Risk paid off: +${valueOf(r, g)} m beats your +${r.choice.stake} m, and the gain counts ×${Rounds.RISK_MULT}: +${dv.now} m.` : `+${valueOf(r, g)} m doesn't beat your +${r.choice.stake} m.${more ? more : " The risk is lost: this question earns nothing."}`) + (won ? more : ""), won ? "good" : "warn"); return;
     }
     if (!prevBest) setHint(counted + (d === 0 ? `${pctText(g.share)} of players said this: no distance. Can you go rarer?` : `+${d} m. You're down to ${at} m.`) + more, d >= 100 ? "good" : "");
     else if (deeper) { if (!special) Sound.play("deeper", { depth: Math.min(1, d / 260), m: d }); setHint(`${counted}+${d} m beats your +${depthOf(prevBest.share)} m: ${dv.gain} m further down, to ${at} m.${more}`, "good"); }

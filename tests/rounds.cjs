@@ -59,14 +59,16 @@ execFileSync('python3', [path.join(__dirname, '..', 'tools/playtest/build.py'), 
     return { p, c, q, depth: await meta(p), ups, first };
   };
   let R = await riskRun(1);
-  ok('risk: the choice is offered after a first answer worth something, with the stakes spelled out', /Keep \+\d+ m/.test(R.c) && /×1\.5/.test(R.c) && /earns 0/.test(R.c), R.c);
-  ok('risk: keeping it banks the first answer and ends the question', R.q.done && R.q.choice.kind === 'secure' && R.depth === R.q.choice.stake, JSON.stringify(R.q.choice) + ' ' + R.depth);
+  ok('risk: the choice is offered after a first answer worth something, with the stakes spelled out', /Keep it: \+\d+ m/.test(R.c) && /20% bonus/.test(R.c) && /×1\.5/.test(R.c) && /earns 0/.test(R.c), R.c);
+  ok('risk: keeping it banks the first answer plus 20% and ends the question', R.q.done && R.q.choice.kind === 'secure' && R.depth === Math.round(R.q.choice.stake * 1.2), JSON.stringify(R.q.choice) + ' ' + R.depth);
   await R.p.close();
   R = await riskRun(2, 'rare');
   ok('risk: playing on is ordinary best of three', R.q.choice.kind === 'continue' && R.depth > R.q.choice.stake, R.depth);
   await R.p.close();
   R = await riskRun(3, 'rare');
-  ok('risk: a risk that comes off pays 1.5 times the better answer', R.q.choice.kind === 'risk' && R.depth > R.q.choice.stake * 1.5, `${R.depth} vs stake ${R.q.choice.stake}`);
+  { const later = await R.p.evaluate(() => { return Math.max(...JSON.parse(localStorage.getItem('iceberg-pt:game:193')).rounds[0].guesses.slice(1).filter(g => g.status === 'ok').map(g => window.Iceberg.depthOf(g.share))); });
+    const want = R.q.choice.stake + Math.round(1.5 * (later - R.q.choice.stake));
+    ok('risk: a risk that comes off pays the stake plus 1.5 times the gain', R.q.choice.kind === 'risk' && later > R.q.choice.stake && R.depth === want, `${R.depth} vs ${want} (stake ${R.q.choice.stake}, later ${later})`); }
   await R.p.close();
   R = await riskRun(3, 'common');
   const lost = await R.p.evaluate(() => document.querySelector('#best-depth') ? document.querySelector('#best-depth').textContent : '');

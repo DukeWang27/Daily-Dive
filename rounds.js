@@ -7,22 +7,24 @@
 //   target     hit a band of popularity: e.g. an answer 1 to 3% of players give. Distance is for closeness, not rarity:
 //              up to TARGET_MAX inside the band, less the further out (measured in multiples, so 0.1% is as far below
 //              1% as 10% is above it). Scored only against measured frequencies, never a dataset's first guess.
-//   risk       your first answer is revealed but doesn't move you yet. Secure it, play on as normal, or risk it: beat it
-//              with a later guess and earn RISK_MULT times that guess; fail and the question earns nothing. Earlier
-//              questions are never touched. Once a day (the day's one risk round).
+//   risk       your first answer is revealed but doesn't move you yet. Three choices (tuned in tools/sim/risk.py):
+//              keep it   +KEEP_BONUS (20%) on top, question over;
+//              play on   ordinary best of three;
+//              risk it   beat it with a later guess: the stake plus RISK_MULT (1.5×) the gain over it; fail and the
+//                        question earns nothing. Earlier questions are never touched. At most once a day.
 //
 // Each round's ordinary best is about the same (standard tops out near 300 m with evidence, 299 m without; target at
 // TARGET_MAX), so no round type is worth far more than another, except a risk that comes off.
 (function () {
   "use strict";
   const { depthOf } = window.Iceberg;
-  const TARGET_MAX = 250, TARGET_FALLOFF = 1.25, RISK_MULT = 1.5;
+  const TARGET_MAX = 250, TARGET_FALLOFF = 1.25, RISK_MULT = 1.5, KEEP_BONUS = 0.2;
   const KINDS = {
     standard: { label: "Rarity", rule: "The rarer your answer, the further down it takes you. Only your rarest counts." },
     wildcard: { label: "Wildcard", rule: "An odd one. The rarer your answer, the further down. Only your rarest counts." },
     forbidden: { label: "Forbidden", rule: "The obvious answers are off limits, and so are their other names. Rarest counts." },
     target: { label: "Rarity target", rule: "Not the rarest: hit the target. The closer your answer's popularity is to it, the further you go." },
-    risk: { label: "Risk and reward", rule: "After your first answer, choose: keep it, play on, or risk it for ×1.5." },
+    risk: { label: "Risk and reward", rule: "After your first answer: keep it with a 20% bonus, play on, or risk it to beat it for 1.5× the gain." },
   };
   const kind = cat => (cat && cat.mode && KINDS[cat.mode.type]) ? cat.mode.type : "standard";
   const pct = s => s >= 0.1 ? `${Math.round(s * 100)}%` : s >= 0.01 ? `${+(s * 100).toFixed(1)}%` : `${+(s * 100).toFixed(2)}%`;
@@ -51,6 +53,8 @@
     if (!g || g.status !== "ok") return 0;
     return kind(cat) === "target" ? targetValue(cat, g) : depthOf(g.share);
   }
+  const keepValue = stake => Math.round(stake * (1 + KEEP_BONUS));
+  const riskValue = (stake, later) => stake + Math.round(RISK_MULT * (later - stake));
   // A question's distance using its first n guesses. final: the question is over (time, three guesses, or secured).
   function score(cat, r, n = r.guesses.length, final = !!r.done) {
     const list = r.guesses.slice(0, n), oks = list.map((g, i) => ({ g, i })).filter(x => x.g.status === "ok");
@@ -59,10 +63,10 @@
     const c = r.choice;
     if (!c) return final ? best : 0;                    // not decided yet: the first answer waits, nothing moves
     const first = oks.length ? value(cat, oks[0].g) : 0;
-    if (c.kind === "secure") return c.stake;
+    if (c.kind === "secure") return keepValue(c.stake);
     if (c.kind === "continue") return best;
     const later = oks.filter(x => x.i >= c.at).reduce((m, x) => Math.max(m, value(cat, x.g)), 0);
-    return later > c.stake ? Math.round(RISK_MULT * later) : 0;   // won: ×1.5 the better answer; else nothing (yet, or at all)
+    return later > c.stake ? riskValue(c.stake, later) : 0;   // won: the stake plus 1.5× the gain; else nothing (yet, or at all)
   }
   // The best guess (the one that counts), for marking: highest value, the earlier on a tie.
   function best(cat, r) {
@@ -85,5 +89,5 @@
     return null;   // the game's own wording for rarity rounds
   }
   window.Rounds = { KINDS, kind, label: cat => KINDS[kind(cat)].label, rule: cat => (cat.mode && cat.mode.rule) || KINDS[kind(cat)].rule,
-    band, miss, value, score, best, isForbidden, verdict, pct, TARGET_MAX, RISK_MULT };
+    band, miss, value, score, best, isForbidden, verdict, pct, TARGET_MAX, RISK_MULT, KEEP_BONUS, keepValue, riskValue };
 })();

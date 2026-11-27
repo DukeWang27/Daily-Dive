@@ -2,7 +2,7 @@
 Exit code 1 if any file has an error. Prints one line per problem."""
 import json, glob, os, re, sys
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-CATS = set("general geography history science nature language entertainment music food technology sports everyday creative logic mythology literature maths people popculture arts".split())
+CATS = set("general geography history science nature language entertainment music food technology sports everyday creative logic mythology literature maths people popculture arts film-tv sport games brands culture wordplay internet business knowledge".split())
 STYLES = set("category constraint scene association property wordplay then-and-now role fiction".split())
 ICONS = set("paw bird fish bug lizard leaf flower wave egg apple carrot cheese pizza cake bowl cup nut bottle cone bread burger candy pan wheel car note wrench chair shirt hat bath book boat building door globe pin ball briefcase palette hand speech atom gem dragon bolt heart cloud planet default".split())
 def norm(s): return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()

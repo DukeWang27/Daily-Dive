@@ -23,6 +23,8 @@ def wiki_rows(q, seen, rows):
     if os.path.exists(g):
         for c in json.load(open(g)).get("new", []): links[norm(c["name"])] = c.get("links", 1)
     byname = {norm(r["a"]): r for r in rows}
+    # Never add what the question's own rules list as invalid ("X -- reason"), however a source files it.
+    banned = {norm(x.split(" -- ")[0]) for x in q.get("invalid_but_plausible", [])}
     for canon, extra in (chk.get("aliases_for_existing") or {}).items():
         r = byname.get(norm(canon))
         if r:
@@ -30,7 +32,7 @@ def wiki_rows(q, seen, rows):
                 if norm(x) not in seen and norm(x) != norm(r["a"]): r["al"].append(x); seen.add(norm(x))
     for a in chk.get("add", []):
         name = (a.get("name") or "").strip(); k = norm(name)
-        if not name or k in seen: continue
+        if not name or k in seen or k in banned or any(norm(x) in banned for x in a.get("al", [])): continue
         seen.add(k)
         n = max(1, links.get(k, 2))
         share = min(0.004, 0.00015 * (n / 2) ** 0.9)

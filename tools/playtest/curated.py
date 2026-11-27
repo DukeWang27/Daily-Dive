@@ -40,7 +40,16 @@ def wiki_rows(q, seen, rows):
         for x in al: seen.add(norm(x))
         rows.append({"a": name, "s": round(share, 7), "al": al, "tier": "wiki", "pv": 1, "ds": 1})
 
+# Accepted if typed, never shown in answer lists (crude cocktail names, coarse slang): the "h" flag the game knows.
+CRUDE = re.compile(r"(fuck|shit|cunt|slut|whore|bitch|dick|cock|pussy|twat|wank|fart|piss|arse|motherf)", re.I)
+
 def rows_of(q):
+    rows = _rows_of(q)
+    for r in rows:
+        if CRUDE.search(r["a"]): r["h"] = 1
+    return rows
+
+def _rows_of(q):
     rows, seen = [], set()
     for tier, hi, lo in TIERS:
         items = q.get("answers", {}).get(tier, [])

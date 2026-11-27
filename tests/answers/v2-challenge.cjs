@@ -11,8 +11,9 @@
 // Writes content/curated/challenge/v2-results.json for the review dashboard.
 //   node tests/answers/v2-challenge.cjs [--show]
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
-const ROOT = path.join(__dirname, '..', '..'), F = path.join(ROOT, 'content', 'curated', 'challenge', 'v2-cases.json'), SHOW = process.argv.includes('--show');
-if (!fs.existsSync(F)) { console.log('no v2 challenge cases here (private content)'); process.exit(0); }
+const ROOT = path.join(__dirname, '..', '..'), DIR = path.join(ROOT, 'content', 'curated', 'challenge'), SHOW = process.argv.includes('--show');
+const FILES = fs.existsSync(DIR) ? fs.readdirSync(DIR).filter(f => /^v2-cases(-[a-z])?\.json$/.test(f)) : [];
+if (!FILES.length) { console.log('no v2 challenge cases here (private content)'); process.exit(0); }
 global.window = {}; global.localStorage = { getItem: () => null, setItem: () => {} };
 require('../../validate.js'); const V = window.IcebergValidate;
 V.setRealWords(fs.readFileSync(path.join(ROOT, 'realwords.txt'), 'utf8'));
@@ -28,7 +29,7 @@ const kbFor = cat => { if (!cat.kb) return; const [f, part] = cat.kb.split(':');
 const now = () => Number(process.hrtime.bigint()) / 1e6, pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '-';
 const q95 = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(.95 * s.length))] : 0; };
 const ALIAS = new Set(['phrasing', 'slang', 'misspelling', 'brand']), INV = new Set(['plausible_invalid', 'fabricated', 'adversarial']);
-const cases = JSON.parse(fs.readFileSync(F, 'utf8')).cases, results = {}, times = [];
+const cases = FILES.flatMap(f => JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8')).cases), results = {}, times = [];
 const T = { valid: 0, accepted: 0, pending: 0, rejected: 0, invalid: 0, wrong: 0, alias_n: 0, alias_ok: 0, amb: 0 };
 console.log('question'.padEnd(30), 'valid found  pending  rejected | alias forms | invalid accepted');
 for (const c of cases) {

@@ -49,7 +49,7 @@ const pick = a => a[Math.floor(rnd() * a.length)];
           if (rnd() < 0.12) { r.guesses.push({ status: 'pending', typed: 'zzq' + s }); continue; }
           const row = rnd() < 0.15 && r.guesses.length ? (c.answers.find(a => a.a === r.guesses[0].name) || pick(rows)) : pick(rows);
           if (r.guesses.some(g => g.name === row.a)) { r.guesses.push({ status: 'miss', typed: row.a }); continue; }   // the game counts a repeat as a miss
-          r.guesses.push({ status: 'ok', name: row.a, typed: (row.al && rnd() < 0.3 ? pick(row.al) : row.d || row.a), share: row.s });
+          r.guesses.push({ status: 'ok', name: row.a, typed: (row.al && rnd() < 0.3 ? (al => /[a-z0-9]/i.test(al) ? al : row.d || row.a)(pick(row.al)) : row.d || row.a)   /* an emoji-only name is recorded under the written name (validate.js) */, share: row.s });
           if (R.kind(c) === 'risk' && !r.choice && r.guesses.filter(g => g.status === 'ok').length === 1) {
             const stake = R.value(c, r.guesses[r.guesses.length - 1]);
             const kind = stake <= 0 ? 'continue' : pick(['secure', 'continue', 'risk']);

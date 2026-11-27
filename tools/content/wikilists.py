@@ -117,7 +117,14 @@ def sparql(q):
     if os.path.exists(p): return json.load(open(p))
     url = "https://query.wikidata.org/sparql?" + urllib.parse.urlencode({"query": q, "format": "json"})
     for i in range(6):
-        st, b = get(url, "application/sparql-results+json")
+        if len(url) > 6000:   # a long query (many titles) goes as a form POST: a URL that long is refused
+            try:
+                req = urllib.request.Request("https://query.wikidata.org/sparql", data=urllib.parse.urlencode({"query": q, "format": "json"}).encode(),
+                                             headers={**HDR, "Accept": "application/sparql-results+json", "Content-Type": "application/x-www-form-urlencoded"})
+                with urllib.request.urlopen(req, timeout=90) as r: st, b = r.status, r.read()
+                time.sleep(PAUSE)
+            except Exception: st, b = 0, b""
+        else: st, b = get(url, "application/sparql-results+json")
         if st == 200:
             r = json.loads(b)["results"]["bindings"]; json.dump(r, open(p, "w")); return r
         time.sleep(20 * (i + 1))

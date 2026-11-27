@@ -28,18 +28,22 @@ def split_rules(rules):
         else: other.append(r)
     return acc or other[:1], exc
 
+_mf = os.path.join(ROOT, "content", "curated", "method-fails.json")
+FAILS = json.load(open(_mf))["fails"] if os.path.exists(_mf) else {}   # questions no source can list (QUESTION-METHOD.md)
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     # Same order as the playtest's days 301-314: interleaved across the batches.
     batches = []
     for p in sorted(glob.glob(os.path.join(ROOT, "content", "curated", "batch-*.json"))):
         b = os.path.basename(p)[:-5]
-        batches.append([(b, q) for q in json.load(open(p))["questions"] if q.get("verdict") == "keep" and q.get("answers")])
+        batches.append([(b, q) for q in json.load(open(p))["questions"] if q.get("verdict") == "keep" and q.get("answers") and q["id"] not in FAILS])
     order = []
     while any(batches):
         for lst in batches:
             if lst: order.append(lst.pop(0))
     written = 0
+    for f in glob.glob(os.path.join(OUT, "c-*.json")): os.remove(f)   # the set is rewritten whole: a question taken out leaves no file behind
     for i, (b, q) in enumerate(order):
         rows = C.rows_of(q)
         acc, exc = split_rules(q.get("rules", []))

@@ -1440,7 +1440,21 @@ async function boot() {
     CATS = day.questions || []; DAY_COUNT = index.count || 1; DAYX = day;
     SAMPLE_PLAYERS = day.samplePlayers || index.samplePlayers || SAMPLE_PLAYERS;
   } catch { CATS = []; }
-  if (!CATS.length) { $("#play").textContent = "Couldn't load today's questions"; $("#home-streak").textContent = "Check your connection, then refresh the page to try again."; show("home"); return; }
+  if (!CATS.length) {
+    // The game server can't be reached and this device has no copy of today's questions. Never guess another set (it
+    // would be scored against the wrong answers): try again by itself, sooner when the connection comes back.
+    let tries = 0; try { tries = +sessionStorage.getItem("iceberg:retries") || 0; } catch { /* fine */ }
+    const wait = Math.min(60, 10 * 2 ** tries);
+    show("home");   // first: drawing the home screen resets its lines
+    $("#play").textContent = "Couldn't load today's questions";
+    $("#home-streak").textContent = tries < 6 ? `Can't reach the game right now. Trying again in ${wait} seconds…` : "Can't reach the game right now. Check your connection and refresh the page.";
+    if (tries < 6) {
+      const again = () => { try { sessionStorage.setItem("iceberg:retries", String(tries + 1)); } catch { /* fine */ } location.reload(); };
+      const t = setTimeout(again, wait * 1000); addEventListener("online", () => { clearTimeout(t); again(); }, { once: true });
+    }
+    return;
+  }
+  try { sessionStorage.removeItem("iceberg:retries"); } catch { /* fine */ }
   { const b = $("#play"); b.disabled = false; b.classList.remove("busy"); b.removeAttribute("aria-busy"); }   // ready: Play works from here
   $("#howto-time").textContent = TIME_MS ? `You have ${TIME_MS / 1000} seconds a question. The clock only runs while you can type.` : "There's no clock: take your time.";
   if (PARAMS.has("reset")) { store.del("game:" + dayNumber()); store.del("game:practice"); store.del("day:" + dayNumber()); }

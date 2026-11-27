@@ -275,5 +275,5 @@
     @media (max-width: 640px) { .rv-ans { grid-template-columns: 1fr auto; } .rv-al { grid-column: 1 / -1; order: 3; } }`;
   document.head.append(css);
 
-  window.PTReview = { async open(s) { store = s; shell(); body().append(el("p", "rv-meta", "Loading the question bank…")); try { await load(); } catch { body().textContent = "Couldn't load the question bank."; return; } render(); } };
+  window.PTReview = { async open(s) { store = s; shell(); body().append(el("p", "rv-meta", "Loading the question bank…")); try { await load(); } catch { body().textContent = "Couldn't load the question bank."; return; } if (tab === "editorial" && !data.questions.some(x => x.v2)) tab = "questions"; render(); } };
 })();

@@ -40,6 +40,7 @@ for (const c of cases) {
   const R = { valid: 0, recognised: 0, pending: 0, rejected: 0, invalid: 0, wrong: 0, alias_n: 0, alias_ok: 0, missing: [], wrongs: [], rejectedValid: [] };
   for (const t of c.tests) {
     const t0 = now(), j = V.judge(t.text, P, null); times.push(now() - t0);
+    if (!j) { console.log('   NULL judge for', JSON.stringify(t.text), 'on', c.id); continue; }
     const st = j.status, hit = st === 'ok' || st === 'confirm' || st === 'ambiguous';
     if (t.label === 'valid') {
       R.valid++; if (hit) R.recognised++; else if (st === 'pending') { R.pending++; R.missing.push(t.text); } else { R.rejected++; R.rejectedValid.push(t.text); }

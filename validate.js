@@ -118,6 +118,8 @@
       cat, index, byFirst, keys, joined,
       general: new Set((cat.general || []).map(normalize)),
       notIn: new Set((cat.notIn || []).map(normalize)),
+      // Names written only in symbols (emoji: "💀", "🐐"), matched as typed without variation marks or skin tones.
+      symbols: (() => { const m = new Map(); for (const row of cat.answers) for (const name of [row.a, ...(row.al || [])]) { const k = symbolKey(name); if (k && !normalize(name)) m.set(k, row); } return m; })(),
       pattern: cat.pattern || (cat.prefix ? { type: "start", s: cat.prefix } : null),
       heads: headWords(cat),
       cache: loadCache(cat.key),
@@ -416,9 +418,19 @@
   }
 
   // given: { rows: Map(row.a -> entry), texts: Set(normalized pending/invalid texts) }
+  // An answer written in symbols: trimmed, without spaces, variation selectors, joiners or skin-tone marks.
+  function symbolKey(text) { const t = String(text || "").replace(/[\s\uFE0E\uFE0F\u200D]|\uD83C[\uDFFB-\uDFFF]/g, ""); return t && t.length <= 16 && /[^\x00-\x7F]/.test(t) ? t : ""; }
   function judge(text, P, given) {
     const n = normalize(text);
-    if (!n) return null;
+    if (!n) {
+      // Symbols only: an emoji answer from the list, or a polite "use words" (never silence).
+      const k = symbolKey(text); if (!k) return null;
+      const row = P.symbols && P.symbols.get(k), res0 = { text: String(text).trim(), key: "sym:" + k };
+      // Recorded under the answer's written name, which is what the server checks a guess against.
+      if (row) { const named = [row.a, ...(row.al || [])].find(x => normalize(x)) || row.a; Object.assign(res0, { text: named, key: normalize(named) });
+        return given && given.rows.has(row.a) ? Object.assign(res0, { status: "dup", row }) : Object.assign(res0, { status: "ok", row, via: "exact" }); }
+      return Object.assign(res0, { status: "invalid", reason: "Type the answer in words" });
+    }
     const res = { text: String(text).trim(), key: n };
     const dupOf = row => given && given.rows.has(row.a);
     const ok = (row, via) => Object.assign(res, dupOf(row) ? { status: "dup", row, via } : { status: "ok", row, via });

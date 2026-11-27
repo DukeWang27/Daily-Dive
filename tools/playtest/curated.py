@@ -93,22 +93,25 @@ def load():
     return batches
 
 def build(out):
-    batches = load()
-    if not batches: return []
-    order, i = [], 0
-    while any(batches):
-        b = batches[i % len(batches)]
-        if b: order.append(b.pop(0))
-        i += 1
+    """Curated days from 301 (the researched set), and proposed new questions on their own days from 401 so the owner
+    can play them before approving."""
+    all_b = load()
     entries = []
-    for d in range(0, len(order), 5):
-        qs = order[d:d + 5]
-        if len(qs) < 3: break
-        n = 301 + d // 5
-        day = {"v": 3, "day": n, "questions": qs, "experimental": True, "label": f"Curated set · day {d // 5 + 1}"}
-        json.dump(day, open(os.path.join(out, "pt", f"{n}.json"), "w"), separators=(",", ":"))
-        entries.append({"n": n, "group": "curated", "source": f"Curated set · day {d // 5 + 1}",
-                        "questions": [f"[{(q.get('mode') or {}).get('type', 'rarity')}] {q['prompt']}" for q in qs]})
+    for first, label, pick in ((301, "Curated set", lambda q: q.get("verdict") != "proposed"), (401, "Proposed new questions", lambda q: q.get("verdict") == "proposed")):
+        batches = [[q for q in b if pick(q)] for b in all_b]
+        order, i = [], 0
+        while any(batches):
+            b = batches[i % len(batches)]
+            if b: order.append(b.pop(0))
+            i += 1
+        for d in range(0, len(order), 5):
+            qs = order[d:d + 5]
+            if len(qs) < 3: break
+            n = first + d // 5
+            day = {"v": 3, "day": n, "questions": qs, "experimental": True, "label": f"{label} · day {d // 5 + 1}"}
+            json.dump(day, open(os.path.join(out, "pt", f"{n}.json"), "w"), separators=(",", ":"))
+            entries.append({"n": n, "group": "curated", "source": f"{label} · day {d // 5 + 1}",
+                            "questions": [f"[{(q.get('mode') or {}).get('type', 'rarity')}] {q['prompt']}" for q in qs]})
     return entries
 
 if __name__ == "__main__":

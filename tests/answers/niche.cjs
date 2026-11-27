@@ -4,7 +4,7 @@
 // hand-written list alone (before the reference sources were added), so the difference is measured.
 //   node tests/answers/niche.cjs [--show]
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
-const ROOT = path.join(__dirname, '..', '..'), F = path.join(ROOT, 'content', 'curated', 'challenge', 'niche-cases.json');
+const ROOT = path.join(__dirname, '..', '..'), F = path.join(ROOT, 'content', 'curated', 'challenge', process.argv.find(a => a.endsWith('.json')) || 'niche-cases.json');
 if (!fs.existsSync(F)) { console.log('no niche cases here (private content)'); process.exit(0); }
 global.window = {}; global.localStorage = { getItem: () => null, setItem: () => {} };
 require('../../validate.js'); const V = window.IcebergValidate;

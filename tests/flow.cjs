@@ -16,7 +16,7 @@ const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' : 'FAIL'}  ${na
     await p.goto(`http://localhost:8818/?test&time=20&reset${extra}`); await p.waitForSelector('#play'); await p.waitForTimeout(500);
     return p;
   };
-  const answers = (p, q) => p.evaluate(q => { const c = ICEBERG_TEST.cats[q], l = c.answers.filter(a => !a.x).sort((a, b) => b.s - a.s); return [l[2].a, l[Math.floor(l.length * 0.4)].a, l[Math.floor(l.length * 0.75)].a, l[Math.floor(l.length * 0.6)].a]; }, q);
+  const answers = (p, q) => p.evaluate(q => { const c = ICEBERG_TEST.cats[q], l = c.answers.filter(a => !a.x && window.Iceberg.depthOf(a.s) < 150).sort((a, b) => b.s - a.s); /* ordinary depths: a find beneath the iceberg pauses on purpose (beneath.cjs times those) */ return [l[2].a, l[Math.floor(l.length * 0.4)].a, l[Math.floor(l.length * 0.75)].a, l[Math.floor(l.length * 0.6)].a]; }, q);
   const idle = p => p.waitForFunction(() => !ICEBERG_TEST.busy, null, { timeout: 15000 });
   const nextQ = p => p.evaluate(() => new Promise(res => { const t = performance.now(), before = ICEBERG_TEST.state.round; document.querySelector('#next').click();
     const w = () => { const n = performance.now() - t; if (ICEBERG_TEST.clock.on && ICEBERG_TEST.state.round === before + 1) res({ clock: n, typing: document.activeElement === document.querySelector('#answer') }); else if (n > 4000) res({ clock: -1 }); else requestAnimationFrame(w); }; w(); }));

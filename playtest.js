@@ -88,7 +88,9 @@
     const t = el("textarea", "pt-sv-text"); t.maxLength = 280; t.rows = 2; t.placeholder = "Anything else? Best or worst question, a bug… (optional)"; t.value = ans.text || "";
     t.addEventListener("keydown", e => e.stopPropagation());
     const b = el("button", "btn", done ? "Update" : "Send"), st = el("span", "pt-sv-st", done ? "Sent. Thank you!" : "");
-    b.onclick = () => { ans.text = t.value.trim().slice(0, 280); local.set("survey:" + day, ans); send("survey", null, null, ans); st.textContent = "Sent. Thank you!"; b.textContent = "Update"; };
+    b.onclick = () => { ans.text = t.value.trim().slice(0, 280); local.set("survey:" + day, ans); send("survey", null, null, ans);
+      if (db) db.collection("surveys").doc(`${day}-${Date.now()}`).set({ day, ...ans, at: Date.now() }).catch(() => {});   // the page's own store too, when it has one
+      st.textContent = "Sent. Thank you!"; b.textContent = "Update"; };
     const row = el("div", "pt-sv-go"); row.append(b, st); box.append(t, row);
     return box;
   };

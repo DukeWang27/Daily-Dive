@@ -126,7 +126,7 @@ def build(out):
             json.dump(day, open(os.path.join(out, "pt", f"{n}.json"), "w"), separators=(",", ":"))
             entries.append({"n": n, "group": "v2", "source": f"Editorial v2 · day {i + 1}",
                             "questions": [f"[{(q.get('mode') or {}).get('type', 'rarity')}] {q['prompt']}" for q in qs]})
-    for first, label, pick in ((301, "Curated set", lambda q: q.get("verdict") not in ("proposed", "proposed-v2")), (401, "Proposed new questions", lambda q: q.get("verdict") == "proposed")):
+    for first, label, pick in ((301, "Curated set", lambda q: q.get("verdict") not in ("proposed", "proposed-v2", "approved-v3")), (401, "Proposed new questions", lambda q: q.get("verdict") == "proposed")):
         batches = [[q for q in b if pick(q)] for b in all_b]
         order, i = [], 0
         while any(batches):

@@ -65,8 +65,15 @@ def put(n, d, group, source):
     days.append({"n": n, "group": group, "source": source, "questions": [q.get("prompt") or q.get("title") for q in d["questions"]]})
 
 for n in (1, 2, 3): put(n, json.load(open(os.path.join(ROOT, "days", f"{n}.json"))), "live", f"days/{n}.json")
+# The final set's days (content/editorial/final-set.json): also copied to 601+ as the friends playtest ("Test days"),
+# exactly as the live game would serve them.
+_final = set(json.load(open(os.path.join(ROOT, "content/editorial/final-set.json")))["ids"]) if os.path.exists(os.path.join(ROOT, "content/editorial/final-set.json")) else set()
+_sched = json.load(open(os.path.join(ROOT, "content/schedule.json")))["days"] if os.path.exists(os.path.join(ROOT, "content/schedule.json")) else {}
+_k = 0
 for p in sorted(glob.glob(os.path.join(ROOT, "content/build/days/*.json")), key=lambda p: int(os.path.basename(p)[:-5])):
-    n = int(os.path.basename(p)[:-5]); put(n, json.load(open(p)), "prepared", f"content/build/days/{n}.json")
+    n = int(os.path.basename(p)[:-5]); d = json.load(open(p)); put(n, d, "prepared", f"content/build/days/{n}.json")
+    if _final and all(i in _final for i in _sched.get(str(n), ["-"])):
+        put(601 + _k, d, "friends", f"final schedule day {n}"); _k += 1
 
 # Rough shares: within each tier, earlier answers are a little more common.
 TIERS = [("common", 0.16, 0.03), ("less_common", 0.012, 0.002), ("obscure", 0.0006, 0.00005)]

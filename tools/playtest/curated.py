@@ -38,7 +38,7 @@ def wiki_rows(q, seen, rows):
         share = min(0.004, 0.00015 * (n / 2) ** 0.9)
         al = [x for x in a.get("al", []) if norm(x) and norm(x) not in seen]
         for x in al: seen.add(norm(x))
-        rows.append({"a": name, "s": round(share, 7), "al": al, "tier": "wiki", "pv": 1})
+        rows.append({"a": name, "s": round(share, 7), "al": al, "tier": "wiki", "pv": 1, "ds": 1})
 
 def rows_of(q):
     rows, seen = [], set()

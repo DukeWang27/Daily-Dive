@@ -269,6 +269,7 @@ def client_question(q, rows):
         al = [x for x in r.get("al", []) if norm(x) != norm(a)]
         if al: row["al"] = al
         if r.get("pv"): row["pv"] = 1; row["x"] = 1
+        if r.get("src") == "wikipedia+wikidata": row["ds"] = 1      # added from reference lists: never auto-corrected to (validate.js)
         if r.get("hide"): row["h"] = 1                    # accepted, never shown on public answer lists
         out.append(row)
     return {"key": q["id"], "title": q["title"], "icon": q["icon"], "prompt": voiced(q), "hint": q["hint"], "rules": q["rules"]["player"],

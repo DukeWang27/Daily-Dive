@@ -16,3 +16,7 @@ content/review/
 # Curated question set under review (private, like content/questions)
 content/curated/
 content/kb/lexicon.json
+
+# Editorial research and brainstorms (private, like content/curated)
+content/research/
+content/editorial/

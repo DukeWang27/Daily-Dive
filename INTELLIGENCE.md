@@ -98,9 +98,9 @@ A $5–$10 budget covers the realistic early range many times over. At 5,000+ pl
 ### Setup (needs the owner)
 1. Create an account at https://console.anthropic.com (separate from a Claude subscription; the subscription does not pay for API calls). Add a payment method and buy prepaid credits (start with $5). Under Limits, set a monthly spend limit of $10.
 2. Create an API key (Settings → API keys). Never paste it into the game files, GitHub, chat or an artifact.
-3. In Vercel → the project → Settings → Environment Variables (Production only), add: `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=<key>`, `SUPABASE_URL=https://lrubyctrjrkzbbshlois.supabase.co`, `SUPABASE_SERVICE_ROLE_KEY=<service role key from Supabase → Settings → API>`, `ALLOWED_ORIGIN=https://iceberg-eight-silk.vercel.app`.
+3. In Vercel → the project → Settings → Environment Variables (Production only), add: `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=<key>`, `SUPABASE_URL=https://lrubyctrjrkzbbshlois.supabase.co`, `SUPABASE_SERVICE_ROLE_KEY=<service role key from Supabase → Settings → API>`, `ALLOWED_ORIGIN=https://www.deeplegame.com`.
 4. Apply `supabase/0007_intelligence.sql` to the database.
-5. Set `verifyUrl: "/api/verify"` in `game.js` (`BACKEND`) and deploy.
+5. Redeploy. The game asks `/api/verify` whether the check is configured and switches it on by itself (`{"enabled":true}` when it is); no code change.
 6. Run the benchmark (next section) before switching it on for players.
 
 ### Benchmark

@@ -1,0 +1,53 @@
+# Daily health check: content runway, answers waiting for review, browser errors, AI spending.
+# Reads, then deletes play events older than 180 days and error reports older than 60 (private.prune_logs, as the
+# privacy page promises). Fails (GitHub then emails the repository owner) when:
+#   - fewer than RUNWAY_DAYS days of prepared content remain after today, or
+#   - more than ERROR_LIMIT browser errors were reported yesterday (supabase/0013), or
+#   - the AI check has used more than 80% of its monthly budget (supabase/0007).
+# The game never stops when content runs out (days without prepared content fall back to the original rotation), so
+# this is an early warning, not an outage alarm.
+# Secret: SUPABASE_DB_URL (the same one the nightly backup uses).
+name: Daily health check
+on:
+  schedule:
+    - cron: "41 8 * * *"   # 08:41 UTC daily
+  workflow_dispatch: {}
+permissions:
+  contents: read
+env:
+  RUNWAY_DAYS: "14"
+  ERROR_LIMIT: "200"
+  LAUNCH: "2026-11-24"     # Daily #1 (game.js LAUNCH)
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$DB_URL"
+          today=$(( ( $(date -u +%s) - $(date -u -d "$LAUNCH" +%s) ) / 86400 + 1 ))
+          q() { psql "$DB_URL" -At -v ON_ERROR_STOP=1 -c "$1"; }
+          last=$(q "select coalesce(max(day), 0) from public.content_days")
+          waiting=$(q "select count(*) from public.verified_answers where review_status = 'pending'" || echo "?")
+          flags=$(q "select count(*) from public.flags where created_at > now() - interval '1 day'" || echo "?")
+          errors=$(q "select coalesce(sum(count), 0) from public.client_errors where on_day = current_date - 1" 2>/dev/null || echo 0)
+          spend=$(q "select coalesce(round(100.0 * (select spent_micros from private.ai_month where month = date_trunc('month', now())::date) / nullif((select value from private.ai_config where key = 'month_budget_usd') * 1000000, 0)), 0)" 2>/dev/null || echo 0)
+          q "select private.prune_logs()" >/dev/null 2>&1 || echo "::warning::could not prune old logs (migration 0013 not applied?)"
+          runway=$(( last - today ))
+          {
+            echo "## Deeple health, day $today"
+            echo "- Prepared content up to day $last: **$runway days** of runway"
+            echo "- AI-checked answers waiting for a person: $waiting"
+            echo "- Answers flagged or unknown in the last 24 h: $flags"
+            echo "- Browser errors reported yesterday: $errors"
+            echo "- AI check budget used this month: ${spend:-0}%"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          bad=0
+          if [ "$runway" -lt "$RUNWAY_DAYS" ]; then echo "::error::Only $runway days of prepared content left (add days: CONTENT.md)"; bad=1; fi
+          if [ "${errors:-0}" -gt "$ERROR_LIMIT" ]; then echo "::error::$errors browser errors yesterday (see private client_errors)"; bad=1; fi
+          if [ "${spend:-0}" -gt 80 ]; then echo "::error::AI check at ${spend}% of its monthly budget"; bad=1; fi
+          exit $bad

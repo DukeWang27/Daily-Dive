@@ -188,6 +188,14 @@ def schedule(qs=None, reps=None, seed=7):
     ok = lambda i, r: (r["status"] == "ready" and byid[i].get("approved") is not False) or (r["status"] == "review" and byid[i].get("approved") is True and not r["flags"]) \
         or (byid[i].get("set") == "curated-1" and byid[i].get("approved") is True and r["status"] != "reject")   # the curated set, approved by the owner (26 Nov 2026)
     pool = [byid[i] for i, r in reps.items() if i in byid and i not in used and ok(i, r)]
+    # The final set (content/editorial/final-set.json, curated_to_bank.py --final): when it exists, new days come from
+    # it alone, written for this standard; older bank questions are no longer scheduled.
+    fs_path = os.path.join(C, "editorial", "final-set.json")
+    FINAL = set(json.load(open(fs_path))["ids"]) if os.path.exists(fs_path) else None
+    if FINAL is not None:
+        used_topics = {byid[i]["topic"] for v in fixed.values() for i in v if i in byid}
+        pool = [byid[i] for i in sorted(FINAL) if i in byid and i not in used and byid[i].get("approved") is not False and byid[i]["topic"] not in used_topics]
+        for q in pool: q.pop("plan", None)
     rng = random.Random(seed)
     rng.shuffle(pool)
     for q in pool: q["_keys"] = answer_keys(answers_of(q)[0]); q["_tok"] = prompt_tokens(q["prompt"])
@@ -208,14 +216,25 @@ def schedule(qs=None, reps=None, seed=7):
         if any(q.get("set") == "curated-1" for q in v): planned[d] = [q for q in v if q.get("set") == "curated-1"]
     for v in planned.values(): v.sort(key=lambda q: q["plan"].get("slot", 9))
     reserved = {id(q) for d, v in planned.items() if d >= day for q in v}
+    def in_season(q, d):
+        w = q.get("season")
+        if not w: return True
+        date = datetime.date(2026, 11, 24) + datetime.timedelta(days=d - 1); md = date.strftime("%m-%d"); a, b = w.split("..")
+        return a <= md <= b if a <= b else (md >= a or md <= b)
     def penalty(q, chosen):
         p = 0.0
+        if FINAL is not None:
+            fmt = q.get("format") or q.get("style")
+            if fmt == "lateral" and sum((c.get("format") or c.get("style")) == "lateral" for c in chosen) >= 1: return 1e9   # one riddle-like prompt a day
+            if sum((c.get("format") or c.get("style")) == fmt for c in chosen) >= 2: return 1e9                            # at most two of any format
+            if not in_season(q, day): return 1e9
+            if q.get("family") and any(c.get("family") == q["family"] for past in history[-21:] + [chosen] for c in past): return 1e9   # relatives 3 weeks apart
         same = sum(c["category"] == q["category"] for c in chosen)
         if same >= 2: return 1e9                                                                # never three from one category
-        if same and any(c["style"] == q["style"] for c in chosen if c["category"] == q["category"]): return 1e9
+        if same and FINAL is None and any(c["style"] == q["style"] for c in chosen if c["category"] == q["category"]): return 1e9
         p += 25.0 * same                                                                         # a second one only when nothing else fits
         if q["difficulty"] <= 2 and any(c["difficulty"] <= 2 for c in chosen): p += 8.0          # easy ones are scarce: one a day, save the rest
-        if sum(c["style"] == q["style"] for c in chosen) >= 2 and not q.get("set"): return 1e9    # at most two of any style a day
+        if FINAL is None and sum(c["style"] == q["style"] for c in chosen) >= 2 and not q.get("set"): return 1e9    # at most two of any style a day
         if is_plain(q):                                                                          # bare categories: one a day at most
             if any(is_plain(c) for c in chosen): return 1e9
             p += 6.0
@@ -230,8 +249,8 @@ def schedule(qs=None, reps=None, seed=7):
     while day <= last_day:
         chosen = list(planned.get(day, []))[:5]; curated = len(chosen)
         for slot in range(len(chosen), 5):
-            need_easy = slot == 4 and not any(c["difficulty"] <= 2 for c in chosen)
-            need_hard = slot == 4 and not any(c["difficulty"] >= 3 for c in chosen)
+            need_easy = FINAL is None and slot == 4 and not any(c["difficulty"] <= 2 for c in chosen)
+            need_hard = FINAL is None and slot == 4 and not any(c["difficulty"] >= 3 for c in chosen)
             best, bp = None, 1e9
             for q in pool:
                 if q in chosen or id(q) in reserved: continue
@@ -243,7 +262,11 @@ def schedule(qs=None, reps=None, seed=7):
             chosen.append(best)
         if len(chosen) < 5: print(f"stopped at day {day}: not enough varied ready questions"); break
         # Order within the day: an easy opener, the hardest fourth, a creative or association question last if there is one.
-        if curated < 3:   # a curated day keeps the order it was written in
+        if FINAL is not None:   # open with something everyone can answer at once; riddles and wordplay later in the day
+            rank = {"category": 0, "property": 1, "brands": 1, "media": 1, "people": 2, "knowledge": 3, "wordplay": 3, "lateral": 4}
+            chosen.sort(key=lambda c: (rank.get(c.get("format") or c.get("style"), 2), rng.random()))
+            if len(chosen) == 5: chosen.insert(4, chosen.pop(rng.choice([1, 2])))   # not strictly easiest-to-hardest
+        elif curated < 3:   # a curated day keeps the order it was written in
             chosen.sort(key=lambda c: c["difficulty"])
             hardest = max(chosen, key=lambda c: c["difficulty"]); chosen.remove(hardest); chosen.insert(3, hardest)
         days[str(day)] = [c["id"] for c in chosen]

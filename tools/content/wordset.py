@@ -13,12 +13,14 @@ Rules:
   semordnilap                    another real word when reversed (not a palindrome)
   same-ends <length>             given length, starts and ends with the same letter
   regex <pattern>                matches a Python regex (fullmatch)
-Use from Python: wordset.words(), wordset.zipf(w), wordset.band(z).
+Use from Python: wordset.words(), wordset.common_noun(w) (has a lower-case sense: filters out names), wordset.zipf(w), wordset.band(z).
 """
 import json, os, re, sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 _WORDS = None
-BAD = re.compile(r"(fuck|shit|cunt|nigg|fag|slut|whore|rape|bitch|dick|cock|pussy|twat|wank|spic|kike|chink|retard)")
+# Offensive words: these stems anywhere, plus a few that are only offensive as whole words or prefixes (so "grape",
+# "scrape", "therapist", "cockpit" and "dickens" stay in; review "cock" words by hand where a question shows them).
+BAD = re.compile(r"(fuck|shit|cunt|nigg|slut|whore|bitch|pussy|twat|wank|kike|retard)|^(rape|rapist|fag|faggot|spic|chink|dick|dickhead|cock|cocks)$")
 
 def words():
     """Real English words: WordNet's list, plus everyday words from wordfreq that are plain lower-case letters."""
@@ -32,10 +34,27 @@ def words():
         base = {w for w in base if re.fullmatch(r"[a-z]{2,}", w)}
         seen = {w for w in top_n_list("en", 80000) if re.fullmatch(r"[a-z]{2,}", w)}
         _WORDS = base | {w for w in seen if _inflected(w, base)}
+        # The game's lists leave out words of one to three letters and a few everyday ones (sun, icy, grape). Add any
+        # word WordNet knows in lower case that wordfreq has also seen (so it is in real use).
+        from nltk.corpus import wordnet as wn
+        lemmas = {l for l in wn.all_lemma_names() if re.fullmatch(r"[a-z]{2,}", l)}
+        _WORDS |= {w for w in seen if w in lemmas}
+        _WORDS |= {w for w in seen if _inflected(w, lemmas)}
         _WORDS = {w for w in _WORDS if not BAD.search(w)}
     return _WORDS
 
+def common_noun(w):
+    """True if w has a lower-case dictionary sense (so 'reading' and 'bath' pass, 'paris' and 'stephen' don't).
+    WordNet stores proper nouns as instances or with capitals in their synset lemmas; we look for any non-instance
+    sense whose lemma is written in lower case."""
+    from nltk.corpus import wordnet as wn
+    for s in wn.synsets(w):
+        if s.instance_hypernyms(): continue
+        if any(l.name() == w for l in s.lemmas()): return True
+    return False
+
 def _inflected(w, wn):
+    if re.search(r"([bdgmnprt])\1(er|est|ed|ing)$", w) and re.sub(r"([bdgmnprt])\1(er|est|ed|ing)$", r"\1", w) in wn: return True   # hotter, stopped
     for suf, rep in (("s", ""), ("es", ""), ("ies", "y"), ("ed", ""), ("ed", "e"), ("ing", ""), ("ing", "e"), ("er", ""), ("est", ""), ("ly", "")):
         if w.endswith(suf) and (w[: -len(suf)] + rep) in wn: return True
     return False

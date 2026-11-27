@@ -17,7 +17,7 @@ def wiki_rows(q, seen, rows):
     rarity is a first estimate from how widely known each one is (language editions of its article): marked as an
     estimate (pv) until players give real numbers, so it never sets off a mine or hits a target."""
     p = os.path.join(WIKI, q["id"] + ".check.json")
-    if not os.path.exists(p): return
+    if not os.path.exists(p) or os.environ.get("CURATED_NO_WIKI"): return   # CURATED_NO_WIKI: the hand-written lists alone (for before/after tests)
     chk = json.load(open(p)); links = {}
     g = os.path.join(WIKI, q["id"] + ".gather.json")
     if os.path.exists(g):

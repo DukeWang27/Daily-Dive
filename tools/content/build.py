@@ -76,7 +76,7 @@ def quality(q, rows, added):
     closed = n < 90 and bool(q.get("kb") or q.get("closed"))   # a small set listed in full, e.g. the 54 countries in Africa
     need = 15 if n >= 90 else max(5, n // 8)          # a closed set can't have 15 obscure members
     if obscure < need: flags.append(f"thin long tail (under {need} obscure answers)")
-    if not (1.6 <= total <= 3.6): flags.append(f"share estimates add up to {total:.2f}")
+    if not (1.6 <= total <= 3.6) and q.get("set") != "curated-1": flags.append(f"share estimates add up to {total:.2f}")   # the curated set's tiers are graded by hand, not shares that sum
     if top < 0.05: flags.append("no clear common answer (top share under 5%)")
     if words > 12: flags.append("prompt is long")
     if not q["prompt"].startswith(("Name", "Give", "Think of")): notes.append("unusual opening")

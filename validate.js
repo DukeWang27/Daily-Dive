@@ -15,6 +15,8 @@
 // (how close the spelling is, how it sounds, and how commonly people give it), never by how well it would score.
 // A word that is already a known answer is never corrected, so an obscure answer is never swapped for a common one.
 (function () {
+  // Places that may follow an answer after a comma as a description ("Reading, Pennsylvania", "Nice, France").
+  const PLACES = new Set(["afghanistan", "alabama", "alaska", "albania", "alberta", "algeria", "america", "andorra", "angola", "argentina", "arizona", "arkansas", "armenia", "australia", "austria", "azerbaijan", "bahrain", "bangladesh", "barbados", "bavaria", "belarus", "belgium", "belize", "benin", "bhutan", "bolivia", "botswana", "brazil", "britain", "british columbia", "brittany", "brunei", "bulgaria", "burkina faso", "burundi", "california", "cambodia", "cameroon", "canada", "cape verde", "chad", "chile", "colombia", "colorado", "comoros", "connecticut", "cornwall", "costa rica", "croatia", "cuba", "cyprus", "czech republic", "delaware", "devon", "djibouti", "dominica", "dominican republic", "ecuador", "egypt", "el salvador", "england", "equatorial guinea", "eritrea", "essex", "estonia", "eswatini", "ethiopia", "fiji", "finland", "florida", "france", "gabon", "georgia", "germany", "ghana", "greece", "grenada", "guatemala", "guinea", "guineabissau", "guyana", "haiti", "hawaii", "honduras", "hungary", "iceland", "idaho", "illinois", "india", "indiana", "indonesia", "iowa", "iran", "iraq", "ireland", "israel", "italy", "ivory coast", "jamaica", "japan", "jordan", "kansas", "kazakhstan", "kent", "kentucky", "kenya", "kiribati", "kosovo", "kuwait", "kyrgyzstan", "laos", "latvia", "lebanon", "lesotho", "liberia", "libya", "liechtenstein", "lithuania", "louisiana", "luxembourg", "madagascar", "maine", "malawi", "malaysia", "maldives", "mali", "malta", "manitoba", "marshall islands", "maryland", "massachusetts", "mauritania", "mauritius", "mexico", "michigan", "minnesota", "mississippi", "missouri", "moldova", "monaco", "mongolia", "montana", "montenegro", "morocco", "mozambique", "myanmar", "namibia", "nauru", "nebraska", "nepal", "nevada", "new hampshire", "new jersey", "new mexico", "new york", "new zealand", "nicaragua", "niger", "nigeria", "normandy", "north carolina", "north dakota", "north korea", "north macedonia", "northern ireland", "norway", "nova scotia", "ohio", "oklahoma", "oman", "ontario", "oregon", "pakistan", "palau", "palestine", "panama", "paraguay", "pennsylvania", "peru", "philippines", "poland", "portugal", "provence", "qatar", "quebec", "queensland", "rhode island", "romania", "russia", "rwanda", "saint lucia", "samoa", "san marino", "saudi arabia", "scotland", "senegal", "serbia", "seychelles", "sicily", "sierra leone", "singapore", "slovakia", "slovenia", "solomon islands", "somalia", "somerset", "south africa", "south australia", "south carolina", "south dakota", "south korea", "south sudan", "spain", "sri lanka", "sudan", "suriname", "surrey", "sweden", "switzerland", "syria", "taiwan", "tajikistan", "tanzania", "tasmania", "tennessee", "texas", "thailand", "the bahamas", "the gambia", "timorleste", "togo", "tonga", "tunisia", "turkey", "turkmenistan", "tuscany", "tuvalu", "uganda", "uk", "ukraine", "united kingdom", "united states", "uruguay", "us", "usa", "utah", "uzbekistan", "vanuatu", "vatican city", "venezuela", "vermont", "victoria", "vietnam", "virginia", "wales", "washington", "west virginia", "western australia", "wisconsin", "wyoming", "yemen", "yorkshire", "zambia", "zimbabwe"]);
   "use strict";
 
   function normalize(s) {
@@ -98,7 +100,8 @@
     // Some lists store common misspellings as other names ("leging", "turqoise"). Those are spelling mistakes, not
     // other names: they are offered as a correction to confirm, never accepted silently.
     for (const row of cat.answers) for (const name of row.al || []) { const k = normalize(name), a = normalize(row.a);
-      if (!(k.length >= 3 || shortOk.has(k) || k === a || cat.derive === "person")) continue;   // jobs: GP, RN, DJ are what people say
+      // Two characters are kept where an editor wrote them (curated lists: "F1", "TV") or they hold a digit ("R2", "C3").
+      if (!(k.length >= 3 || shortOk.has(k) || k === a || cat.derive === "person" || (k.length === 2 && (cat.curated || /\d/.test(k))))) continue;   // jobs: GP, RN, DJ are what people say
       // Forms of one word (clocks, knocked, boxes) are not misspellings either.
       const form = (x, y) => variants(x).includes(y) || variants(y).includes(x) || (x.startsWith(y) && /^(s|es|ed|d|ing|er|ers)$/.test(x.slice(y.length))) || (y.startsWith(x) && /^(s|es|ed|d|ing|er|ers)$/.test(y.slice(x.length)));
       const near = m => m !== k && !sameSpelling(k, m) && !form(k, m) && k.split(" ").length === m.split(" ").length && editCost(k, m, 2) <= 2;
@@ -429,7 +432,9 @@
     if (/,|;|&| and | or /i.test(" " + String(text) + " ") && !lookup(n, P)) {
       const segs = String(text).split(/\s*(?:,|;|&|\band\b|\bor\b)\s*/i).map(x => normalize(x).replace(/^(the|a|an)\s+/, "")).filter(Boolean);
       const known = segs.filter(x => lookup(x, P)).length, short = segs.every(x => x.split(" ").length <= 3);
-      if (segs.length >= 2 && (known >= 2 || (known >= 1 && short && /,|;/.test(String(text))))) return Object.assign(res, { status: "invalid", reason: "One answer at a time" });
+      // "Reading, Pennsylvania": a listed answer then a capitalised place that isn't an answer here is a description.
+      const placeAfter = segs.length === 2 && known === 1 && lookup(segs[0], P) && /^[^,;]+,[^,;]+$/.test(String(text)) && PLACES.has(segs[1]);
+      if (!placeAfter && segs.length >= 2 && (known >= 2 || (known >= 1 && short && /,|;/.test(String(text))))) return Object.assign(res, { status: "invalid", reason: "One answer at a time" });
     }
     // Brands, models and descriptions on questions that take them, before anything is ruled out as "not one answer".
     if ((P.products || P.cat.describe) && !lookup(n, P) && n.split(" ").length <= 14) { const sp = specific(n, P, res); if (sp) return sp.status === "ok" && dupOf(sp.row) ? Object.assign(sp, { status: "dup" }) : sp; }
@@ -451,7 +456,10 @@
       // ("Cheddar cheese from Cheddar, Somerset").
       const bare = String(text).replace(/\([^)]*\)?/g, " "), segs0 = bare.split(/[,;]/);
       const rawAfter = segs0.slice(1).join(" ").trim().toLowerCase();   // as typed: "the oldest vertebrate" keeps its "the"
-      const second = segs0.length > 1 && !!lookup(normalize(segs0[0]).replace(/^(the|a|an)\s+/, ""), P) && after && after.split(" ").length <= 3 && !/\d/.test(after)
+      // A place after the name ("Reading, Pennsylvania", "Nice, France") describes it: a capitalised name of one or two
+      // words that isn't itself an answer here.
+      const place = segs0.length === 2 && PLACES.has(normalize(segs0[1])) && !lookup(normalize(segs0[1]), P);
+      const second = !place && segs0.length > 1 && !!lookup(normalize(segs0[0]).replace(/^(the|a|an)\s+/, ""), P) && after && after.split(" ").length <= 3 && !/\d/.test(after)
         && !/^(the|a|an|my|our|its|his|her|their|which|who|that|like|such|as|e\.?g)\b/.test(rawAfter) && !/^(which|who|that|from|found|made|known|also|aka|released|invented|discovered|built|by|in|on|at|the|a|an|my|our|its|his|her|their|with|for|as|because|since|famous|first|originally|back|when|where|\d)\b/.test(after);
       if (!list && !talk && !second && parts && parts !== n) {
         const h = lookup(parts, P) || (parts.split(" ").length > 1 ? { row: describe(parts, P) } : null);

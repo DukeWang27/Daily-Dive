@@ -66,9 +66,19 @@ def _rows_of(q):
     wiki_rows(q, seen, rows)
     return rows
 
+def not_in(q):
+    """The question's "invalid but plausible" entries ("X -- reason"), so the game rejects them by name instead of
+    matching them loosely to a listed answer ("red panda" is not "Panda"). Never one that is also a listed answer."""
+    valid = {norm(x) for t in ("common", "less_common", "obscure") for r in (q.get("answers") or {}).get(t, []) for x in (r if isinstance(r, list) else [r])}
+    out = []
+    for e in q.get("invalid_but_plausible", []) or []:
+        name = str(e).split(" --")[0].split(" — ")[0].strip().strip('"')
+        if name and norm(name) not in valid and len(name) <= 60: out.append(name)
+    return out
+
 def question(q, batch):
     out = {"key": "c-" + q["id"], "title": q.get("prompt", q["id"]), "icon": ICONS.get(batch, "default"), "prompt": q["prompt"], "hint": q.get("hint", ""),
-           "rules": q.get("rules", []), "answers": rows_of(q), "general": [], "notIn": [], "curated": True,
+           "rules": q.get("rules", []), "answers": rows_of(q), "general": [], "notIn": not_in(q), "curated": True,
            **({"exact": True} if q.get("match") == "exact" or q["id"] in ("v2-int-006",) else {}),
            "granularity_note": q.get("granularity", ""), "verdict": q.get("verdict"), "verdict_reason": q.get("verdict_reason", "")}
     # Questions about brands or models use the brands-and-models list: on a model question a brand alone is asked to

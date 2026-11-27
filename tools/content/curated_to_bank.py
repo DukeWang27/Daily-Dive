@@ -88,7 +88,7 @@ def final():
                    "style": fmt, "format": fmt, "topic": q["id"], "difficulty": 3, "set": "final-1", "approved": True,
                    "rules": {"player": q.get("rules", []), "accept": acc, "exclude": exc or ["anything outside the rule above"],
                              "granularity": q.get("granularity") or "one answer per thing named", "synonyms": "other names, spellings and short forms are the same answer"},
-                   "general": [], "notIn": [],
+                   "general": [], "notIn": cq.get("notIn", []),
                    "answers": [{"a": r["a"], "al": r["al"], "p": r["s"], "tier": r["tier"] if r["tier"] != "wiki" else "obscure", "src": "wikipedia+wikidata" if r.get("pv") else "curated", **({"pv": True} if r.get("pv") else {})} for r in rows],
                    "kb": None, "closed": False}
             for k in ("family", "season"):

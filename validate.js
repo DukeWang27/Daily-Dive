@@ -433,7 +433,7 @@
       const segs = String(text).split(/\s*(?:,|;|&|\band\b|\bor\b)\s*/i).map(x => normalize(x).replace(/^(the|a|an)\s+/, "")).filter(Boolean);
       const known = segs.filter(x => lookup(x, P)).length, short = segs.every(x => x.split(" ").length <= 3);
       // "Reading, Pennsylvania": a listed answer then a capitalised place that isn't an answer here is a description.
-      const placeAfter = segs.length === 2 && known === 1 && lookup(segs[0], P) && /^[^,;]+,[^,;]+$/.test(String(text)) && PLACES.has(segs[1]);
+      const placeAfter = segs.length === 2 && known === 1 && lookup(segs[0], P) && !PLACES.has(segs[0]) && /^[^,;]+,[^,;]+$/.test(String(text)) && PLACES.has(segs[1]);
       if (!placeAfter && segs.length >= 2 && (known >= 2 || (known >= 1 && short && /,|;/.test(String(text))))) return Object.assign(res, { status: "invalid", reason: "One answer at a time" });
     }
     // Brands, models and descriptions on questions that take them, before anything is ruled out as "not one answer".
@@ -458,7 +458,7 @@
       const rawAfter = segs0.slice(1).join(" ").trim().toLowerCase();   // as typed: "the oldest vertebrate" keeps its "the"
       // A place after the name ("Reading, Pennsylvania", "Nice, France") describes it: a capitalised name of one or two
       // words that isn't itself an answer here.
-      const place = segs0.length === 2 && PLACES.has(normalize(segs0[1])) && !lookup(normalize(segs0[1]), P);
+      const place = segs0.length === 2 && PLACES.has(normalize(segs0[1])) && !PLACES.has(normalize(segs0[0])) && !lookup(normalize(segs0[1]), P);
       const second = !place && segs0.length > 1 && !!lookup(normalize(segs0[0]).replace(/^(the|a|an)\s+/, ""), P) && after && after.split(" ").length <= 3 && !/\d/.test(after)
         && !/^(the|a|an|my|our|its|his|her|their|which|who|that|like|such|as|e\.?g)\b/.test(rawAfter) && !/^(which|who|that|from|found|made|known|also|aka|released|invented|discovered|built|by|in|on|at|the|a|an|my|our|its|his|her|their|with|for|as|because|since|famous|first|originally|back|when|where|\d)\b/.test(after);
       if (!list && !talk && !second && parts && parts !== n) {

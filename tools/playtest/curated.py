@@ -79,7 +79,8 @@ def not_in(q):
 def question(q, batch):
     out = {"key": "c-" + q["id"], "title": q.get("prompt", q["id"]), "icon": ICONS.get(batch, "default"), "prompt": q["prompt"], "hint": q.get("hint", ""),
            "rules": q.get("rules", []), "answers": rows_of(q), "general": [], "notIn": not_in(q), "curated": True,
-           **({"exact": True} if q.get("match") == "exact" or q["id"] in ("v2-int-006",) else {}),
+           # Spelling is the point of a word rule (Q without U, hidden animals, calculator words): no spelling correction.
+           **({"exact": True} if q.get("match") == "exact" or q["id"] in ("v2-int-006",) or str((q.get("editorial") or {}).get("validation", q.get("validation", ""))).lower().startswith("dictionary") else {}),
            "granularity_note": q.get("granularity", ""), "verdict": q.get("verdict"), "verdict_reason": q.get("verdict_reason", "")}
     # Questions about brands or models use the brands-and-models list: on a model question a brand alone is asked to
     # be specific; on a brand question a model counts as its brand.

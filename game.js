@@ -986,6 +986,8 @@ function boardFor(cat, r) {
 
 function renderDone(cat, r) {
   const best = bestOf(r), board = boardFor(cat, r), left = GUESSES - r.guesses.length;
+  // Playtest only: one-tap feedback on this question (playtest.js), kept with the playtest's notes.
+  if (PLAYTEST && window.PTFeedback) { const old = $("#pt-fb"); if (old) old.remove(); const f = window.PTFeedback({ day: dayNumber(), round: state.round + 1, key: cat.key, prompt: cat.prompt || cat.title }); if (f) { f.id = "pt-fb"; $("#done-q").after(f); } }
   $("#done-q").textContent = `Question ${state.round + 1} of ${CATS.length} · ${cat.prompt || cat.title}`;
   const at = diveBefore(state.round + 1), reg = Iceberg.regionOf(at);
   $("#best-lbl").textContent = best ? `Best answer · now ${fmt(at)} m down, ${reg.name}` : r.timeout && !r.guesses.length ? `Time ran out · still ${fmt(at)} m down` : `No distance this time · still ${fmt(at)} m down`;

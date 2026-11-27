@@ -52,6 +52,24 @@
     if (db) db.collection("reports").doc(`${row.day}-${row.round}-${row.at}`).set(row).catch(() => {});
   };
   window.PTReports = () => reports.slice();
+  // Per-question feedback: one tap each, any number of tags, toggled; saved like the notes.
+  const FB_TAGS = [["fun", "Fun"], ["boring", "Boring"], ["specialised", "Too specialised"], ["confusing", "Confusing"], ["missing", "Missing valid answer"], ["rarity", "Incorrect rarity"], ["more", "More like this"]];
+  const feedback = local.get("feedback", {});
+  (async () => { try { await new Promise(r => setTimeout(r, 1500)); if (!db) return; const snap = await db.collection("feedback").get();
+    (snap.docs || snap || []).forEach(d => { const v = d.data ? d.data() : d; const id = d.id || v.id; if (id && v && (!feedback[id] || (v.at || 0) > (feedback[id].at || 0))) feedback[id] = v; }); local.set("feedback", feedback); } catch { } })();
+  window.PTFeedback = ({ day, round, key, prompt }) => {
+    const id = `${day}-${round}`, box = el("div", "pt-fb");
+    box.append(el("span", "pt-fb-l", "Your verdict on this question:"));
+    const save = () => { const row = feedback[id]; local.set("feedback", feedback); if (db) { const ref = db.collection("feedback").doc(id); (row && row.tags.length ? ref.set(row) : ref.delete()).catch(() => {}); } };
+    for (const [t, label] of FB_TAGS) {
+      const b = el("button", "pt-fb-b" + ((feedback[id] && feedback[id].tags.includes(t)) ? " on" : ""), label); b.type = "button";
+      b.onclick = () => { const row = feedback[id] || (feedback[id] = { day, round, key, prompt, tags: [], at: 0 }); const i = row.tags.indexOf(t);
+        if (i >= 0) row.tags.splice(i, 1); else row.tags.push(t); row.at = Date.now(); b.classList.toggle("on", i < 0); save(); };
+      box.append(b);
+    }
+    return box;
+  };
+  window.PTFeedbackAll = () => Object.values(feedback);
 
   // ---------- The bar and the two panels ----------
   const css = el("style"); css.textContent = `
@@ -60,6 +78,10 @@
     .pt-bar button { font: inherit; color: var(--text); background: none; border: 0; padding: 8px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
     .pt-bar button:hover { background: rgba(143,208,245,.1); } .pt-bar .pt-day { color: var(--accent); }
     .pt-bar .pt-tag { color: var(--faint); font: 600 10.5px var(--ui); letter-spacing: .08em; text-transform: uppercase; padding: 0 6px 0 8px; }
+    .pt-fb { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 2px 0 -6px; padding: 10px 12px; border-radius: 12px; background: rgba(143, 208, 245, .06); box-shadow: inset 0 0 0 1px rgba(143, 208, 245, .16); }
+    .pt-fb-l { width: 100%; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #93a9cc); }
+    .pt-fb-b { border: 0; border-radius: 999px; padding: 6px 11px; font-size: 13px; font-weight: 600; background: rgba(143, 208, 245, .1); color: var(--text, #eaf3ff); cursor: pointer; }
+    .pt-fb-b.on { background: var(--accent, #8fd0f5); color: #06112a; }
     .pt-panel { position: fixed; z-index: 61; inset: auto 10px 66px auto; width: min(420px, calc(100vw - 20px)); max-height: min(70vh, 640px); overflow: auto;
       background: var(--panel-solid); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px; color: var(--text); font: 14px/1.45 var(--ui); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
     .pt-panel.pt-days { inset: 66px auto auto 50%; transform: translateX(-50%); width: min(720px, calc(100vw - 20px)); max-height: calc(100vh - 150px); }

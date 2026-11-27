@@ -199,7 +199,7 @@ def schedule(qs=None, reps=None, seed=7):
     rng = random.Random(seed)
     rng.shuffle(pool)
     for q in pool: q["_keys"] = answer_keys(answers_of(q)[0]); q["_tok"] = prompt_tokens(q["prompt"])
-    days, history = dict(fixed), []          # history: list of day question lists, most recent last
+    days, history, relaxed_days = dict(fixed), [], []          # history: list of day question lists, most recent last
     for d in sorted(fixed, key=int):
         hist = [byid[i] for i in fixed[d] if i in byid]
         for q in hist: q["_keys"] = answer_keys(answers_of(q)[0]); q["_tok"] = prompt_tokens(q["prompt"])
@@ -216,11 +216,14 @@ def schedule(qs=None, reps=None, seed=7):
         if any(q.get("set") == "curated-1" for q in v): planned[d] = [q for q in v if q.get("set") == "curated-1"]
     for v in planned.values(): v.sort(key=lambda q: q["plan"].get("slot", 9))
     reserved = {id(q) for d, v in planned.items() if d >= day for q in v}
+    import collections as _col
+    fam_size = _col.Counter(q.get("family") for q in pool if q.get("family"))
     def in_season(q, d):
         w = q.get("season")
         if not w: return True
         date = datetime.date(2026, 11, 24) + datetime.timedelta(days=d - 1); md = date.strftime("%m-%d"); a, b = w.split("..")
         return a <= md <= b if a <= b else (md >= a or md <= b)
+    relax = [1]   # 1 = normal spacing; 2 = halved, used only when a day can't otherwise be filled (final set)
     def penalty(q, chosen):
         p = 0.0
         if FINAL is not None:
@@ -228,11 +231,14 @@ def schedule(qs=None, reps=None, seed=7):
             if fmt == "lateral" and sum((c.get("format") or c.get("style")) == "lateral" for c in chosen) >= 1: return 1e9   # one riddle-like prompt a day
             if sum((c.get("format") or c.get("style")) == fmt for c in chosen) >= 2: return 1e9                            # at most two of any format
             if not in_season(q, day): return 1e9
-            if q.get("family") and any(c.get("family") == q["family"] for past in history[-10:] + [chosen] for c in past): return 1e9   # relatives at least 10 days apart
+            if q.get("family"):   # relatives 10 days apart; a big family (a template with many good questions) 4 days apart
+                gap = (4 if fam_size.get(q["family"], 0) >= 6 else 10) // relax[0]
+                if any(c.get("family") == q["family"] for past in history[-gap:] + [chosen] for c in past): return 1e9
         same = sum(c["category"] == q["category"] for c in chosen)
-        if same >= 2: return 1e9                                                                # never three from one category
+        if same >= (3 if FINAL is not None and q["category"] in ("everyday", "general") else 2): return 1e9   # never three from one category ("everyday" is broad: three, if their formats differ)
         if same and FINAL is None and any(c["style"] == q["style"] for c in chosen if c["category"] == q["category"]): return 1e9
-        p += 25.0 * same                                                                         # a second one only when nothing else fits
+        p += (6.0 if FINAL is not None else 25.0) * same                                        # a second one only when nothing else fits
+        if FINAL is not None and (q.get("format") or q.get("style")) == "lateral" and not any((c.get("format") or c.get("style")) == "lateral" for c in chosen): p -= 4.0   # spread the day's one riddle across the run
         if q["difficulty"] <= 2 and any(c["difficulty"] <= 2 for c in chosen): p += 8.0          # easy ones are scarce: one a day, save the rest
         if FINAL is None and sum(c["style"] == q["style"] for c in chosen) >= 2 and not q.get("set"): return 1e9    # at most two of any style a day
         if is_plain(q):                                                                          # bare categories: one a day at most
@@ -241,9 +247,9 @@ def schedule(qs=None, reps=None, seed=7):
         for back, past in enumerate(reversed(history[-45:])):
             for c in past:
                 if c["topic"] == q["topic"]: return 1e9                                           # same topic: 45-day cooldown
-                if back < 10 and len(c["_tok"] & q["_tok"]) / max(1, len(c["_tok"] | q["_tok"])) >= 0.6: return 1e9   # same template: 10 days apart
+                if back < 10 // relax[0] and len(c["_tok"] & q["_tok"]) / max(1, len(c["_tok"] | q["_tok"])) >= 0.6: return 1e9   # same template: 10 days apart
                 overlap = len(c["_keys"] & q["_keys"]) / max(1, min(len(c["_keys"]), len(q["_keys"])))
-                if overlap > 0.2 and back < 21: return 1e9                                      # same answers: 3 weeks apart
+                if overlap > 0.2 and back < 21 // relax[0]: return 1e9                                      # same answers: 3 weeks apart
                 if c["category"] == q["category"]: p += 3.0 / (back + 1)                         # categories spread across days
         return p
     while day <= last_day:
@@ -260,7 +266,24 @@ def schedule(qs=None, reps=None, seed=7):
                 if p < bp: best, bp = q, p
             if best is None or bp >= 1e8: break
             chosen.append(best)
-        if len(chosen) < 5: print(f"stopped at day {day}: not enough varied ready questions"); break
+        if len(chosen) < 5 and FINAL is not None and relax[0] == 1:
+            relax[0] = 2; continue   # try this day again with halved spacing
+        if relax[0] == 2 and len(chosen) == 5: relaxed_days.append(day)
+        relax[0] = 1
+        if len(chosen) < 5:
+            print(f"stopped at day {day}: not enough varied ready questions")
+            if os.environ.get("SCHED_DEBUG"):
+                import collections as _c; why = _c.Counter()
+                for q in pool:
+                    if q in chosen: continue
+                    for name, test in (("topic 45 days", lambda: any(c["topic"] == q["topic"] for past in history[-45:] for c in past)),
+                                       ("same answers 21 days", lambda: any(len(c["_keys"] & q["_keys"]) / max(1, min(len(c["_keys"]), len(q["_keys"]))) > 0.2 for past in history[-21:] for c in past)),
+                                       ("template 10 days", lambda: any(len(c["_tok"] & q["_tok"]) / max(1, len(c["_tok"] | q["_tok"])) >= 0.6 for past in history[-10:] for c in past)),
+                                       ("family 10 days", lambda: q.get("family") and any(c.get("family") == q["family"] for past in history[-10:] + [chosen] for c in past)),
+                                       ("plain", lambda: is_plain(q) and any(is_plain(c) for c in chosen))):
+                        if test(): why[name] += 1
+                print("blocked:", dict(why), "chosen:", [c["id"] for c in chosen])
+            break
         # Order within the day: an easy opener, the hardest fourth, a creative or association question last if there is one.
         if FINAL is not None:   # open with something everyone can answer at once; riddles and wordplay later in the day
             rank = {"category": 0, "property": 1, "brands": 1, "media": 1, "people": 2, "knowledge": 3, "wordplay": 3, "lateral": 4}
@@ -275,7 +298,7 @@ def schedule(qs=None, reps=None, seed=7):
     sched = {"note": "Day -> five question ids. Days up to tomorrow are fixed once published; later days are rebuilt by build.py schedule.",
              "first_new_day": FIRST_NEW_DAY, "days": days}
     json.dump(sched, open(sched_path, "w"), indent=1)
-    print(f"scheduled days {FIRST_NEW_DAY}..{day - 1} ({day - FIRST_NEW_DAY} days); {len(pool)} ready questions left in reserve")
+    print(f"scheduled days {FIRST_NEW_DAY}..{day - 1} ({day - FIRST_NEW_DAY} days); {len(pool)} ready questions left in reserve" + (f"; spacing halved on days {relaxed_days}" if relaxed_days else ""))
     return sched
 
 # ---------- day files and database rows ----------

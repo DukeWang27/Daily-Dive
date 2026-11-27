@@ -80,9 +80,10 @@ export async function review(body, ip = "?") {
     if (!v.error) {
       const status = v.status === "ok" ? "ok" : v.status === "invalid" ? "invalid" : "uncertain";
       sb("verified_answers?on_conflict=category,answer_key", [{ category: key, answer_key: akey, status, canonical: v.canonical || null, relationship: v.relationship, confidence: v.confidence,
-        rules_hash: rulesHash, source: "ai", validator: `${PROVIDER}/${MODEL}@${PROMPT_VERSION}`, review_status: v.review || status === "uncertain" ? "pending" : "auto" }]).catch(() => {});
+        rules_hash: rulesHash, source: "ai", validator: `${PROVIDER}/${MODEL}@${PROMPT_VERSION}/${v.method}`, review_status: v.review || status === "uncertain" ? "pending" : "auto",
+        evidence: JSON.stringify({ quote: v.evidence && v.evidence.quote || null, url: v.evidence && v.evidence.url || null, explanation: v.explanation || null, aliases: v.aliases || [] }) }]).catch(() => {});
     }
-    return { code: 200, json: { status: v.status, relationship: v.relationship, canonical: v.canonical, cached: false } };
+    return { code: 200, json: { status: v.status, relationship: v.relationship, canonical: v.canonical, review: !!v.review, method: v.method, rule_version: PROMPT_VERSION, cached: false } };
   })();
   inflight.set(flight, p);
   try { return await p; } finally { inflight.delete(flight); }

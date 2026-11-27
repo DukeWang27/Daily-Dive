@@ -16,6 +16,9 @@ globalThis.fetch = async (url, opts = {}) => {
   if (u.pathname.endsWith("/rpc/ai_reserve")) { db.reserves++; if (db.budgetLeft <= 0) return json({ ok: false, reason: "month_budget" }); db.budgetLeft--; return json({ ok: true, id: db.reserves, alert: 0 }); }
   if (u.pathname.endsWith("/rpc/ai_settle")) { db.calls.push(body); return json(null); }
   if (u.pathname.endsWith("/rpc/va_hit") || u.pathname.endsWith("/rpc/ai_status")) return json(null);
+  // Wikipedia (the evidence step): a summary for "Farrier" only; everything else has no page.
+  if (u.hostname === "en.wikipedia.org" && /\/page\/summary\/Farrier$/i.test(u.pathname)) return json({ type: "standard", title: "Farrier", description: "Specialist in equine hoof care", extract: "A farrier is a specialist in equine hoof care, including the trimming and balancing of horses' hooves.", content_urls: { desktop: { page: "https://en.wikipedia.org/wiki/Farrier" } } });
+  if (u.hostname === "en.wikipedia.org") return new Response("{}", { status: 404 });
   return new Response("not found", { status: 404 });
 };
 const { review } = await import("../../api/verify.js");
@@ -28,9 +31,13 @@ test("an alternative name maps to the listed answer, and is cached for everyone"
   const before = db.reserves, b = await ask("mexican hairless dog");
   assert.equal(b.cached, true); assert.equal(db.reserves, before, "no second paid call");
 });
-test("a new answer accepted by the model waits for a person (review pending) and never sets a rarity", async () => {
-  const a = await ask("farrier"); assert.equal(a.status, "ok"); assert.equal(a.relationship, "new");
+test("a new answer accepted by the model with supporting evidence still waits for a person (review pending) and never sets a rarity", async () => {
+  const a = await ask("farrier"); assert.equal(a.status, "ok"); assert.equal(a.relationship, "new"); assert.equal(a.method, "evidence+ai"); assert.equal(a.review, true);
   const row = db.verified.get("dogbreeds|farrier"); assert.equal(row.review_status, "pending"); assert.equal(row.depth, undefined);
+  assert.match(JSON.parse(row.evidence).url, /wikipedia\.org\/wiki\/Farrier/);
+});
+test("a new answer with no evidence found is never accepted on the model's word: it waits (pending)", async () => {
+  const a = await ask("ostler"); assert.equal(a.status, "pending"); assert.equal(a.review, true);
 });
 test("junk and instructions are rejected without any call", async () => {
   const n = db.reserves;

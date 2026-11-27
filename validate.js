@@ -420,6 +420,10 @@
     const dupOf = row => given && given.rows.has(row.a);
     const ok = (row, via) => Object.assign(res, dupOf(row) ? { status: "dup", row, via } : { status: "ok", row, via });
 
+    // A listed name that contains a comma or "and" ("Ed, Edd n Eddy", "Monsters, Inc.", "Monday, Monday") is that
+    // answer, before any rule about lists or descriptions looks at the comma.
+    const whole = /[,;&]| and | or /i.test(" " + String(text) + " ") ? lookup(n, P) : null;
+    if (whole) return ok(whole.row, whole.alias === true ? "alias" : whole.alias ? "form" : "exact");
     // Several answers in one ("Zune, Kin and Windows Phone", "Prada and Miu Miu"): one at a time. Only when the whole
     // thing isn't itself a name ("Marks and Spencer", "Tom and Jerry").
     if (/,|;|&| and | or /i.test(" " + String(text) + " ") && !lookup(n, P)) {
@@ -439,7 +443,17 @@
       const lead = normalize(String(text).split(/[,;(]| - | – /)[0]).replace(/^(the|a|an|my|our|that|this)\s+/, "");
       const parts = lead.split(CONNECT)[0].trim(), list = /[,;]/.test(String(text)) && String(text).split(/[,;]/).every(x => lookup(normalize(x).trim(), P));
       const talk = /\b(drop|delete|select|insert|update|table|ignore|instructions?|script|accept|valid|mark|prompt|system)\b/.test(n);   // talking to the checker, not describing
-      if (!list && !talk && parts && parts !== n) {
+      // What follows the comma must read like a description ("which can regrow its brain", "found by accident in 1928",
+      // "from 1802"), not like a second answer ("piece of cake", "planets"): then it's a list, refused below.
+      const after = normalize(String(text).split(/[,;]/).slice(1).join(" "));
+      // Brackets are always description ("Telephone (1876, Alexander Graham Bell)"); and it's only a second answer if
+      // what comes before the comma is itself an answer ("days of the week, planets"), not a description of one
+      // ("Cheddar cheese from Cheddar, Somerset").
+      const bare = String(text).replace(/\([^)]*\)?/g, " "), segs0 = bare.split(/[,;]/);
+      const rawAfter = segs0.slice(1).join(" ").trim().toLowerCase();   // as typed: "the oldest vertebrate" keeps its "the"
+      const second = segs0.length > 1 && !!lookup(normalize(segs0[0]).replace(/^(the|a|an)\s+/, ""), P) && after && after.split(" ").length <= 3 && !/\d/.test(after)
+        && !/^(the|a|an|my|our|its|his|her|their|which|who|that|like|such|as|e\.?g)\b/.test(rawAfter) && !/^(which|who|that|from|found|made|known|also|aka|released|invented|discovered|built|by|in|on|at|the|a|an|my|our|its|his|her|their|with|for|as|because|since|famous|first|originally|back|when|where|\d)\b/.test(after);
+      if (!list && !talk && !second && parts && parts !== n) {
         const h = lookup(parts, P) || (parts.split(" ").length > 1 ? { row: describe(parts, P) } : null);
         if (h && h.row) return dupOf(h.row) ? Object.assign(res, { status: "dup", row: h.row }) : Object.assign(res, { status: "ok", row: h.row, via: "specific", note: "extra description doesn't make a different answer" });
       }
@@ -473,7 +487,7 @@
 
     // A spelling mistake in the whole answer? It is never replaced silently: high or medium confidence, the player is
     // asked "Did you mean ...?" first (below, after describing words). Low: left as typed.
-    const t = (given && given.noCorrect) ? null : correct(n, P);
+    const t = (given && given.noCorrect) || P.cat.exact ? null : correct(n, P);   // cat.exact: strings that must match exactly (passwords)
     // "baby elephant", "big red bus": describing words in front of a known answer don't make a new answer.
     const words = n.split(" ");
     for (let i = 1; i < Math.min(3, words.length); i++) {

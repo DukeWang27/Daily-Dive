@@ -28,6 +28,15 @@ execFileSync('python3', [path.join(__dirname, '..', 'tools/playtest/build.py'), 
     ok(`${tag}: an answer reported from the results is kept with the question and the game's verdict`, rep.length === 1 && rep[0].text === 'glorbwizzle' && rep[0].key && /review|pending|Waiting/i.test(rep[0].result + rep[0].reason + rep[0].kind), JSON.stringify(rep));
     if (await p.locator('.pt-tog').isVisible() && await p.evaluate(() => document.querySelector('.pt-bar').classList.contains('pt-min'))) await p.click('.pt-tog');
     await p.click('.pt-bar button:has-text("Review")'); await p.waitForSelector('.rv-row', { timeout: 20000 });
+    // The Editorial v2 tab opens first, sorted by what needs a decision; each question shows its rubric and test.
+    const ed = await p.textContent('.rv-count');
+    ok(`${tag}: the editorial tab opens first with the 70 new questions`, /^70 questions/.test(ed), ed);
+    await p.click('.rv-row >> nth=0'); await p.waitForSelector('.rv-decide');
+    const det = await p.textContent('.rv-body');
+    ok(`${tag}: an editorial question shows its decision buttons, quality, method and independent test`, /Approve/.test(det) && /Rewrite/.test(det) && /Validation:/.test(det) && /Independent test/.test(det), det.slice(0, 200));
+    await p.click('.rv-st.approved'); const dd = await p.evaluate(() => Object.values(JSON.parse(localStorage.getItem('iceberg-pt:review') || '{}')).filter(x => x.ed));
+    ok(`${tag}: an editorial decision is saved`, dd.length === 1 && dd[0].ed === 'approve', JSON.stringify(dd));
+    await p.click('.rv-back'); await p.click('.rv-tabs button:has-text("Questions")'); await p.waitForSelector('.rv-search');
     const count = await p.textContent('.rv-count');
     ok(`${tag}: the dashboard lists the whole bank`, /of (\d{3,}) questions/.test(count) && +count.match(/of (\d+) questions/)[1] > 500, count);
     await p.fill('.rv-search', 'name a job'); await p.waitForTimeout(200);

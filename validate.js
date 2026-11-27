@@ -487,8 +487,10 @@
     }
     // A clear slip (high confidence, not itself a word) is corrected straight away and said so ("Accepted as: Porsche");
     // a plausible one is asked about first. Low: left as typed.
-    if (t && t.level === "high" && !(given && given.texts.has(n))) return Object.assign(ok(t.row, "typo"), { correction: t });
-    if (t && t.level === "medium" && !(given && given.texts.has(n))) return Object.assign(res, { status: "confirm", row: t.row, correction: t });
+    // An answer added from Wikipedia or Wikidata lists (ds) is never corrected to silently: a near-miss there is often a
+    // different real thing ("Persia" is not "Permia", an old name of Great Perm). It's asked about instead.
+    if (t && t.level === "high" && !t.row.ds && !(given && given.texts.has(n))) return Object.assign(ok(t.row, "typo"), { correction: t });
+    if (t && (t.level === "medium" || (t.level === "high" && t.row.ds)) && !(given && given.texts.has(n))) return Object.assign(res, { status: "confirm", row: t.row, correction: t });
     const cached = P.cache.get(n);
     if (cached) {
       if (cached.status === "ok" && cached.row) { const row = P.cat.answers.find(r => r.a === cached.row); if (row) return ok(row, "review"); }

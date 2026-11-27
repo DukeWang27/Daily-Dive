@@ -117,7 +117,14 @@ def sparql(q):
     if os.path.exists(p): return json.load(open(p))
     url = "https://query.wikidata.org/sparql?" + urllib.parse.urlencode({"query": q, "format": "json"})
     for i in range(6):
-        st, b = get(url, "application/sparql-results+json")
+        if len(url) > 6000:   # a long query (many titles) goes as a form POST: a URL that long is refused
+            try:
+                req = urllib.request.Request("https://query.wikidata.org/sparql", data=urllib.parse.urlencode({"query": q, "format": "json"}).encode(),
+                                             headers={**HDR, "Accept": "application/sparql-results+json", "Content-Type": "application/x-www-form-urlencoded"})
+                with urllib.request.urlopen(req, timeout=90) as r: st, b = r.status, r.read()
+                time.sleep(PAUSE)
+            except Exception: st, b = 0, b""
+        else: st, b = get(url, "application/sparql-results+json")
         if st == 200:
             r = json.loads(b)["results"]["bindings"]; json.dump(r, open(p, "w")); return r
         time.sleep(20 * (i + 1))
@@ -151,7 +158,11 @@ def views(title):
     return v or 0
 
 def sources():
-    return json.load(open(os.path.join(CUR, "wiki-sources.json")))
+    """content/curated/wiki-sources.json, overridden by any wiki-sources.<part>.json (one per worker, so nobody overwrites another)."""
+    out = json.load(open(os.path.join(CUR, "wiki-sources.json")))
+    for p in sorted(glob.glob(os.path.join(CUR, "wiki-sources.*.json"))):
+        if not p.endswith(".ok.json"): out.update(json.load(open(p)))
+    return out
 
 def check():
     ok = {}
@@ -180,56 +191,59 @@ def known_names(q):
 
 def base(t): return re.sub(r"\s*\([^)]*\)$", "", t).strip()
 
-def gather(ids=None):
+def wd_items(where):
+    """Items from a Wikidata query body that binds ?item (English label, other names, description, language editions)."""
+    q = ("SELECT ?item ?label ?d ?links (GROUP_CONCAT(DISTINCT ?alt; separator='|') AS ?alts) ?t WHERE { " + where +
+         " ?item rdfs:label ?label . FILTER(LANG(?label)='en') ?item wikibase:sitelinks ?links . "
+         "OPTIONAL { ?item schema:description ?d . FILTER(LANG(?d)='en') } OPTIONAL { ?item skos:altLabel ?alt . FILTER(LANG(?alt)='en') } "
+         "OPTIONAL { ?a schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> ; schema:name ?t } } GROUP BY ?item ?label ?d ?links ?t LIMIT 6000")
+    out = {}
+    for b in sparql(q):
+        t = b.get("t", {}).get("value") or b["label"]["value"]
+        out[t] = {"q": b["item"]["value"].rsplit("/", 1)[1], "desc": b.get("d", {}).get("value", ""), "links": int(b["links"]["value"]),
+                  "alt": [x for x in b.get("alts", {}).get("value", "").split("|") if x][:12], "label": b["label"]["value"], "wiki": "t" in b}
+    return out
+
+def gather(ids=None, with_views=False):
+    """Candidates for each question from its sources (wiki-sources.json: a list of pages, or {"pages": [...], "wd": [query bodies]}).
+    Each candidate: its name, other names, description, language editions and where it came from; matched against the
+    names already on the question's list. Output: content/curated/wiki/<id>.gather.json"""
     os.makedirs(OUT, exist_ok=True)
-    ok = json.load(open(os.path.join(CUR, "wiki-sources.ok.json")))
-    Q = curated()
-    for qid, pages in ok.items():
+    src = sources(); Q = curated()
+    for qid, spec in src.items():
         if ids and qid not in ids: continue
         q = Q.get(qid)
         if not q: continue
+        spec = {"pages": spec} if isinstance(spec, list) else spec
         seen = {}
-        for page in pages:
+        for page in spec.get("pages", []):
             final, text = raw(page)
-            for e in entries(text or "", final):
-                if e["t"] == final: continue
-                seen.setdefault(e["t"], e)
-        # follow redirects of linked titles only when Wikidata doesn't know the title (a redirect isn't a sitelink)
+            if not text: continue
+            for e in entries(text, final):
+                if e["t"] != final: seen.setdefault(e["t"], e)
         wd = wikidata(list(seen))
-        for t in [t for t in seen if t not in wd]:
-            final, text = raw(t)
-            if text is None: seen[t]["red"] = True; continue
-            if final != t: seen[t]["to"] = final
-        wd.update(wikidata([e["to"] for e in seen.values() if e.get("to")]))
-        have = known_names(q)
         cands = {}
         for t, e in seen.items():
-            if e.get("red"): continue
-            T = e.get("to") or t
-            info = wd.get(T)
-            if not info: continue
-            if T in cands: continue
-            names = [base(T)] + ([e["label"]] if e["label"] else []) + info["alt"]
-            match = next((have[norm(n)] for n in names if norm(n) in have), None)
-            cands[T] = {"title": T, "name": base(T), "desc": info["desc"], "links": info["links"], "alt": [a for a in info["alt"] if norm(a) != norm(base(T))][:8],
-                        "ctx": e["ctx"], "page": e["page"], "sect": e["sect"], "have": match}
-        for c in cands.values(): c["views"] = views(c["title"])
-        # titles for the answers already on the list, for familiarity: matched candidates, else the name as a title
-        matched = {c["have"]: c for c in cands.values() if c["have"]}
-        own = {}
-        for canon in sorted(set(have.values())):
-            c = matched.get(canon)
-            if c: own[canon] = {"title": c["title"], "views": c["views"], "links": c["links"]}; continue
-            final, text = raw(canon)
-            if text is None: own[canon] = None; continue
-            info = wikidata([final]).get(final)
-            own[canon] = {"title": final, "views": views(final), "links": info["links"] if info else 0} if info else None
-        new = sorted([c for c in cands.values() if not c["have"]], key=lambda c: -c["views"])
-        json.dump({"id": qid, "prompt": q["prompt"], "rules": q.get("rules", []), "pages": pages, "own": own, "new": new,
-                   "matched": len(matched)}, open(os.path.join(OUT, qid + ".gather.json"), "w"), indent=0)
-        print(f"{qid:32} pages {len(pages)}  entries {len(seen):5}  on Wikidata {len(cands):5}  already ours {len(matched):4}  new {len(new):5}  own with a page {sum(1 for v in own.values() if v)}/{len(own)}", flush=True)
+            info = wd.get(t)
+            if not info: continue      # a redlink, a redirect or a page with no Wikidata item: left out (the check can't judge it)
+            cands[t] = {"title": t, "name": base(t), "desc": info["desc"], "links": info["links"], "alt": [a for a in info["alt"] if norm(a) != norm(base(t))][:8],
+                        "ctx": e["ctx"][:160], "from": e["page"] + (" / " + e["sect"] if e["sect"] else "")}
+        for where in spec.get("wd", []):
+            for t, info in wd_items(where).items():
+                if t in cands: cands[t]["from"] += " + Wikidata"; continue
+                cands[t] = {"title": t, "name": base(info["label"] if not info["wiki"] else t), "desc": info["desc"], "links": info["links"],
+                            "alt": [a for a in info["alt"] if norm(a) != norm(base(t))][:8], "ctx": "", "from": "Wikidata"}
+        have = known_names(q)
+        for c in cands.values():
+            c["have"] = next((have[norm(n)] for n in [c["name"], c["title"], *c["alt"]] if norm(n) in have), None)
+            if with_views: c["views"] = views(c["title"])
+        matched = {c["have"] for c in cands.values() if c["have"]}
+        new = sorted([c for c in cands.values() if not c["have"]], key=lambda c: -c["links"])
+        json.dump({"id": qid, "prompt": q["prompt"], "rules": q.get("rules", []), "granularity": q.get("granularity", ""), "invalid": q.get("invalid_but_plausible", []),
+                   "own": len(set(have.values())), "own_matched": len(matched), "new": new}, open(os.path.join(OUT, qid + ".gather.json"), "w"), indent=0, ensure_ascii=False)
+        print(f"{qid:32} entries {len(seen):5}  candidates {len(cands):5}  ours found in sources {len(matched):4}/{len(set(have.values())):4}  new {len(new):5}", flush=True)
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "check"
     if cmd == "check": check()
-    elif cmd == "gather": gather(sys.argv[2:] or None)
+    elif cmd == "gather": gather([x for x in sys.argv[2:] if not x.startswith("--")] or None, "--views" in sys.argv)

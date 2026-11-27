@@ -10,6 +10,36 @@ TIERS = [("common", 0.12, 0.025), ("less_common", 0.01, 0.0015), ("obscure", 0.0
 norm = lambda s: re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", str(s).lower())).strip()
 ICONS = {"batch-1": "default", "batch-2": "default", "batch-3": "default", "batch-4": "default", "batch-5": "globe", "batch-6": "default", "batch-7": "default"}
 
+WIKI = os.path.join(ROOT, "content", "curated", "wiki")
+def wiki_rows(q, seen, rows):
+    """Answers added from reference sources (Wikipedia lists, Wikidata) and checked one by one against the question's
+    rules (content/curated/wiki/<id>.check.json; tools/content/wikilists.py, content/curated/WIKI-BRIEF.md). Their
+    rarity is a first estimate from how widely known each one is (language editions of its article): marked as an
+    estimate (pv) until players give real numbers, so it never sets off a mine or hits a target."""
+    p = os.path.join(WIKI, q["id"] + ".check.json")
+    if not os.path.exists(p) or os.environ.get("CURATED_NO_WIKI"): return   # CURATED_NO_WIKI: the hand-written lists alone (for before/after tests)
+    chk = json.load(open(p)); links = {}
+    g = os.path.join(WIKI, q["id"] + ".gather.json")
+    if os.path.exists(g):
+        for c in json.load(open(g)).get("new", []): links[norm(c["name"])] = c.get("links", 1)
+    byname = {norm(r["a"]): r for r in rows}
+    # Never add what the question's own rules list as invalid ("X -- reason"), however a source files it.
+    banned = {norm(x.split(" -- ")[0]) for x in q.get("invalid_but_plausible", [])}
+    for canon, extra in (chk.get("aliases_for_existing") or {}).items():
+        r = byname.get(norm(canon))
+        if r:
+            for x in extra:
+                if norm(x) not in seen and norm(x) != norm(r["a"]): r["al"].append(x); seen.add(norm(x))
+    for a in chk.get("add", []):
+        name = (a.get("name") or "").strip(); k = norm(name)
+        if not name or k in seen or k in banned or any(norm(x) in banned for x in a.get("al", [])): continue
+        seen.add(k)
+        n = max(1, links.get(k, 2))
+        share = min(0.004, 0.00015 * (n / 2) ** 0.9)
+        al = [x for x in a.get("al", []) if norm(x) and norm(x) not in seen]
+        for x in al: seen.add(norm(x))
+        rows.append({"a": name, "s": round(share, 7), "al": al, "tier": "wiki", "pv": 1, "ds": 1})
+
 def rows_of(q):
     rows, seen = [], set()
     for tier, hi, lo in TIERS:
@@ -22,6 +52,9 @@ def rows_of(q):
             seen.add(k)
             s = hi if len(items) == 1 else hi * (lo / hi) ** (j / (len(items) - 1))
             rows.append({"a": names[0], "s": round(s, 6), "al": [x for x in names[1:] if norm(x) not in seen], "tier": tier})
+    for r in rows:
+        for x in r["al"]: seen.add(norm(x))
+    wiki_rows(q, seen, rows)
     return rows
 
 def question(q, batch):

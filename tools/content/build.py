@@ -76,7 +76,7 @@ def quality(q, rows, added):
     closed = n < 90 and bool(q.get("kb") or q.get("closed"))   # a small set listed in full, e.g. the 54 countries in Africa
     need = 15 if n >= 90 else max(5, n // 8)          # a closed set can't have 15 obscure members
     if obscure < need: flags.append(f"thin long tail (under {need} obscure answers)")
-    if not (1.6 <= total <= 3.6): flags.append(f"share estimates add up to {total:.2f}")
+    if not (1.6 <= total <= 3.6) and q.get("set") != "curated-1": flags.append(f"share estimates add up to {total:.2f}")   # the curated set's tiers are graded by hand, not shares that sum
     if top < 0.05: flags.append("no clear common answer (top share under 5%)")
     if words > 12: flags.append("prompt is long")
     if not q["prompt"].startswith(("Name", "Give", "Think of")): notes.append("unusual opening")
@@ -269,6 +269,7 @@ def client_question(q, rows):
         al = [x for x in r.get("al", []) if norm(x) != norm(a)]
         if al: row["al"] = al
         if r.get("pv"): row["pv"] = 1; row["x"] = 1
+        if r.get("src") == "wikipedia+wikidata": row["ds"] = 1      # added from reference lists: never auto-corrected to (validate.js)
         if r.get("hide"): row["h"] = 1                    # accepted, never shown on public answer lists
         out.append(row)
     return {"key": q["id"], "title": q["title"], "icon": q["icon"], "prompt": voiced(q), "hint": q["hint"], "rules": q["rules"]["player"],

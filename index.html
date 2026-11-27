@@ -368,6 +368,18 @@ button.sum-row:hover, #sum li.active .sum-row { background: rgba(143, 208, 245, 
 .sum-row .dispute { grid-area: depth; border: 0; background: rgba(143, 208, 245, .1); color: var(--text); font-size: 13px; font-weight: 600; padding: 7px 11px; border-radius: 8px; white-space: nowrap; }
 .sum-row .dispute:disabled { background: transparent; color: var(--faint); cursor: default; }
 .forgot { margin: 12px 0 0; color: var(--muted); font-size: 14px; }
+/* From the depths: five reveal cards, one line each. Real-player cards appear only with real data. */
+.depths-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.depths-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 10px; align-items: baseline; padding: 8px 10px; border-radius: 10px; background: rgba(143, 208, 245, .05); }
+.depths-list .dk-i { grid-row: span 2; width: 10px; height: 10px; margin: 5px 0 0 5px; transform: rotate(45deg); background: var(--accent); }
+.depths-list .dk-t { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.depths-list .dk-a { font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
+.depths-list .dk-a small { font-weight: 500; font-size: 12.5px; color: var(--faint); margin-left: 6px; }
+.depths-list li.buoy .dk-i { background: var(--t-tip); } .depths-list li.shoal .dk-i { background: var(--t-mid); }
+.depths-list li.kindred .dk-i { background: var(--t-deep); } .depths-list li.trench .dk-i { background: var(--t-abyss); }
+.depths-list li.pearl { background: linear-gradient(90deg, rgba(255, 244, 214, .12), rgba(143, 208, 245, .04)); box-shadow: inset 0 0 0 1px rgba(255, 236, 190, .25); }
+.depths-list li.pearl .dk-i { border-radius: 50%; transform: none; background: radial-gradient(circle at 35% 35%, #fffdf5, #e8dcc4 60%, #b9ab92); }
+.depths-list li.pearl.found .dk-t { color: #ffe9b8; }
 .forgot b { color: var(--text); }
 .review-note { font-size: 13px; color: var(--faint); margin: 10px 0 0; }
 .seen { margin: 12px 0 0; font-size: 13px; color: var(--faint); line-height: 1.5; }
@@ -1198,6 +1210,10 @@ html.in-play .top::before { content: ""; position: absolute; inset: 0 0 -26px; z
         <p class="forgot" id="forgot"></p>
         <p class="review-note" id="review-note"></p>
         <p class="seen" id="seen" hidden></p>
+      </div>
+      <div class="section" id="depths-sec" hidden>
+        <h3>From the depths</h3>
+        <ul class="depths-list" id="depths-list"></ul>
       </div>
       <div class="section">
         <h3>Everyone's answers <span class="aside" id="players"></span></h3>

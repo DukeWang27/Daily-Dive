@@ -54,3 +54,10 @@ test("with the budget spent the answer stays pending and the game goes on", asyn
 test("a refused or broken call settles its reservation", async () => {
   assert.ok(db.calls.length >= 2); assert.ok(db.calls.every(c => typeof c.p_id === "number" && c.p_cost_micros >= 0));
 });
+
+test("GET reports the check switched off unless a real provider, its key and the database are configured", async () => {
+  const { default: handler } = await import("../../api/verify.js");
+  const res = { h: {}, code: 0, body: null, setHeader(k, v) { this.h[k] = v; }, status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; }, end() { return this; } };
+  await handler({ method: "GET", headers: {} }, res);
+  assert.equal(res.code, 200); assert.equal(res.body.enabled, false);   // the mock provider never counts as switched on
+});

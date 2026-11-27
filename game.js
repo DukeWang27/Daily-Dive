@@ -25,6 +25,9 @@ const REVIEWED_SHARE = 0.03;      // approved by review but not yet counted: sit
 const PARAMS = new URLSearchParams(location.search);
 // Playtest (a private build for trying every day; tools/playtest): no database, no accounts, any day, replay at will.
 const PLAYTEST = !!window.PLAYTEST || PARAMS.has("playtest");
+// Feedback, play events and error reports (supabase/0013): anonymous, write-only, rate-limited on the server. Kept even
+// in the playtest so testers' feedback reaches the owner; nothing in it touches scores or the live answer counts.
+const LOG = { url: BACKEND.url, key: BACKEND.anonKey, build: PLAYTEST ? (PARAMS.has("friends") || window.PT_FRIENDS ? "friends" : "playtest") : "live" };
 if (PLAYTEST) { BACKEND.url = ""; BACKEND.anonKey = ""; BACKEND.verifyUrl = ""; }
 const SPEED = PARAMS.has("fast") ? 4 : 1;
 // The automated tests run untimed unless they ask for a clock (?test&time=20).
@@ -33,6 +36,17 @@ const SPEED = PARAMS.has("fast") ? 4 : 1;
 const PT_SECONDS = PLAYTEST ? (() => { try { const v = localStorage.getItem("iceberg-pt:seconds"); return v === "off" ? -1 : [20, 30, 45].includes(+v) ? +v : 0; } catch { return 0; } })() : 0;
 const TIME_MS = 1000 * (PARAMS.has("test") ? Math.max(0, +PARAMS.get("time") || 0) : PT_SECONDS < 0 ? 0 : PT_SECONDS || QUESTION_SECONDS);
 if (PARAMS.get("verify")) BACKEND.verifyUrl = PARAMS.get("verify"); // for testing a review endpoint without editing this file
+// The answer check (api/verify.js) turns itself on: the game asks the site once whether it's configured (a provider, its
+// key and the database) and uses it only then. Anywhere else (no endpoint, no key, an error) it stays off and unknown
+// answers wait for a person, exactly as before.
+const verifyReady = (!PLAYTEST && !BACKEND.verifyUrl && /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname) && !PARAMS.has("test") && !PARAMS.has("noverify")) ? (async () => {
+  try {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 3000);
+    const r = await fetch("/api/verify", { signal: ctl.signal }); clearTimeout(t);
+    const v = r.ok && /json/.test(r.headers.get("content-type") || "") ? await r.json() : null;
+    if (v && v.enabled === true) BACKEND.verifyUrl = "/api/verify";
+  } catch { /* stays off */ }
+})() : Promise.resolve();
 // Automated tests never touch the live database: with ?test the game uses only the stand-in it is given (or none).
 if (PARAMS.has("test")) { BACKEND.url = PARAMS.get("api") || ""; BACKEND.anonKey = PARAMS.get("api") ? PARAMS.get("key") || "" : ""; BACKEND.providers = PARAMS.get("providers") ? PARAMS.get("providers").split(",") : []; }
 if (PARAMS.has("test") && /^\d{4}-\d\d-\d\d$/.test(PARAMS.get("launch") || "")) { const d = PARAMS.get("launch").split("-").map(Number); LAUNCH[0] = d[0]; LAUNCH[1] = d[1]; LAUNCH[2] = d[2]; }
@@ -58,6 +72,19 @@ const dayNumber = () => PT_DAY || Math.max(1, Math.round((localMidnight() - new 
 // Today's finished result, if there is one. Results saved by the earlier timed version of the game are ignored.
 const todayResult = () => { const d = store.get("day:" + dayNumber(), null); return d && d.v === 3 ? d : null; };
 const playerId = (() => { let id = store.get("pid", null); if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); store.set("pid", id); } return id; })();
+const Telemetry = (() => {
+  const off = !LOG.url || PARAMS.has("test") || PARAMS.has("nolog") || /^(localhost|127\.)/.test(location.hostname);
+  const rpc = (fn, args) => off ? Promise.resolve() : fetch(`${LOG.url}/rest/v1/rpc/${fn}`, { method: "POST", keepalive: true,
+    headers: { apikey: LOG.key, Authorization: `Bearer ${LOG.key}`, "Content-Type": "application/json" }, body: JSON.stringify(args) }).catch(() => {});
+  let errors = 0;
+  const error = (msg, place) => { if (errors++ >= 5) return; rpc("log_error", { p_message: String(msg || "").slice(0, 300), p_place: String(place || "").slice(0, 200), p_ua: navigator.userAgent.slice(0, 160), p_build: LOG.build }); };
+  if (!off) {
+    addEventListener("error", e => error(e.message, `${(e.filename || "").split("/").pop()}:${e.lineno || 0}`));
+    addEventListener("unhandledrejection", e => error(e.reason && (e.reason.message || e.reason), "promise"));
+  }
+  return { event: (kind, day, round, qkey, data) => rpc("log_event", { p_tester: playerId, p_kind: kind, p_day: day || null, p_round: round == null ? null : round, p_qkey: qkey || null, p_data: data || {}, p_build: LOG.build }), error, off };
+})();
+window.Telemetry = Telemetry;
 const fmt = n => n.toLocaleString("en-US");
 const pctText = s => s >= 0.1 ? `${Math.round(s * 100)}%` : s >= 0.01 ? `${(s * 100).toFixed(1)}%` : s >= 0.001 ? `${(s * 100).toFixed(2)}%` : `${(s * 100).toFixed(3)}%`;
 // An estimate is shown as one: rounded, with "~" or "under", never to three decimal places it can't support.
@@ -554,6 +581,7 @@ async function startQuestion(animated) {
   await loadKb(CATS[state.round]);
   const cat = CATS[state.round], r = cur(), rising = animated === "surface" && berg && berg.count > 0 && screen === "play";
   ensureBerg(); prep(cat); // build the lookup now, so the first guess is judged instantly
+  if (state.round === 0 && !state.practice && !r.done && !state.logged) { state.logged = 1; Telemetry.event("start", state.day, null, null, {}); }
   clearTimeout(autoFinish); busy = false; unknownKey = ""; queued = false; confirmFor = null; keepTyped = "";
   const kind = Rounds.kind(cat);
   $("#q-num").textContent = `Question ${state.round + 1} of ${CATS.length}` + (kind !== "standard" || CATS.some(c => c.mode) ? ` · ${Rounds.label(cat)}` : "");
@@ -947,6 +975,8 @@ function finishQuestion() {
   if (!r.timeout && panel()) frost.dissolve();
   r.done = true; state.phase = "done"; save();
   const best = bestOf(r);
+  if (!state.practice) Telemetry.event("question", state.day, state.round + 1, cat.key, { counted: okGuesses(r).length, invalid: (r.rejects || []).length,
+    pending: r.guesses.filter(g => g.status === "pending").length, secs_left: TIME_MS ? Math.round(r.sec || 0) : null, depth: scoreOf(r), timeout: !!r.timeout });
   if (!state.practice) live.record(state.day, state.round + 1, okGuesses(r).map(g => g.name).filter(Boolean), best ? best.name : null, scoreOf(r))
     .then(() => live.counts(state ? state.day : 0, state ? state.round + 1 : 0)).then(c => { if (c && state && cur() === r && state.phase === "done") { r.stats = c; renderDone(cat, r); } });
   $('[data-screen="play"]').classList.remove("playing"); $('[data-screen="play"]').classList.add("done");
@@ -982,6 +1012,35 @@ function boardFor(cat, r) {
   const eligible = shown.filter(x => isLive ? (stats.counts.get(x.row.a) || 0) >= BOARD_MIN_COUNT : (!x.row.x || mine.has(x.row.a)));
   const item = x => ({ name: display(x.row), share: Math.max(x.share, 1e-6), count: countOf(x), me: mine.has(x.row.a) });
   return { isLive, players, common: shown.slice(0, 5).map(item), rare: eligible.slice(-5).reverse().map(item), top: shown.find(x => !mine.has(x.row.a)) };
+}
+
+// From the depths: the Buoy (most common answer), the Shoal (more common than its estimate suggested), Kindred Divers
+// (a deep answer several players found on their own), the Trench (the deepest answer anyone gave) and the Pearl (an
+// editor's pick: a find worth telling someone about). The three about other players appear only with real counts from
+// enough players; nothing here is ever invented. The Pearl is editorial and never changes a score.
+function renderDepths(cat, r, board) {
+  const box = $("#depths-list"), sec = $("#depths-sec"); if (!box) return; box.textContent = "";
+  const stats = r.stats, live = !!(stats && stats.players >= BOARD_MIN_PLAYERS), mine = new Set(okGuesses(r).map(g => g.name).filter(Boolean));
+  const item = (cls, title, name, note) => { const li = el("li", cls); li.append(el("i", "dk-i"), el("span", "dk-t", title)); const a = el("span", "dk-a", name); if (note) a.append(el("small", null, note)); li.append(a); box.append(li); };
+  const rowOf = a => cat.answers.find(x => x.a === a);
+  if (live) {
+    const counted = [...stats.counts.entries()].map(([a, n]) => ({ row: rowOf(a), n, share: n / stats.players })).filter(x => x.row);
+    counted.sort((x, y) => y.n - x.n);
+    if (counted[0]) item("buoy", "The Buoy · most common", display(counted[0].row), `${pctText(counted[0].share)} of players`);
+    const shoal = counted.filter(x => x.n >= Math.max(3, stats.players * 0.03) && x.row.s < 0.02 && x !== counted[0]).sort((x, y) => y.share / y.row.s - x.share / x.row.s)[0];
+    if (shoal) item("shoal", "The Shoal · more common than expected", display(shoal.row), `${pctText(shoal.share)} said it`);
+    const kin = counted.filter(x => x.n >= 2 && depthOf(x.row.s) >= 150 && x !== shoal).sort((x, y) => y.n - x.n)[0];
+    if (kin) item("kindred", "Kindred Divers · found by several", display(kin.row), `${fmt(kin.n)} players, separately`);
+    const trench = counted.filter(x => x !== kin).sort((x, y) => x.row.s - y.row.s)[0];
+    if (trench) item("trench", "The Trench · deepest anyone went", display(trench.row), trench.n === 1 ? "one player" : `${fmt(trench.n)} players`);
+  } else if (board.common[0]) item("buoy", "The Buoy · most common", board.common[0].name, "our estimate: too few players yet for real counts");
+  const pearls = (cat.pearls || []).map(rowOf).filter(Boolean);
+  if (pearls.length) {
+    const got = pearls.find(x => mine.has(x.a));
+    if (got) item("pearl found", "The Pearl · you found it", display(got), "an editor's favourite find");
+    else item("pearl", "The Pearl", display(pearls[0]), "an editor's favourite find");
+  }
+  sec.hidden = !box.children.length;
 }
 
 function renderDone(cat, r) {
@@ -1022,6 +1081,7 @@ function renderDone(cat, r) {
   // Typed but never sent (a short form that needed the full name, a likely slip): shown, so nothing seems to vanish.
   (r.tried || []).forEach(x => { const li = el("li", "off tried"); li.append(offRow("", { typed: x.text, reason: x.outcome === "ambiguous" ? "Needed the full name" : x.outcome === "other list" ? "On another category's list, not sent" : "Typed but not sent" }, false, () => renderDone(cat, r))); sum.append(li); });
   if (!r.guesses.length && !r.rejects.length && !(r.tried || []).length) { const li = el("li"); li.append(el("p", "forgot", "No guesses this time.")); sum.append(li); }
+  renderDepths(cat, r, board);
   const forgot = $("#forgot"); forgot.textContent = ""; forgot.hidden = !board.top;
   if (board.top) forgot.append("The most common answer you didn't give: ", el("b", null, display(board.top.row)), ` (${board.isLive ? pctText(board.top.share) : estText(board.top.share) + ", estimated"}).`);
   const waiting = r.guesses.some(g => g.status === "pending");
@@ -1245,6 +1305,7 @@ function signalEnd(day) {
 function finishDay() {
   state.finished = true; save();
   const day = daySummary();
+  if (!state.practice) Telemetry.event("finish", state.day, null, null, { total: day.total });
   if (!state.practice) {
     day.owner = Account && Account.signedIn ? Account.profile.username : ""; store.set("day:" + state.day, day);
     day.extended = bumpStreak(state.day);
@@ -1262,6 +1323,7 @@ function shareData(day, practice) {
 }
 function renderEnd(day, fresh, practice) {
   const data = shareData(day, practice);
+  if (PLAYTEST && window.PTSurvey) { const old = $("#pt-survey"); if (old) old.remove(); const f = window.PTSurvey(); if (f) { f.id = "pt-survey"; $("#e-rounds").after(f); } }
   const list = $("#e-rounds"); list.textContent = "";
   day.rounds.forEach((r, i) => {
     const li = el("li", r.name ? "tier-" + r.tier : "");

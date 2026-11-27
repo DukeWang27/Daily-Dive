@@ -275,6 +275,7 @@ def client_question(q, rows):
     return {"key": q["id"], "title": q["title"], "icon": q["icon"], "prompt": voiced(q), "hint": q["hint"], "rules": q["rules"]["player"],
             "answers": out, "general": q.get("general", []), "notIn": q.get("notIn", []), "category": q["category"],
             "criteria": {k: q["rules"].get(k) for k in ("accept", "exclude", "granularity", "synonyms") if q["rules"].get(k)},
+            **({"pearls": [norm(a) if not a[:1].isupper() else a for a in q["pearls"]]} if q.get("pearls") else {}),
             **({"kb": q["client_kb"]} if q.get("client_kb") else {}), **({"granularity": q["granularity_mode"]} if q.get("granularity_mode") else {})}
 
 def client_depth(share):

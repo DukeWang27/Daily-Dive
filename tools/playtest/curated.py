@@ -75,6 +75,13 @@ def question(q, batch):
     # be specific; on a brand question a model counts as its brand.
     if q["id"] == "luxury-watch-model": out.update(granularity="model", kb="products:wearables")
     if q["id"] == "luxury-brand": out.update(granularity="brand", kb="products:wearables")
+    # The Pearl: the editor's favourite finds (editorial.discoveries), named by the answer they match. Shown after the
+    # round, labelled as an editor's pick; never part of scoring.
+    have = {}
+    for r in out["answers"]:
+        for x in [r["a"]] + r["al"]: have.setdefault(norm(x), r["a"])
+    pearls = [have[norm(d)] for d in (q.get("editorial") or {}).get("discoveries", []) if isinstance(d, str) and norm(d) in have]
+    if pearls: out["pearls"] = list(dict.fromkeys(pearls))[:4]
     mode = q.get("mode")
     mech = (q.get("mechanic") or "").lower()
     if mode and mode.get("type") in ("forbidden", "target"):

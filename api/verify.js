@@ -29,6 +29,9 @@ const PROVIDER = process.env.AI_PROVIDER || "", MODEL = process.env.AI_MODEL || 
 const SB = process.env.SUPABASE_URL, SKEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const hash = x => createHash("sha256").update(JSON.stringify(x)).digest("hex").slice(0, 16);
 const inflight = new Map();
+const KEY_VAR = { anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY", gemini: "GEMINI_API_KEY", deepseek: "DEEPSEEK_API_KEY" };
+// Switched on only with a provider, its key, and the database for the cache and budget (the budget is what stops spending).
+export const enabled = () => !!(PROVIDER && PROVIDER !== "mock" && KEY_VAR[PROVIDER] && process.env[KEY_VAR[PROVIDER]] && SB && SKEY);
 
 async function sb(path, body, method = "POST") {
   if (!SB || !SKEY) return null;
@@ -91,8 +94,11 @@ export async function review(body, ip = "?") {
 
 export default async function handler(req, res) {
   const origin = process.env.ALLOWED_ORIGIN || "*";
-  res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS"); res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(204).end();
+  // GET: is the check switched on? The game asks once per visit and only then sends answers here; with no provider,
+  // no key or no database it stays off and unknown answers simply wait for a person (the game works the same).
+  if (req.method === "GET") { res.setHeader("Cache-Control", "public, max-age=300"); return res.status(200).json({ enabled: enabled() }); }
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   let body; try { body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body; } catch { return res.status(400).json({ error: "Bad request." }); }
   if (JSON.stringify(body || {}).length > 2000) return res.status(413).json({ error: "Too long." });

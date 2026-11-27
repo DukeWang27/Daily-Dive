@@ -58,6 +58,7 @@ def main():
                "kb": None, "closed": False}
         if cq.get("kb"): out["client_kb"] = cq["kb"]; out["granularity_mode"] = cq.get("granularity")
         if cq.get("mode"): out["mode"] = cq["mode"]
+        if cq.get("pearls"): out["pearls"] = cq["pearls"]
         json.dump(out, open(os.path.join(OUT, out["id"] + ".json"), "w"), indent=1, ensure_ascii=False)
         written += 1
     print(f"wrote {written} curated questions to content/questions (plan days {1 + PLAN_OFFSET}..{(written - 1) // 5 + 1 + PLAN_OFFSET})")

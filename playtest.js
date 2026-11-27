@@ -11,8 +11,13 @@
     set(k, v) { try { localStorage.setItem("iceberg-pt:" + k, JSON.stringify(v)); } catch { /* fine */ } },
     del(k) { try { localStorage.removeItem("iceberg-pt:" + k); } catch { /* fine */ } },
   };
-  const day = local.get("pt-day", 1);
-  const GROUPS = { v2: "★ Editorial v2: 70 entertainment-first questions in 14 balanced days (days 501-514). Start here",
+  // Friends mode (?friends, or window.PT_FRIENDS in a friends build): the same game for people without an account. Only
+  // the days in the "friends" group, a light verdict per question and a three-question survey at the end, sent
+  // anonymously to the owner (supabase/0013 via window.Telemetry). No notes, review or clock tools.
+  const FRIENDS = !!window.PT_FRIENDS || new URLSearchParams(location.search).has("friends");
+  const day = local.get("pt-day", FRIENDS ? 0 : 1);
+  const send = (kind, round, key, data) => { try { window.Telemetry && window.Telemetry.event(kind, day, round, key, data); } catch { /* fine */ } };
+  const GROUPS = { friends: "Test days", v2: "★ Editorial v2: 70 entertainment-first questions in 14 balanced days (days 501-514). Start here",
     curated: "Curated set and proposed questions (days 301-314, 401-406); the older bank is below",
     live: "Live days (already played on the site)", prepared: "Prepared days (scheduled, not yet public)", new: "New sample days (for review, rough rarity)",
     mix: "The rotating daily mix (211-224): two rarity rounds, a target, a forbidden and one special, in a different order each day",
@@ -54,14 +59,14 @@
   };
   window.PTReports = () => reports.slice();
   // Per-question feedback: one tap each, any number of tags, toggled; saved like the notes.
-  const FB_TAGS = [["fun", "Fun"], ["boring", "Boring"], ["specialised", "Too specialised"], ["confusing", "Confusing"], ["missing", "Missing valid answer"], ["rarity", "Incorrect rarity"], ["more", "More like this"]];
+  const FB_TAGS = FRIENDS ? [["fun", "Fun"], ["meh", "Meh"], ["confusing", "Confusing"], ["missing", "A right answer didn't count"], ["rarity", "Depth felt wrong"]] : [["fun", "Fun"], ["boring", "Boring"], ["specialised", "Too specialised"], ["confusing", "Confusing"], ["missing", "Missing valid answer"], ["rarity", "Incorrect rarity"], ["more", "More like this"]];
   const feedback = local.get("feedback", {});
   (async () => { try { await new Promise(r => setTimeout(r, 1500)); if (!db) return; const snap = await db.collection("feedback").get();
     (snap.docs || snap || []).forEach(d => { const v = d.data ? d.data() : d; const id = d.id || v.id; if (id && v && (!feedback[id] || (v.at || 0) > (feedback[id].at || 0))) feedback[id] = v; }); local.set("feedback", feedback); } catch { } })();
   window.PTFeedback = ({ day, round, key, prompt }) => {
     const id = `${day}-${round}`, box = el("div", "pt-fb");
-    box.append(el("span", "pt-fb-l", "Your verdict on this question:"));
-    const save = () => { const row = feedback[id]; local.set("feedback", feedback); if (db) { const ref = db.collection("feedback").doc(id); (row && row.tags.length ? ref.set(row) : ref.delete()).catch(() => {}); } };
+    box.append(el("span", "pt-fb-l", FRIENDS ? "This question was… (optional)" : "Your verdict on this question:"));
+    const save = () => { const row = feedback[id]; local.set("feedback", feedback); send("feedback", round, key, { tags: row ? row.tags.slice(0, 8) : [] }); if (db) { const ref = db.collection("feedback").doc(id); (row && row.tags.length ? ref.set(row) : ref.delete()).catch(() => {}); } };
     for (const [t, label] of FB_TAGS) {
       const b = el("button", "pt-fb-b" + ((feedback[id] && feedback[id].tags.includes(t)) ? " on" : ""), label); b.type = "button";
       b.onclick = () => { const row = feedback[id] || (feedback[id] = { day, round, key, prompt, tags: [], at: 0 }); const i = row.tags.indexOf(t);
@@ -71,6 +76,22 @@
     return box;
   };
   window.PTFeedbackAll = () => Object.values(feedback);
+  // The end-of-day survey: three short answers, all optional, sent once (and again if changed).
+  window.PTSurvey = () => {
+    const done = local.get("survey:" + day, null), box = el("div", "pt-survey"), ans = { ...(done || {}) };
+    box.append(el("h4", null, "Three quick questions"), el("p", "pt-sv-note", "Anonymous: no name or account. It helps decide which questions stay."));
+    const pick = (label, k, opts) => { const row = el("div", "pt-sv-row"); row.append(el("span", "pt-sv-l", label)); const g = el("div", "pt-sv-opts");
+      for (const [v, t] of opts) { const b = el("button", "pt-fb-b" + (ans[k] === v ? " on" : ""), t); b.type = "button"; b.onclick = () => { ans[k] = v; g.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); }; g.append(b); }
+      row.append(g); box.append(row); };
+    pick("How much fun was today?", "fun", [[1, "1"], [2, "2"], [3, "3"], [4, "4"], [5, "5"]]);
+    pick("Would you play a new one every day?", "daily", [["yes", "Yes"], ["maybe", "Maybe"], ["no", "No"]]);
+    const t = el("textarea", "pt-sv-text"); t.maxLength = 280; t.rows = 2; t.placeholder = "Anything else? Best or worst question, a bug… (optional)"; t.value = ans.text || "";
+    t.addEventListener("keydown", e => e.stopPropagation());
+    const b = el("button", "btn", done ? "Update" : "Send"), st = el("span", "pt-sv-st", done ? "Sent. Thank you!" : "");
+    b.onclick = () => { ans.text = t.value.trim().slice(0, 280); local.set("survey:" + day, ans); send("survey", null, null, ans); st.textContent = "Sent. Thank you!"; b.textContent = "Update"; };
+    const row = el("div", "pt-sv-go"); row.append(b, st); box.append(t, row);
+    return box;
+  };
 
   // ---------- The bar and the two panels ----------
   const css = el("style"); css.textContent = `
@@ -106,6 +127,13 @@
       .pt-bar.pt-min > :not(.pt-tog) { display: none; }
       .pt-panel { inset: calc(var(--top-h, 56px) + var(--modes-h, 0px) + 54px) 10px auto 10px; width: auto; max-height: calc(100vh - 140px); }
       .pt-panel.pt-days { inset: calc(var(--top-h, 56px) + var(--modes-h, 0px) + 54px) 10px auto 10px; transform: none; width: auto; } }`;
+  css.textContent += `
+    .pt-survey { margin: 14px 0 4px; padding: 12px 14px; border-radius: 12px; background: rgba(143, 208, 245, .06); text-align: left; }
+    .pt-survey h4 { margin: 0 0 2px; font-size: 15px; } .pt-sv-note { margin: 0 0 8px; font-size: 12.5px; color: var(--faint); }
+    .pt-sv-row { margin: 8px 0; } .pt-sv-l { display: block; font-size: 13.5px; color: var(--muted); margin-bottom: 4px; }
+    .pt-sv-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pt-sv-text { width: 100%; box-sizing: border-box; margin-top: 6px; padding: 8px; border-radius: 8px; border: 1px solid rgba(143, 208, 245, .25); background: rgba(0, 0, 0, .25); color: inherit; font: inherit; font-size: 14px; }
+    .pt-sv-go { display: flex; align-items: center; gap: 10px; margin-top: 8px; } .pt-sv-st { font-size: 13px; color: var(--muted); }`;
   document.head.append(css);
 
   const bar = el("div", "pt-bar"); bar.setAttribute("role", "toolbar"); bar.setAttribute("aria-label", "Playtest");
@@ -120,7 +148,9 @@
   const bReview = el("button", null, "Review");
   bReview.onclick = () => { close(); const go = () => window.PTReview.open({ db: () => db, local });
     if (window.PTReview) go(); else { const sc = document.createElement("script"); sc.src = "review.js"; sc.onload = go; document.head.append(sc); } };
-  bar.append(bTog, tag, bDay, bAgain, bNext, bNotes, bReview, bClock); bar.classList.add("pt-min");
+  if (FRIENDS) { tag.textContent = "Playtest"; tag.title = "A test version: thanks for playing. Tap a verdict after each question if you like."; bar.append(bTog, tag, bDay, bNext); }
+  else bar.append(bTog, tag, bDay, bAgain, bNext, bNotes, bReview, bClock);
+  bar.classList.add("pt-min");
   bTog.onclick = () => { bar.classList.toggle("pt-min"); if (bar.classList.contains("pt-min")) close(); };
   const keep = n => { n.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape") close(); }); n.addEventListener("pointerdown", e => e.stopPropagation()); return n; };
   keep(bar);
@@ -129,15 +159,16 @@
   const go = n => { local.set("pt-day", n); local.del("game:" + n); local.del("day:" + n); local.del("game:practice"); location.hash = ""; location.reload(); };
   bAgain.onclick = () => go(day);
   bNext.onclick = async () => { const L = await loadList(); const i = L.findIndex(d => d.n === day); go((L[i + 1] || L[0]).n); };
-  async function loadList() { if (!list) list = fetch("pt/list.json").then(r => r.json()).then(j => j.days).catch(() => []); return list; }
+  async function loadList() { if (!list) list = fetch("pt/list.json").then(r => r.json()).then(j => FRIENDS ? j.days.filter(d => d.group === "friends") : j.days).catch(() => []); return list; }
+  if (FRIENDS) loadList().then(L => { if (L.length && !L.some(d => d.n === day)) go(L[0].n); else send("open", null, null, {}); });
   loadList().then(L => { const i = L.findIndex(d => d.n === day); if (i === L.length - 1) bNext.textContent = "First ›"; });
 
   bDay.onclick = async () => {
     if (open && open.classList.contains("pt-days")) return close(); close();
     const p = keep(el("div", "pt-panel pt-days")); open = p;
     const x = el("button", "pt-x", "Close"); x.onclick = close;
-    p.append(x, el("h3", null, "Every day"), el("p", null, "Pick any day to play it from the start. Days you've played and days with notes are marked."));
-    const f = el("input", "pt-filter"); f.placeholder = "Search the questions"; f.type = "search"; p.append(f);
+    p.append(x, el("h3", null, FRIENDS ? "Test days" : "Every day"), el("p", null, FRIENDS ? "Pick a day to play. Days you've played are marked." : "Pick any day to play it from the start. Days you've played and days with notes are marked."));
+    const f = el("input", "pt-filter"); f.placeholder = "Search the questions"; f.type = "search"; if (!FRIENDS) p.append(f);
     const body = el("div"); p.append(body); document.body.append(p);
     const L = await loadList();
     const paint = () => {

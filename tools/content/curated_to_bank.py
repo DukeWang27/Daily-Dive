@@ -49,7 +49,7 @@ def main():
         acc, exc = split_rules(q.get("rules", []))
         cq = C.question(q, b)
         out = {"id": "c-" + q["id"], "prompt": q["prompt"], "hint": q.get("hint", ""), "title": q["prompt"], "icon": ICON[b],
-               "category": CATEGORY[b], "style": "curated", "topic": q["id"], "difficulty": 3,
+               "category": CATEGORY.get(b, "general"), "style": "curated", "topic": q["id"], "difficulty": 3,
                "set": "curated-1", "plan": {"day": i // 5 + 1 + PLAN_OFFSET, "slot": i % 5 + 1}, "approved": True,
                "rules": {"player": q.get("rules", []), "accept": acc, "exclude": exc or ["anything outside the rule above"],
                          "granularity": q.get("granularity") or "one answer per thing named", "synonyms": "other names, spellings and short forms are the same answer"},

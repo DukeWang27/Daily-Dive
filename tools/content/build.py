@@ -228,7 +228,7 @@ def schedule(qs=None, reps=None, seed=7):
             if fmt == "lateral" and sum((c.get("format") or c.get("style")) == "lateral" for c in chosen) >= 1: return 1e9   # one riddle-like prompt a day
             if sum((c.get("format") or c.get("style")) == fmt for c in chosen) >= 2: return 1e9                            # at most two of any format
             if not in_season(q, day): return 1e9
-            if q.get("family") and any(c.get("family") == q["family"] for past in history[-21:] + [chosen] for c in past): return 1e9   # relatives 3 weeks apart
+            if q.get("family") and any(c.get("family") == q["family"] for past in history[-10:] + [chosen] for c in past): return 1e9   # relatives at least 10 days apart
         same = sum(c["category"] == q["category"] for c in chosen)
         if same >= 2: return 1e9                                                                # never three from one category
         if same and FINAL is None and any(c["style"] == q["style"] for c in chosen if c["category"] == q["category"]): return 1e9

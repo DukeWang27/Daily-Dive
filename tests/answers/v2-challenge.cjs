@@ -12,7 +12,9 @@
 //   node tests/answers/v2-challenge.cjs [--show]
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..', '..'), DIR = path.join(ROOT, 'content', 'curated', 'challenge'), SHOW = process.argv.includes('--show');
-const FILES = fs.existsSync(DIR) ? fs.readdirSync(DIR).filter(f => /^v2-cases(-[a-z])?\.json$/.test(f)) : [];
+// --v3: the approved v3 questions (v3-cases-*.json, verdict approved-v3); otherwise editorial v2.
+const VER = process.argv.includes('--v3') ? 'v3' : 'v2', VERDICT = VER === 'v3' ? 'approved-v3' : 'proposed-v2';
+const FILES = fs.existsSync(DIR) ? fs.readdirSync(DIR).filter(f => new RegExp(`^${VER}-cases(-[a-z0-9]+)?\\.json$`).test(f)) : [];
 if (!FILES.length) { console.log('no v2 challenge cases here (private content)'); process.exit(0); }
 global.window = {}; global.localStorage = { getItem: () => null, setItem: () => {} };
 require('../../validate.js'); const V = window.IcebergValidate;
@@ -23,7 +25,7 @@ import sys, json, glob, os; sys.path.insert(0, ${JSON.stringify(path.join(ROOT, 
 out = {}
 for p in sorted(glob.glob(${JSON.stringify(path.join(ROOT, 'content', 'curated'))} + '/batch-*.json')):
     for q in json.load(open(p))['questions']:
-        if q.get('verdict') == 'proposed-v2': out[q['id']] = curated.question(q, os.path.basename(p)[:-5])
+        if q.get('verdict') == ${JSON.stringify(VERDICT)}: out[q['id']] = curated.question(q, os.path.basename(p)[:-5])
 print(json.dumps(out))`], { maxBuffer: 1 << 28 }).toString());
 const kbFor = cat => { if (!cat.kb) return; const [f, part] = cat.kb.split(':'); const kb = JSON.parse(fs.readFileSync(path.join(ROOT, 'kb', f + '.json'), 'utf8')); V.mergeKb(cat, part ? kb[part] : kb); };
 const now = () => Number(process.hrtime.bigint()) / 1e6, pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '-';
@@ -54,4 +56,4 @@ times.sort((a, b) => a - b);
 console.log(`\nALL ${Object.keys(results).length} questions: ${T.valid} valid answers: ${pct(T.accepted, T.valid)} recognised, ${pct(T.pending, T.valid)} left pending (hybrid check / review), ${pct(T.rejected, T.valid)} rejected outright (false negatives)`);
 console.log(`other forms (phrasings, slang, misspellings, brands): ${pct(T.alias_ok, T.alias_n)} recognised; ${T.invalid} invalid answers: ${pct(T.invalid - T.wrong, T.invalid)} rejected, ${pct(T.wrong, T.invalid)} accepted (false positives); ${T.amb} ambiguous cases not scored`);
 console.log(`check time: median ${times[times.length >> 1].toFixed(2)} ms, p95 ${q95(times).toFixed(2)} ms`);
-fs.writeFileSync(path.join(ROOT, 'content', 'curated', 'challenge', 'v2-results.json'), JSON.stringify(results));
+fs.writeFileSync(path.join(ROOT, 'content', 'curated', 'challenge', `${VER}-results.json`), JSON.stringify(results));

@@ -30,7 +30,7 @@ execFileSync('python3', [path.join(__dirname, '..', 'tools/playtest/build.py'), 
     await p.click('.pt-bar button:has-text("Review")'); await p.waitForSelector('.rv-row', { timeout: 20000 });
     // The Editorial v2 tab opens first, sorted by what needs a decision; each question shows its rubric and test.
     const ed = await p.textContent('.rv-count');
-    ok(`${tag}: the editorial tab opens first with the 70 new questions`, /^70 questions/.test(ed), ed);
+    ok(`${tag}: the editorial tab opens first with the new questions (v2 and v3)`, +((ed.match(/^(\d+) questions/) || [])[1] || 0) >= 70, ed);
     await p.click('.rv-row >> nth=0'); await p.waitForSelector('.rv-decide');
     const det = await p.textContent('.rv-body');
     ok(`${tag}: an editorial question shows its decision buttons, quality, method and independent test`, /Approve/.test(det) && /Rewrite/.test(det) && /Validation:/.test(det) && /Independent test/.test(det), det.slice(0, 200));

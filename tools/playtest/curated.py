@@ -97,7 +97,19 @@ def build(out):
     can play them before approving."""
     all_b = load()
     entries = []
-    for first, label, pick in ((301, "Curated set", lambda q: q.get("verdict") != "proposed"), (401, "Proposed new questions", lambda q: q.get("verdict") == "proposed")):
+    # Editorial v2 (content/editorial/selection-70.json): its 14 days in the planned order, from 501.
+    sel = os.path.join(ROOT, "content", "editorial", "selection-70.json")
+    if os.path.exists(sel):
+        byid = {q["key"][2:]: q for b in all_b for q in b if q.get("verdict") == "proposed-v2"}
+        for i, ids in enumerate(json.load(open(sel))["days"]):
+            qs = [byid["v2-" + x] for x in ids if "v2-" + x in byid]
+            if len(qs) < 3: continue
+            n = 501 + i
+            day = {"v": 3, "day": n, "questions": qs, "experimental": True, "label": f"Editorial v2 · day {i + 1}"}
+            json.dump(day, open(os.path.join(out, "pt", f"{n}.json"), "w"), separators=(",", ":"))
+            entries.append({"n": n, "group": "v2", "source": f"Editorial v2 · day {i + 1}",
+                            "questions": [f"[{(q.get('mode') or {}).get('type', 'rarity')}] {q['prompt']}" for q in qs]})
+    for first, label, pick in ((301, "Curated set", lambda q: q.get("verdict") not in ("proposed", "proposed-v2")), (401, "Proposed new questions", lambda q: q.get("verdict") == "proposed")):
         batches = [[q for q in b if pick(q)] for b in all_b]
         order, i = [], 0
         while any(batches):

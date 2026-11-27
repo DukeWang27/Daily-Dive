@@ -12,7 +12,8 @@
     del(k) { try { localStorage.removeItem("iceberg-pt:" + k); } catch { /* fine */ } },
   };
   const day = local.get("pt-day", 1);
-  const GROUPS = { curated: "★ Curated set: 70 new researched questions (days 301-314). Start here; the older bank is below",
+  const GROUPS = { v2: "★ Editorial v2: 70 entertainment-first questions in 14 balanced days (days 501-514). Start here",
+    curated: "Curated set and proposed questions (days 301-314, 401-406); the older bank is below",
     live: "Live days (already played on the site)", prepared: "Prepared days (scheduled, not yet public)", new: "New sample days (for review, rough rarity)",
     mix: "The rotating daily mix (211-224): two rarity rounds, a target, a forbidden and one special, in a different order each day",
     experimental: "Experimental round types (practice days 191-195, full expeditions 201-208)", prototype: "Prototypes: routes (209), chains (210, 226-227), the community sounding (225)" };

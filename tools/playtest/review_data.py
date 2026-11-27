@@ -48,6 +48,9 @@ def checks(q, rows):
     if not q.get("rules"): out.append(["no-rules", "no written acceptance rules"])
     return out
 
+_sel = os.path.join(ROOT, "content", "editorial", "selection-70.json")
+SLOT = {q["id"]: q["slot"] for q in json.load(open(_sel))["questions"]} if os.path.exists(_sel) else {}
+
 def main(out):
     Q = {}
     def add(q, source, day=None):
@@ -96,6 +99,16 @@ def main(out):
                     gp = os.path.join(ROOT, "content", "curated", "challenge", "gaps.json")
                     e["gaps"] = json.load(open(gp)).get(q["id"], []) if os.path.exists(gp) else []
                     e["invalid"] = q.get("invalid_but_plausible", []); e["notes"] = q.get("notes", ""); e["sources_urls"] = q.get("sources", [])[:8]
+                    # Editorial v2: the rubric, examples, method and anything waiting on the owner.
+                    ed = q.get("editorial")
+                    if ed:
+                        e["v2"] = True
+                        e["editorial"] = {k: ed.get(k) for k in ("obvious", "clever", "rare_satisfying", "discoveries", "rarity_method", "sources_note", "validation", "quality", "rubric")}
+                        wk = os.path.join(ROOT, "content", "curated", "wiki", q["id"] + ".check.json")
+                        e["unsure"] = [u if isinstance(u, str) else f"{u.get('name')}: {u.get('why', '')}" for u in (json.load(open(wk)).get("unsure", []) if os.path.exists(wk) else [])][:60]
+                        tr = os.path.join(ROOT, "content", "curated", "challenge", "v2-results.json")
+                        e["test"] = json.load(open(tr)).get(q["id"]) if os.path.exists(tr) else None
+                        e["slot"] = SLOT.get(q["id"][3:], "")
         except Exception as ex: print("curated review data:", ex)
     exp = os.path.join(ROOT, "content", "experiments", "questions.json")
     if os.path.exists(exp):

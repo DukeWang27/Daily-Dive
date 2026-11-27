@@ -12,7 +12,7 @@
   const CHECK = { thin: "Thin list", "no-reference": "No reference list", "few-names": "Few other names", "low-coverage": "Low coverage", broad: "Broad prompt", judgement: "Needs a bar", "no-rules": "No rules" };
   // The review statuses a question moves through before it can enter the live rotation.
   const STATUS = { draft: "Draft", research: "Needs research", expand: "Needs answer expansion", clarify: "Needs clarification", playtest: "Ready for playtesting", approved: "Approved for production", rejected: "Rejected" };
-  let data = null, host = null, store = null, decisions = {}, tab = "questions", filt = { q: "", status: "", source: "", check: "" }, open = null, limit = 80;
+  let data = null, host = null, store = null, decisions = {}, tab = "editorial", filt = { q: "", status: "", source: "", check: "" }, open = null, limit = 80;
 
   function save(id) {
     const d = decisions[id]; d.at = Date.now();
@@ -32,7 +32,7 @@
     host = el("div", "rv"); host.setAttribute("role", "dialog"); host.setAttribute("aria-label", "Question review");
     const top = el("div", "rv-top"), x = el("button", "rv-x", "Close"); x.onclick = close;
     const tabs = el("div", "rv-tabs");
-    for (const [k, t] of [["questions", "Questions"], ["answers", "Find an answer"], ["reports", "Reported while playing"], ["coverage", "Weakest coverage"]]) {
+    for (const [k, t] of [["editorial", "Editorial v2"], ["questions", "Questions"], ["answers", "Find an answer"], ["reports", "Reported while playing"], ["coverage", "Weakest coverage"]]) {
       const b = el("button", k === tab ? "on" : "", t); b.onclick = () => { tab = k; open = null; render(); }; tabs.append(b);
     }
     top.append(el("b", null, "Question review"), tabs, x);
@@ -45,10 +45,61 @@
   const chip = (t, cls) => el("span", "rv-chip " + (cls || ""), t);
 
   function render() {
-    host.querySelectorAll(".rv-tabs button").forEach(b => b.classList.toggle("on", b.textContent.startsWith({ questions: "Questions", answers: "Find", reports: "Reported", coverage: "Weakest" }[tab])));
+    host.querySelectorAll(".rv-tabs button").forEach(b => b.classList.toggle("on", b.textContent.startsWith({ editorial: "Editorial", questions: "Questions", answers: "Find", reports: "Reported", coverage: "Weakest" }[tab])));
     const b = body(); b.textContent = ""; b.scrollTop = 0;
     if (open) return detail(b, open);
-    ({ questions, answers, reports, coverage })[tab](b);
+    ({ editorial, questions, answers, reports, coverage })[tab](b);
+  }
+
+  // ---------- Editorial v2: the questions that need the owner's judgment first ----------
+  const ED = { approve: "Approve", rewrite: "Rewrite", reject: "Reject", flag: "Flag" };
+  const rubricTotal = x => { const r = x.editorial && x.editorial.rubric; if (!r) return null; const W = { accessibility: 3, entertainment: 3, creative: 2, diversity: 2, obscure_room: 2, relevance: 2, surprise: 1, discussion: 1, clarity: 3, feasibility: 3, rarity_quality: 1 };
+    let t = 0; for (const [k, w] of Object.entries(W)) t += (+r[k] || 0) * w; return t; };
+  // How much a question needs a decision: open rulings, test failures, notes for the owner, weak gates.
+  function needs(x) {
+    const t = x.test || {}, r = x.editorial && x.editorial.rubric || {};
+    return (x.unsure || []).length + (t.valid ? Math.round(100 * (1 - t.recognised / t.valid)) : 10) + (t.invalid ? Math.round(200 * t.wrong / t.invalid) : 0) + (x.notes ? 15 : 0)
+      + ((+r.clarity || 5) < 4 ? 20 : 0) + ((+r.feasibility || 5) < 4 ? 20 : 0);
+  }
+  function editorial(b) {
+    const rows = data.questions.filter(x => x.v2);
+    if (!rows.length) { b.append(el("p", "rv-count", "No editorial v2 questions in this build yet.")); return; }
+    const decided = rows.filter(x => decisions[x.id] && decisions[x.id].ed).length;
+    b.append(el("p", "rv-count", `${rows.length} questions · ${decided} decided · sorted by how much each needs your judgment (open rulings, test misses, notes, weak clarity).`));
+    const ul = el("div", "rv-list");
+    rows.slice().sort((a, c) => !!(decisions[a.id] && decisions[a.id].ed) - !!(decisions[c.id] && decisions[c.id].ed) || needs(c) - needs(a)).forEach(x => {
+      const r = el("button", "rv-row"), d = decisions[x.id], t = x.test;
+      r.append(el("span", "rv-prompt", x.prompt), el("span", "rv-meta", `${x.slot || ""} · ${x.n} answers · ${x.aliases} other names · rubric ${rubricTotal(x) ?? "?"}/115 · ${x.editorial.validation || ""}`
+        + (t ? ` · test: ${Math.round(100 * t.recognised / t.valid)}% obscure found, ${t.wrong}/${t.invalid} wrong accepted` : " · not tested yet")));
+      const chips = el("span", "rv-chips");
+      if (d && d.ed) chips.append(chip(ED[d.ed], d.ed === "approve" ? "approved" : d.ed === "reject" ? "rejected" : "clarify"));
+      if ((x.unsure || []).length) chips.append(chip(`${x.unsure.length} rulings`, "warn"));
+      if (x.notes) chips.append(chip("note for you", "warn"));
+      r.append(chips); r.onclick = () => { open = x; render(); }; ul.append(r);
+    });
+    b.append(ul);
+  }
+  function editorialDetail(b, x) {
+    const d = dec(x.id), E = x.editorial, t = x.test;
+    const box = el("div", "rv-decide");
+    for (const [k, label] of Object.entries(ED)) { const bt = el("button", "rv-st " + (k === "approve" ? "approved" : k === "reject" ? "rejected" : "clarify") + (d.ed === k ? " on" : ""), label);
+      bt.onclick = () => { d.ed = d.ed === k ? "" : k; save(x.id); render(); }; box.append(bt); }
+    b.append(el("h4", null, "Your decision"), box);
+    if (E.quality) b.append(el("h4", null, "Quality assessment"), el("p", null, E.quality));
+    if (E.rubric) { const tb = el("div", "rv-answers"); for (const [k, v] of Object.entries(E.rubric)) { if (typeof v !== "number" && !/^\d/.test(String(v))) continue; const row = el("div", "rv-ans"); row.append(el("span", "rv-a", k.replace(/_/g, " ")), el("span", "rv-s", String(v))); tb.append(row); }
+      b.append(el("h4", null, `Rubric (${rubricTotal(x)}/115)`), tb); }
+    const ex = (label, arr) => { if (arr && arr.length) b.append(el("p", "rv-meta", `${label}: ${arr.join(" · ")}`)); };
+    b.append(el("h4", null, "Answers at a glance"));
+    ex("Obvious", E.obvious); ex("Clever", E.clever); ex("Satisfying rare", E.rare_satisfying); ex("Legendary discoveries (editorial)", E.discoveries);
+    b.append(el("h4", null, "Method"), el("p", "rv-meta", `Validation: ${E.validation || "?"}`), el("p", "rv-meta", `Rarity: ${E.rarity_method || "?"}`), el("p", "rv-meta", `Sources: ${E.sources_note || "?"}`));
+    if (t) { b.append(el("h4", null, "Independent test"), el("p", "rv-meta", `${t.recognised}/${t.valid} obscure valid answers recognised (${Math.round(100 * t.recognised / t.valid)}%), ${t.wrong}/${t.invalid} wrong answers accepted, ${t.alias_ok}/${t.alias_n} other phrasings and misspellings recognised.`));
+      if (t.missing && t.missing.length) ex("Valid but not recognised", t.missing); if (t.wrongs && t.wrongs.length) ex("Wrong but accepted", t.wrongs); }
+    if ((x.unsure || []).length) {
+      b.append(el("h4", null, `Rulings waiting for you (${x.unsure.length})`)); const ul = el("ul", "rv-rules"); d.rulings = d.rulings || {};
+      x.unsure.forEach(u => { const li = el("li", null, u + " "); for (const [k, lab] of [["yes", "counts"], ["no", "doesn't count"]]) { const bt = el("button", "rv-link" + (d.rulings[u] === k ? " on" : ""), d.rulings[u] === k ? `✓ ${lab}` : lab);
+        bt.onclick = () => { d.rulings[u] = d.rulings[u] === k ? "" : k; save(x.id); render(); }; li.append(" ", bt); } ul.append(li); });
+      b.append(ul);
+    }
   }
 
   // ---------- Questions ----------
@@ -83,9 +134,10 @@
 
   function detail(b, x) {
     const d = dec(x.id);
-    const back = el("button", "rv-back", "‹ All questions"); back.onclick = () => { open = null; render(); };
+    const back = el("button", "rv-back", tab === "editorial" ? "‹ Editorial v2" : "‹ All questions"); back.onclick = () => { open = null; render(); };
     b.append(back, el("h2", null, x.prompt));
     if (x.hint) b.append(el("p", "rv-hint", x.hint));
+    if (x.v2) editorialDetail(b, x);
     const meta = el("p", "rv-meta", `${x.id} · ${x.sources.join(", ")}${x.days.length ? ` · days ${x.days.join(", ")}` : ""}${x.mode ? ` · ${x.mode} round` : ""}${x.kb_name ? ` · reference list: ${x.kb_name}` : ""}`); b.append(meta);
     if (x.rules.length) { const ul = el("ul", "rv-rules"); x.rules.forEach(r => ul.append(el("li", null, r))); b.append(el("h4", null, "What counts"), ul); }
     if (x.checks.length) { const ul = el("ul", "rv-checks"); x.checks.forEach(c => ul.append(el("li", null, `${CHECK[c[0]] || c[0]}: ${c[1]}`))); b.append(el("h4", null, "Automatic checks"), ul); }

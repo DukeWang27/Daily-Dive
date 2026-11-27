@@ -19,7 +19,12 @@ is(colours, 'gray', 'ok', 'grey');
 // A category word never makes an unrelated word an answer.
 t('"sheep dog" is not counted as sheep', (V.judge('sheep dog', dogs, null) || {}).status !== 'ok' || V.judge('sheep dog', dogs, null).row.a !== 'sheep');
 // Spelling mistakes: offered, never swapped in.
-for (const [P, s, a] of [[colours, 'Burgandy', 'burgundy'], [colours, 'Burgudny', 'burgundy'], [colours, 'Burgndy', 'burgundy'], [birds, 'Ravne', 'raven'], [birds, 'Ravn', 'raven'], [birds, 'Rafe', 'raven'], [birds, 'Hummingbrid', 'hummingbird']]) is(P, s, 'confirm', a);
+// A clear slip of a listed answer is either corrected on the spot (shown to the player as corrected) or asked about;
+// never accepted as a different answer, never rejected.
+for (const [P, s, a] of [[colours, 'Burgandy', 'burgundy'], [colours, 'Burgudny', 'burgundy'], [colours, 'Burgndy', 'burgundy'], [birds, 'Ravne', 'raven'], [birds, 'Ravn', 'raven'], [birds, 'Rafe', 'raven'], [birds, 'Hummingbrid', 'hummingbird']]) {
+  const j = V.judge(s, P, null);
+  t(`${s} -> ${a} (corrected or asked)`, j && j.row && j.row.a === a && (j.status === 'confirm' || (j.status === 'ok' && j.via === 'typo')), j && [j.status, j.row && j.row.a, j.via]);
+}
 // Case and punctuation are not corrections.
 is(colours, '  BURGUNDY! ', 'ok', 'burgundy');
 // The same answer under another name is a duplicate, not a new discovery.
